@@ -1,6 +1,7 @@
 import mongoose, { model, Schema, Document } from "mongoose";
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
+import type { AppearanceTheme } from "@/lib/appearance-theme";
 
 enum UserRole {
     transporter = 'transporter',
@@ -23,6 +24,7 @@ interface IUser extends Document {
     profilePicture?: string; // URL or path to the profile picture
     dateOfBirth?: Date; // Date of birth
     gender?: string; // Gender
+    appearanceTheme?: AppearanceTheme;
     comparePassword(password: string): Promise<boolean>;
     generateAccessToken(): string;
     generateRefreshToken(): string;
@@ -98,6 +100,10 @@ const userSchema = new Schema<IUser>({
         type: String,
         enum: ['male', 'female', 'other', ''],
         default: '',
+    },
+    appearanceTheme: {
+        type: Schema.Types.Mixed,
+        default: undefined,
     },
 }, { timestamps: true });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { HiOutlineMenuAlt2 } from "react-icons/hi";
+import { HiOutlineMenuAlt2 } from "@/components/icons";
 import Navbar from "@/components/Navbar";
 import { getAdminPageTitle } from "@/lib/admin-page-meta";
 import { cn } from "@/lib/utils";

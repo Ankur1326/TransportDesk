@@ -11,6 +11,7 @@ import {
     PAYMENT_STATUSES,
     RECEIVED_TYPES,
 } from "@/lib/validations/billing";
+import type { ChargeLine } from "@/lib/charges";
 
 // ─── Sub-document interfaces ────────────────────────────────────────────────
 
@@ -64,6 +65,7 @@ export interface ICharges {
     codCharges: number;
     statisticalCharges: number;
     localCollectionCharges: number;
+    chargeLines?: ChargeLine[];
 }
 
 export interface ITax {
@@ -195,6 +197,17 @@ const chargesSchema = new Schema<ICharges>(
         codCharges: { type: Number, default: 0, min: 0 },
         statisticalCharges: { type: Number, default: 0, min: 0 },
         localCollectionCharges: { type: Number, default: 0, min: 0 },
+        chargeLines: {
+            type: [new Schema<ChargeLine>(
+                {
+                    chargeId: { type: String, required: true, maxlength: 48 },
+                    name: { type: String, required: true, trim: true, maxlength: 60 },
+                    amount: { type: Number, required: true, min: 0, max: 1000000000 },
+                },
+                { _id: false }
+            )],
+            default: undefined,
+        },
     },
     { _id: false }
 );

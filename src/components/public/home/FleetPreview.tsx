@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, PackageCheck } from "lucide-react";
+import { ArrowRight, PackageCheck } from "@/components/icons";
 import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/layout/SectionHeading";
 import { Card } from "@/components/ui/Card";

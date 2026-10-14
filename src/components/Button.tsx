@@ -1,5 +1,5 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "link";
@@ -13,9 +13,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<Variant, string> = {
-  primary: "bg-brand-700 text-white hover:bg-brand-800",
-  secondary: "bg-accent-500 text-white hover:bg-accent-600",
-  outline: "border border-neutral-300 text-neutral-800 hover:bg-neutral-50",
+  primary: "app-button-primary",
+  secondary: "app-button-secondary",
+  outline: "border border-neutral-300 bg-white text-neutral-800 shadow-sm hover:bg-neutral-50 hover:shadow",
   ghost: "text-neutral-700 hover:bg-neutral-100",
   danger: "bg-error-600 text-white hover:bg-error-700",
   link: "text-brand-700 underline-offset-4 hover:underline p-0 h-auto",
@@ -36,7 +36,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || isLoading}
         aria-busy={isLoading || undefined}
         className={cn(
-          "focus-ring inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:pointer-events-none disabled:opacity-50",
+          "focus-ring inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-150 active:translate-y-px disabled:pointer-events-none disabled:opacity-50",
           variant !== "link" && sizeClasses[size],
           variantClasses[variant],
           className

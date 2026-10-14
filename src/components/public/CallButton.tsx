@@ -1,4 +1,4 @@
-import { Phone } from "lucide-react";
+import { Phone } from "@/components/icons";
 import { buildTelLink } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 

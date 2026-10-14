@@ -75,16 +75,16 @@ export function VehicleIllustration({ variant, className }: VehicleIllustrationP
       {/* Cab */}
       <path
         d={`M${cabX},${groundY + 8} L${cabX},${groundY - 14} Q${cabX},${groundY - 22} ${cabX + 8},${groundY - 22} L${cabX + cabWidth - 6},${groundY - 22} L${cabX + cabWidth},${groundY + 8} Z`}
-        fill="#1a3a6e"
+        fill="#DB7007"
       />
       {/* Cab window */}
       <path
         d={`M${cabX + 6},${groundY - 4} L${cabX + 6},${groundY - 14} Q${cabX + 6},${groundY - 18} ${cabX + 10},${groundY - 18} L${cabX + cabWidth - 10},${groundY - 18} L${cabX + cabWidth - 6},${groundY - 4} Z`}
-        fill="#7fa3d8"
+        fill="#F7B577"
       />
 
       {/* Accent stripe along cargo body */}
-      <rect x={bodyX} y={groundY + 2} width={bodyWidth} height="6" fill="#f7900a" />
+      <rect x={bodyX} y={groundY + 2} width={bodyWidth} height="6" fill="#DB7007" />
 
       {/* Wheels */}
       <circle cx={cabX + 12} cy={groundY + 22} r="9" fill="#1f2227" />

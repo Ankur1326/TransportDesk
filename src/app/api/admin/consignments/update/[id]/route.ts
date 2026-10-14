@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 import dbConnect from "@/lib/db";
 import ConsignmentModel from "@/models/Consignment";
+import { syncLegacyChargeFields } from "@/lib/charges";
 
 function isValidObjectId(id: string) {
     return mongoose.Types.ObjectId.isValid(id);
@@ -26,6 +27,9 @@ export async function PUT(
         console.log("body : ", body)
         if (!body || typeof body !== "object" || Array.isArray(body)) {
             return NextResponse.json({ success: false, message: "Invalid request body" }, { status: 400 });
+        }
+        if (body.charges && typeof body.charges === "object" && !Array.isArray(body.charges)) {
+            body.charges = syncLegacyChargeFields(body.charges);
         }
 
         const consignment = await ConsignmentModel.findByIdAndUpdate(

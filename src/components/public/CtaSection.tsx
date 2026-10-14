@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Phone, MessageCircle } from "lucide-react";
+import { ArrowRight, Phone, MessageCircle } from "@/components/icons";
 import { Section } from "@/components/layout/Section";
 import { buildTelLink, buildWhatsAppLink } from "@/lib/site-config";
 

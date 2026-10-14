@@ -1,5 +1,5 @@
 import { FieldArrayWithId } from "react-hook-form";
-import { X } from "lucide-react";
+import { X } from "@/components/icons";
 import type { FreightBillFormValues } from "@/lib/bill/validations";
 
 interface SelectedCnsChipsProps {

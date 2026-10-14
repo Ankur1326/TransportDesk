@@ -5,18 +5,9 @@ import { FormSection } from "@/components/billing/FormSection";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/Button";
 import type { BillingFormValues } from "@/lib/validations/billing";
+import type { ChargeDefinition } from "@/lib/charges";
 
-const CHARGE_FIELDS: { name: keyof BillingFormValues["charges"]; label: string }[] = [
-  { name: "freight", label: "Freight" },
-  { name: "localGodownCharges", label: "Local Godown Charges" },
-  { name: "unloadingCharge", label: "Unloading Charges" },
-  { name: "loadingCharge", label: "Loading Charges" },
-  { name: "statisticalCharges", label: "Statistical Charges" },
-  { name: "localCollectionCharges", label: "Local Collection Charges" },
-  // { name: "codCharges", label: "COD Charges" },
-];
-
-export function ChargesSection() {
+export function ChargesSection({ chargeDefinitions }: { chargeDefinitions: ChargeDefinition[] }) {
   const {
     register,
     formState: { errors },
@@ -45,17 +36,17 @@ export function ChargesSection() {
       </div>
 
       <div className={`grid grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-4 ${printHidden ? 'blur-[1px] focus-within:blur-[0px]' : ''}`}>
-        {CHARGE_FIELDS.map(({ name, label }) => (
+        {chargeDefinitions.filter((charge) => charge.includeOnBilty).map((charge, index) => (
           <Input
-            key={name}
+            key={charge.id}
             size="compact"
             type="number"
             min={0}
             step="0.01"
-            label={label}
+            label={charge.name}
             startIcon={<span className="text-[11px]">₹</span>}
-            error={errors.charges?.[name]?.message}
-            {...register(`charges.${name}`)}
+            error={errors.charges?.chargeLines?.[index]?.amount?.message}
+            {...register(`charges.chargeLines.${index}.amount`)}
           />
         ))}
       </div>

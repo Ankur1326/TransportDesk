@@ -1,6 +1,6 @@
 'use client'
 import React from 'react';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown } from "@/components/icons";
 
 interface PaginationProps {
   currentPage: number;
@@ -97,7 +97,7 @@ const Pagination: React.FC<PaginationProps> = ({
             <select
               value={itemsPerPage}
               onChange={(e) => handleItemPerPageChange(e)}
-              className="appearance-none px-3 py-1.5 pr-8 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#ED7225]/50 focus:border-[#ED7225] shadow-sm"
+              className="appearance-none px-3 py-1.5 pr-8 border border-gray-300 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#DB7007]/50 focus:border-[#DB7007] shadow-sm"
             >
               {[10, 20, 50, 100].map(size => (
                 <option key={size} value={size}>
@@ -150,7 +150,7 @@ const Pagination: React.FC<PaginationProps> = ({
                 onClick={() => goToPage(pageNum)}
                 className={`flex items-center justify-center w-9 h-9 text-sm font-medium rounded-md transition-colors
                   ${pageNum === currentPage
-                    ? 'bg-[#ED7225] text-white border border-[#ED7225]'
+                    ? 'bg-[#DB7007] text-neutral-950 border border-[#DB7007]'
                     : 'border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
               >

@@ -1,21 +1,13 @@
 // components/bills/PrintItemsTable.tsx
 "use client";
 
-import { CHARGE_KEYS, computeBillTotals, computeItemTotal, type BillItemValues } from "@/lib/bill/validations";
+import { computeBillTotals, computeItemTotal, type BillItemValues } from "@/lib/bill/validations";
 import formatDate from "@/lib/formateDate";
+import type { ChargeDefinition } from "@/lib/charges";
 
-const CHARGE_LABELS: Record<(typeof CHARGE_KEYS)[number], string> = {
-  freightAmt: "Freight Amt",
-  lrCharges: "LR Charges",
-  detentionCharges: "Detention Charges",
-  unloadingCharges: "Unloading Charges",
-  loadingCharges: "Loading Charges",
-  gstinCharges: "GSTIN Charges",
-};
-
-export function PrintItemsTable({ items }: { items: BillItemValues[] }) {
+export function PrintItemsTable({ items, chargeDefinitions }: { items: BillItemValues[]; chargeDefinitions: ChargeDefinition[] }) {
   const totals = computeBillTotals(items);
-  const columnCount = 5 + CHARGE_KEYS.length + 1; // SR/STN/STN/CNS/Date + charges + Total (no action col)
+  const columnCount = 5 + chargeDefinitions.length + 1;
 
   return (
     <table className="w-full border-collapse border-x border-slate-900 text-[11px]">
@@ -26,8 +18,8 @@ export function PrintItemsTable({ items }: { items: BillItemValues[] }) {
           <th className="border border-slate-300 px-1 py-1">To STN</th>
           <th className="border border-slate-300 px-1 py-1">CNS No</th>
           <th className="border border-slate-300 px-1 py-1">Date</th>
-          {CHARGE_KEYS.map((key) => (
-            <th key={key} className="border border-slate-300 px-1 py-1">{CHARGE_LABELS[key]}</th>
+          {chargeDefinitions.map((definition) => (
+            <th key={definition.id} className="border border-slate-300 px-1 py-1">{definition.name}</th>
           ))}
           <th className="border-y border-slate-300 px-1 py-1">Total Charges</th>
         </tr>
@@ -47,9 +39,10 @@ export function PrintItemsTable({ items }: { items: BillItemValues[] }) {
             <td className="border border-slate-300 px-1 py-1">{item.toStn}</td>
             <td className="border border-slate-300 px-1 py-1 font-semibold">{item.cnsNo}</td>
             <td className="border-t border-slate-300 px-1 py-1">{formatDate(item.date)}</td>
-            {CHARGE_KEYS.map((key) => (
-              <td key={key} className="border border-slate-300 px-1 py-1 text-right">
-                {Number(item[key] || 0).toFixed(2)}
+            {chargeDefinitions.map((definition) => (
+              <td key={definition.id} className="border border-slate-300 px-1 py-1 text-right">
+                {Number(item.chargeLines?.find((line) => line.chargeId === definition.id)?.amount ??
+                  (definition.legacyBillField ? Reflect.get(item, definition.legacyBillField) : 0) ?? 0).toFixed(2)}
               </td>
             ))}
             <td className="border-y border-slate-300 px-1 py-1 text-right font-semibold">
@@ -59,8 +52,11 @@ export function PrintItemsTable({ items }: { items: BillItemValues[] }) {
         ))}
         <tr className="bg-slate-100 font-semibold">
           <td className="border-y border-slate-300 px-1 py-1 text-right" colSpan={5}>Total</td>
-          {CHARGE_KEYS.map((key) => (
-            <td key={key} className="border border-slate-300 px-1 py-1 text-right">{totals[key].toFixed(2)}</td>
+          {chargeDefinitions.map((definition) => (
+            <td key={definition.id} className="border border-slate-300 px-1 py-1 text-right">
+              {items.reduce((sum, item) => sum + Number(item.chargeLines?.find((line) => line.chargeId === definition.id)?.amount ??
+                (definition.legacyBillField ? Reflect.get(item, definition.legacyBillField) : 0) ?? 0), 0).toFixed(2)}
+            </td>
           ))}
           <td className="border-y border-slate-300 px-1 py-1 text-right">{totals.totalCharges.toFixed(2)}</td>
         </tr>

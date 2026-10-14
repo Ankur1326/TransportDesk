@@ -1,108 +1,42 @@
 'use client';
 
 import { useTheme } from 'next-themes';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { HiOutlineSun, HiOutlineMoon, HiOutlineComputerDesktop } from "react-icons/hi2";
-import { adminDropdownClass, adminToolbarButtonClass } from '@/components/admin/admin-toolbar-styles';
+import { useSyncExternalStore } from 'react';
+import { Moon, Sun } from "@/components/icons";
 import { cn } from '@/lib/utils';
 
+const subscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 const ThemeSelector = () => {
-    const { theme, setTheme } = useTheme();
-    const menuRef = useRef<HTMLDivElement>(null);
-    const [mounted, setMounted] = useState(false);
-    const [isOpen, setIsOpen] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const mounted = useSyncExternalStore(subscribe, getClientSnapshot, getServerSnapshot);
+  const isDark = mounted && resolvedTheme === 'dark';
 
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    const handleDropdownToggle = () => {
-        setIsOpen(!isOpen);
-    };
-
-    const closeMenu = useCallback(() => {
-        setIsOpen(false);
-    }, []);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                closeMenu();
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [closeMenu]);
-
-    if (!mounted) return null;
-
-    const menuItemClass = (active: boolean) =>
-        cn(
-            'flex w-full items-center px-4 py-2.5 text-body-sm text-neutral-700 dark:text-neutral-200',
-            'transition-colors hover:bg-neutral-100 dark:hover:bg-brand-800',
-            active && 'bg-neutral-100 font-medium dark:bg-brand-800'
-        );
-
-    return (
-        <div className="relative inline-block text-left">
-            <button
-                onClick={handleDropdownToggle}
-                className={adminToolbarButtonClass}
-                aria-label="Change theme"
-                aria-expanded={isOpen}
-            >
-                {theme === 'light' && <HiOutlineSun className="h-5 w-5" />}
-                {theme === 'dark' && <HiOutlineMoon className="h-5 w-5" />}
-                {theme === 'system' && <HiOutlineComputerDesktop className="h-5 w-5" />}
-            </button>
-
-            {isOpen && (
-                <div
-                    ref={menuRef}
-                    className={cn(adminDropdownClass, 'w-40')}
-                    style={{ zIndex: 1000 }}
-                >
-                    <div className="py-1" role="menu" aria-orientation="vertical">
-                        <button
-                            className={menuItemClass(theme === 'light')}
-                            onClick={() => {
-                                setTheme('light');
-                                setIsOpen(false);
-                            }}
-                        >
-                            <HiOutlineSun className="h-5 w-5 text-amber-500" />
-                            <span className="ml-3">Light</span>
-                        </button>
-
-                        <button
-                            className={menuItemClass(theme === 'dark')}
-                            onClick={() => {
-                                setTheme('dark');
-                                setIsOpen(false);
-                            }}
-                        >
-                            <HiOutlineMoon className="h-5 w-5 text-indigo-400" />
-                            <span className="ml-3">Dark</span>
-                        </button>
-
-                        <button
-                            className={menuItemClass(theme === 'system')}
-                            onClick={() => {
-                                setTheme('system');
-                                setIsOpen(false);
-                            }}
-                        >
-                            <HiOutlineComputerDesktop className="h-5 w-5 text-accent-500" />
-                            <span className="ml-3">System</span>
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
+  return (
+    <button
+      type="button"
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      disabled={!mounted}
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      className={cn(
+        'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-brand-950',
+        'disabled:cursor-wait disabled:opacity-60',
+        isDark
+          ? 'border-brand-800 bg-brand-900 text-amber-300 hover:border-accent-500/50 hover:bg-brand-800'
+          : 'border-neutral-200 bg-white text-brand-700 hover:border-accent-300 hover:bg-accent-50 hover:text-accent-600'
+      )}
+    >
+      {isDark ? (
+        <Sun className="h-5 w-5" aria-hidden="true" />
+      ) : (
+        <Moon className="h-5 w-5" aria-hidden="true" />
+      )}
+    </button>
+  );
 };
 
 export default ThemeSelector;

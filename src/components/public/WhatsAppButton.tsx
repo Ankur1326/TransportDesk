@@ -1,4 +1,4 @@
-import { MessageCircle } from "lucide-react";
+import { MessageCircle } from "@/components/icons";
 import { buildWhatsAppLink } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 

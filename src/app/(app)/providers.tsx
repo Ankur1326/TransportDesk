@@ -7,6 +7,7 @@ import { ThemeProvider } from "next-themes";
 
 import { store } from "@/redux/store";
 import AuthProvider from "@/context/authProvider";
+import { AppearanceProvider } from "@/components/AppearanceProvider";
 
 export function Providers({
     children,
@@ -20,11 +21,13 @@ export function Providers({
                 defaultTheme="system"
                 enableSystem
             >
-                <AuthProvider>
-                    <Provider store={store}>
-                        {children}
-                    </Provider>
-                </AuthProvider>
+                <AppearanceProvider>
+                    <AuthProvider>
+                        <Provider store={store}>
+                            {children}
+                        </Provider>
+                    </AuthProvider>
+                </AppearanceProvider>
             </ThemeProvider>
         </SessionProvider>
     );

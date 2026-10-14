@@ -1,5 +1,6 @@
 import mongoose, { model, Schema, Document, Model } from "mongoose";
 import { BILLING_PARTIES } from "@/lib/validations/billing";
+import type { ChargeLine } from "@/lib/charges";
 
 // ─── Sub-document interfaces ────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ export interface IBillItem {
   unloadingCharges: number;
   loadingCharges: number;
   gstinCharges: number;
+  chargeLines?: ChargeLine[];
   totalCharges: number;
 }
 
@@ -77,6 +79,19 @@ const billItemSchema = new Schema<IBillItem>(
     unloadingCharges: { type: Number, default: 0, min: 0 },
     loadingCharges: { type: Number, default: 0, min: 0 },
     gstinCharges: { type: Number, default: 0, min: 0 },
+    chargeLines: {
+      type: [
+        new Schema<ChargeLine>(
+          {
+            chargeId: { type: String, required: true, maxlength: 48 },
+            name: { type: String, required: true, trim: true, maxlength: 60 },
+            amount: { type: Number, required: true, min: 0, max: 1000000000 },
+          },
+          { _id: false }
+        ),
+      ],
+      default: undefined,
+    },
     totalCharges: { type: Number, default: 0, min: 0 },
   },
   { _id: false }

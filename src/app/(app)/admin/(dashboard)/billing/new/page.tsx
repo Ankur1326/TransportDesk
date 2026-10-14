@@ -24,6 +24,8 @@ import SelectedCnsChips from "@/components/bills/SelectedCnsChips";
 import { useSearchParams } from "next/navigation";
 import { Loading } from "@/components/ui/Loading";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { WorkflowTabs } from "@/components/admin/WorkflowTabs";
+import { chargeLinesFromLegacy, DEFAULT_CHARGE_DEFINITIONS, type ChargeDefinition } from "@/lib/charges";
 
 function buildDefaultValues(billNo: string): FreightBillFormValues {
     return {
@@ -40,7 +42,11 @@ function buildDefaultValues(billNo: string): FreightBillFormValues {
 
 /** Maps a FULL consignment record (from get-one) onto a bill line item. See mapping
  *  assumptions (LR/Detention/GSTIN charges) documented in lib/validations/freightBill.ts. */
-function consignmentToBillItem(c: ConsignmentRecord, srNo: number): BillItemValues {
+function consignmentToBillItem(c: ConsignmentRecord, srNo: number, definitions: ChargeDefinition[]): BillItemValues {
+    const legacyDefinitions = [...definitions, ...DEFAULT_CHARGE_DEFINITIONS.filter(
+        (defaultDefinition) => !definitions.some((definition) => definition.id === defaultDefinition.id)
+    )];
+    const sourceLines = c.charges?.chargeLines ?? chargeLinesFromLegacy(c.charges ?? {}, legacyDefinitions, "bilty");
     return {
         consignmentId: c._id,
         srNo,
@@ -54,6 +60,16 @@ function consignmentToBillItem(c: ConsignmentRecord, srNo: number): BillItemValu
         unloadingCharges: c.charges?.unloadingCharge ?? 0,
         loadingCharges: c.charges?.loadingCharge ?? 0,
         gstinCharges: 0,
+        chargeLines: definitions.map((definition) => ({
+            chargeId: definition.id,
+            name: definition.name,
+            amount: sourceLines.find((line) => line.chargeId === definition.id)?.amount
+                ?? (definition.legacyBiltyField && Number.isFinite(Number(Reflect.get(c.charges ?? {}, definition.legacyBiltyField)))
+                    ? Number(Reflect.get(c.charges ?? {}, definition.legacyBiltyField))
+                    : undefined)
+                ?? definition.defaultAmount
+                ?? 0,
+        })),
         sourceBillingParty: (c.payment?.billingParty as BillItemValues["sourceBillingParty"]) || "",
     };
 }
@@ -62,6 +78,7 @@ function FreightBillForm() {
     const searchParams = useSearchParams();
     const billId = searchParams.get("id"); // null when creating a new bill
     const { settings: companySettings } = useCompanySettings();
+    const [savedChargeDefinitions, setSavedChargeDefinitions] = useState<ChargeDefinition[] | null>(null);
 
     const [previewOpen, setPreviewOpen] = useState(false);
     const [addingId, setAddingId] = useState<string | null>(null);
@@ -97,12 +114,37 @@ function FreightBillForm() {
     }, [setValue]);
 
     const { fields, append, remove } = useFieldArray({ control: methods.control, name: "items" });
+    const chargeDefinitions = savedChargeDefinitions ?? companySettings.chargeDefinitions.filter((charge) => charge.includeOnBill);
 
     useEffect(() => {
         if (billId) {
             getFreightBill(billId)
                 .then((bill) => {
-                    reset(bill); // bill already matches FreightBillFormValues shape (FreightBillRecord extends it)
+                    const snapshotDefinitions = bill.items.flatMap((item) => item.chargeLines ?? [])
+                        .reduce<ChargeDefinition[]>((definitions, line) => {
+                            if (!definitions.some((definition) => definition.id === line.chargeId)) {
+                                definitions.push({
+                                    id: line.chargeId,
+                                    name: line.name,
+                                    defaultAmount: 0,
+                                    includeOnBilty: false,
+                                    includeOnBill: true,
+                                });
+                            }
+                            return definitions;
+                        }, []);
+                    const legacyDefinitions = DEFAULT_CHARGE_DEFINITIONS.filter((definition) => definition.legacyBillField);
+                    const definitions = snapshotDefinitions.length ? snapshotDefinitions : legacyDefinitions;
+                    setSavedChargeDefinitions(definitions);
+                    reset({
+                        ...bill,
+                        items: bill.items.map((item) => ({
+                            ...item,
+                            chargeLines: Array.isArray(item.chargeLines)
+                                ? item.chargeLines
+                                : chargeLinesFromLegacy(item, definitions, "bill"),
+                        })),
+                    });
                     // useFieldArray needs `reset` with the same field name to pick up `items` —
                     // this works because `items` is part of `bill` and reset() re-syncs the array.
 
@@ -143,7 +185,7 @@ function FreightBillForm() {
             // fetch the full record so the bill row and auto-filled party are accurate.
             const c = await getConsignmentForBill(picked._id);
             const isFirstItem = fields.length === 0;
-            const newItem = consignmentToBillItem(c, fields.length + 1);
+            const newItem = consignmentToBillItem(c, fields.length + 1, chargeDefinitions);
 
             if (isFirstItem) {
                 setFirstConsignmentParties({ consignor: c.consignor, consignee: c.consignee });
@@ -234,6 +276,7 @@ function FreightBillForm() {
                 <FreightBillPrintPreview onClose={() => setPreviewOpen(false)} />
             ) : (
                 <form className="mx-auto max-w-3xl pb-24 text-[12px]" onSubmit={(e) => e.preventDefault()}>
+                    <WorkflowTabs workflow="billing" activePage="create" />
                     <div className="rounded-lg border border-slate-300 p-4 shadow-sm">
                         <FreightBillHeader company={companySettings} />
 
@@ -247,7 +290,7 @@ function FreightBillForm() {
 
                         <div className="py-2">
                             <SelectedCnsChips fields={fields} onRemove={remove} />
-                            <BillItemsTable fields={fields} onRemove={remove} />
+                            <BillItemsTable fields={fields} onRemove={remove} chargeDefinitions={chargeDefinitions} />
                         </div>
 
                         <label className="mt-2 flex items-center gap-2 text-[12px]">

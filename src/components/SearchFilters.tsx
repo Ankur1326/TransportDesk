@@ -1,4 +1,4 @@
-import { Filter, X } from "lucide-react";
+import { Filter, X } from "@/components/icons";
 
 interface SearchFiltersProps {
     filterFields: React.ReactNode[];
@@ -45,7 +45,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({ filterFields, onSearch, o
                     <button
                         type="button"
                         onClick={handleApplyFilters}
-                        className="flex items-center gap-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md text-[#ED7225] px-3 py-1.5 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#ED7225]/30"
+                        className="flex items-center gap-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md text-[#DB7007] px-3 py-1.5 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#DB7007]/30"
                     >
                         <Filter size={14} className="transition-transform duration-200" />
                         <span>Apply Filters</span>

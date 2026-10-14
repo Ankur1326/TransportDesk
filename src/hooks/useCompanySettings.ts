@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   DEFAULT_COMPANY_SETTINGS,
   type CompanySettingsResponse,
@@ -10,11 +10,15 @@ import {
 export function useCompanySettings() {
   const [settings, setSettings] = useState<CompanySettingsValues>(DEFAULT_COMPANY_SETTINGS);
   const [isLoading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
+      setLoading(true);
+      setError("");
       try {
         const response = await fetch("/api/admin/settings", { cache: "no-store" });
         const result = (await response.json()) as CompanySettingsResponse;
@@ -29,20 +33,38 @@ export function useCompanySettings() {
               ...DEFAULT_COMPANY_SETTINGS.lrFormatBackgrounds,
               ...result.data.lrFormatBackgrounds,
             },
+            chargeDefinitions: result.data.chargeDefinitions ?? DEFAULT_COMPANY_SETTINGS.chargeDefinitions,
           });
         }
       } catch (error) {
-        console.error("Unable to load company settings:", error);
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : "Unable to load company settings";
+          setError(message);
+          console.error("Unable to load company settings:", error);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
     void load();
+
+    function reloadWhenFocused() {
+      if (document.visibilityState === "visible") {
+        setReloadKey((current) => current + 1);
+      }
+    }
+
+    window.addEventListener("focus", reloadWhenFocused);
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", reloadWhenFocused);
     };
+  }, [reloadKey]);
+
+  const reload = useCallback(() => {
+    setReloadKey((current) => current + 1);
   }, []);
 
-  return { settings, isLoading };
+  return { settings, isLoading, error, reload };
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ChevronLeft, ChevronRight, Eye, Package, Pencil, Printer, Search, Trash2, Truck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Pencil, Printer, Search, Trash2, Truck } from "@/components/icons";
 
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -14,6 +14,7 @@ import { Loading } from "@/components/ui/Loading";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { WorkflowTabs } from "@/components/admin/WorkflowTabs";
 import {
   deleteConsignment,
   getConsignment,
@@ -168,18 +169,14 @@ export default function BookingsPage() {
         <PrintPreview values={printTarget} onClose={() => setPrintTarget(null)} />
       ) :
         <>
+          <WorkflowTabs workflow="consignment" activePage="list" />
+
           {/* HEADER */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-h3 font-semibold text-neutral-900">Bookings</h1>
               <p className="text-body-sm text-neutral-500">All consignments booked so far.</p>
             </div>
-            <Link href="/admin/consignment/new">
-              <Button size="sm">
-                <Package className="h-4 w-4" aria-hidden="true" />
-                New Consignment
-              </Button>
-            </Link>
           </div>
 
           {/* FILTERS */}
@@ -218,13 +215,6 @@ export default function BookingsPage() {
                 hasActiveFilters
                   ? "Try adjusting your search or filters."
                   : "Create your first consignment to see it here."
-              }
-              action={
-                !hasActiveFilters ? (
-                  <Link href="/admin/consignment/new">
-                    <Button size="sm">Create Consignment</Button>
-                  </Link>
-                ) : undefined
               }
             />
           ) : (

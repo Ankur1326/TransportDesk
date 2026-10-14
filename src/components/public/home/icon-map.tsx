@@ -12,10 +12,10 @@ import {
   PackageCheck,
   FileText,
   CheckCircle2,
-  type LucideIcon,
-} from "lucide-react";
+  type Icon,
+} from "@/components/icons";
 
-const ICONS: Record<string, LucideIcon> = {
+const ICONS: Record<string, Icon> = {
   ShieldCheck,
   Clock,
   UserCheck,
@@ -31,7 +31,7 @@ const ICONS: Record<string, LucideIcon> = {
   CheckCircle2,
 };
 
-/** Resolves an icon name string (from data files) to its lucide component. */
-export function getIcon(name: string): LucideIcon {
+/** Resolves an icon name string (from data files) to its outline component. */
+export function getIcon(name: string): Icon {
   return ICONS[name] ?? Truck;
 }

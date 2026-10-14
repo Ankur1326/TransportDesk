@@ -1,5 +1,6 @@
 import axios from "axios";
 import type { BillingFormValues } from "@/lib/validations/billing";
+import type { ChargeLine } from "@/lib/charges";
 
 export interface ConsignmentRecord extends BillingFormValues {
   _id: string;
@@ -42,7 +43,7 @@ export interface ConsignmentListItem {
   };
   segment?: string;
   loadType?: string;
-  charges?: Record<string, number>;
+  charges?: Record<string, number> & { chargeLines?: ChargeLine[] };
   tax?: { type?: string; percentage?: number | "custom"; customPercentage?: number };
   payment?: {
     type?: string;

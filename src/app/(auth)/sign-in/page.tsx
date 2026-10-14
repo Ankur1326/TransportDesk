@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "@/components/icons";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/Button";
 import { signIn } from "next-auth/react";

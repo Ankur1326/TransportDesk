@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import dbConnect from "@/lib/db";
 import ConsignmentModel from "@/models/Consignment";
 import { billingFormSchema } from "@/lib/validations/billing";
+import { syncLegacyChargeFields } from "@/lib/charges";
 
 /**
  * POST /api/consignments
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const parsed = billingFormSchema.parse(body);
-console.log("parsed:" , parsed)
+        parsed.charges = syncLegacyChargeFields(parsed.charges);
         const existing = await ConsignmentModel.findOne({
             consignmentNumber: parsed.consignmentNumber,
         }).lean();

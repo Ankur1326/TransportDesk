@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ChevronLeft, ChevronRight, FileText, Pencil, Printer, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Pencil, Printer, Search, Trash2 } from "@/components/icons";
 
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -20,6 +20,7 @@ import {
 } from "@/lib/bill/api";
 import { getApiErrorMessage } from "@/lib/api/consignments";
 import { BillPrintPreviewStandalone } from "@/components/bills/BillPrintPreviewStandalone";
+import { WorkflowTabs } from "@/components/admin/WorkflowTabs";
 
 const PAGE_SIZE = 10;
 
@@ -124,18 +125,14 @@ export default function BillsPage() {
         <BillPrintPreviewStandalone bill={printTarget} onClose={() => setPrintTarget(null)} />
       ) : (
         <>
+          <WorkflowTabs workflow="billing" activePage="list" />
+
           {/* HEADER */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-h3 font-semibold text-neutral-900">Freight Bills</h1>
               <p className="text-body-sm text-neutral-500">All freight bills raised so far.</p>
             </div>
-            <Link href="/admin/billing/new">
-              <Button size="sm">
-                <FileText className="h-4 w-4" aria-hidden="true" />
-                New Bill
-              </Button>
-            </Link>
           </div>
 
           {/* FILTERS */}
@@ -163,13 +160,6 @@ export default function BillsPage() {
                 hasActiveFilters
                   ? "Try adjusting your search."
                   : "Create your first freight bill to see it here."
-              }
-              action={
-                !hasActiveFilters ? (
-                  <Link href="/admin/billing/new">
-                    <Button size="sm">Create Bill</Button>
-                  </Link>
-                ) : undefined
               }
             />
           ) : (

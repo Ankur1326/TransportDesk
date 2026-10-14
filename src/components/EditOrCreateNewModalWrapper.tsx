@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, ReactNode, memo } from 'react';
-import { X, Save } from 'lucide-react';
+import { X, Save } from "@/components/icons";
 
 interface ModalWrapperProps {
     onClose: () => void;
@@ -60,7 +60,7 @@ const ModalContent = memo(({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-[#ED7225] transition-colors"
+                        className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-[#DB7007] transition-colors"
                     >
                         Cancel
                     </button>
@@ -70,7 +70,7 @@ const ModalContent = memo(({
                         <button
                             type="submit"
                             disabled={disabled}
-                            className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-[#ED7225] hover:bg-[#d15e17] border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#ED7225] transition-colors ${saveBtnClassName}`}
+                            className={`inline-flex items-center px-4 py-2 text-sm font-medium text-neutral-950 bg-[#DB7007] hover:bg-[#c56306] border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#DB7007] transition-colors ${saveBtnClassName}`}
                         >
                             <Save className="w-4 h-4 mr-2" />
                             {saveBtnLabel}

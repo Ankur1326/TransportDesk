@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 export interface ComboboxItem {

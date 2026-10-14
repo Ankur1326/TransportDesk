@@ -7,6 +7,7 @@ import {
   type LRFormat,
   type CompanySettingsValues,
 } from "@/lib/company-settings";
+import { DEFAULT_CHARGE_DEFINITIONS, type ChargeDefinition } from "@/lib/charges";
 import dbConnect from "@/lib/db";
 import CompanySettings, { removeLegacyCompanyIdIndex } from "@/models/CompanySettings";
 
@@ -68,6 +69,60 @@ function isLRFormat(value: unknown): value is LRFormat {
   return typeof value === "string" && LR_FORMATS.some((format) => format === value);
 }
 
+function validateChargeDefinitions(value: unknown): ChargeDefinition[] | null {
+  if (!Array.isArray(value) || value.length > 40) return null;
+  const ids = new Set<string>();
+  const names = new Set<string>();
+  const standardDefinitions = new Map(
+    DEFAULT_CHARGE_DEFINITIONS.map((definition) => [definition.id, definition])
+  );
+  const definitions: ChargeDefinition[] = [];
+
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
+    const charge = entry as Record<string, unknown>;
+    if (
+      typeof charge.id !== "string" ||
+      !/^[a-z0-9_-]{1,48}$/.test(charge.id) ||
+      typeof charge.name !== "string" ||
+      !charge.name.trim() ||
+      charge.name.trim().length > 60 ||
+      (charge.defaultAmount !== null &&
+        charge.defaultAmount !== undefined &&
+        (typeof charge.defaultAmount !== "number" ||
+          !Number.isFinite(charge.defaultAmount) ||
+          charge.defaultAmount < 0 ||
+          charge.defaultAmount > 1000000000)) ||
+      typeof charge.includeOnBilty !== "boolean" ||
+      typeof charge.includeOnBill !== "boolean"
+    ) return null;
+
+    const nameKey = charge.name.trim().toLocaleLowerCase();
+    if (ids.has(charge.id) || names.has(nameKey)) return null;
+    ids.add(charge.id);
+    names.add(nameKey);
+
+    const standard = standardDefinitions.get(charge.id);
+    const legacyBiltyField = charge.legacyBiltyField;
+    const legacyBillField = charge.legacyBillField;
+    if (
+      (legacyBiltyField !== undefined && legacyBiltyField !== standard?.legacyBiltyField) ||
+      (legacyBillField !== undefined && legacyBillField !== standard?.legacyBillField)
+    ) return null;
+
+    definitions.push({
+      id: charge.id,
+      name: charge.name.trim(),
+      defaultAmount: typeof charge.defaultAmount === "number" ? charge.defaultAmount : null,
+      includeOnBilty: charge.includeOnBilty,
+      includeOnBill: charge.includeOnBill,
+      ...(standard?.legacyBiltyField ? { legacyBiltyField: standard.legacyBiltyField } : {}),
+      ...(standard?.legacyBillField ? { legacyBillField: standard.legacyBillField } : {}),
+    });
+  }
+  return definitions;
+}
+
 function validateSettings(value: unknown): { values?: CompanySettingsValues; error?: string } {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return { error: "Settings must be submitted as an object" };
@@ -122,6 +177,14 @@ function validateSettings(value: unknown): { values?: CompanySettingsValues; err
         return { error: "Consignment starting number must be a positive whole number" };
       }
       settings[key] = fieldValue;
+      continue;
+    }
+    if (key === "chargeDefinitions") {
+      const definitions = validateChargeDefinitions(fieldValue);
+      if (!definitions) {
+        return { error: "Charges must have unique names and IDs, valid default amounts, and no more than 40 entries" };
+      }
+      settings.chargeDefinitions = definitions;
       continue;
     }
 
@@ -209,6 +272,10 @@ export async function GET() {
           ...DEFAULT_COMPANY_SETTINGS.lrFormatBackgrounds,
           ...settings?.lrFormatBackgrounds,
         },
+        chargeDefinitions: settings?.chargeDefinitions?.map((charge) => ({
+          ...charge,
+          defaultAmount: charge.defaultAmount === 0 ? null : charge.defaultAmount,
+        })) ?? DEFAULT_COMPANY_SETTINGS.chargeDefinitions,
       },
     });
   } catch (error) {

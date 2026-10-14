@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Truck, Phone, Mail, MapPin, MessageCircle } from "lucide-react";
+import { Truck, Phone, Mail, MapPin, MessageCircle } from "@/components/icons";
 import { Container } from "@/components/layout/Container";
 import { siteConfig, buildTelLink, buildWhatsAppLink } from "@/lib/site-config";
 

@@ -1,5 +1,6 @@
 import mongoose, { model, Schema, type Document, type Model } from "mongoose";
 import { DEFAULT_COMPANY_SETTINGS, LR_FORMATS, type CompanySettingsValues } from "@/lib/company-settings";
+import type { ChargeDefinition } from "@/lib/charges";
 
 export interface ICompanySettings extends CompanySettingsValues, Document {
   ownerId: string;
@@ -52,10 +53,32 @@ const companySettingsSchema = new Schema<ICompanySettings>(
             backgroundColor: { type: String, default: "#ffffff", match: /^#[0-9a-fA-F]{6}$/ },
             backgroundImage: { type: String, default: "", maxlength: 350000 },
           },
+          ledger: {
+            backgroundColor: { type: String, default: "#ffffff", match: /^#[0-9a-fA-F]{6}$/ },
+            backgroundImage: { type: String, default: "", maxlength: 350000 },
+          },
         },
         { _id: false }
       ),
       default: DEFAULT_COMPANY_SETTINGS.lrFormatBackgrounds,
+    },
+    chargeDefinitions: {
+      type: [
+        new Schema<ChargeDefinition>(
+          {
+            id: { type: String, required: true, trim: true, maxlength: 48 },
+            name: { type: String, required: true, trim: true, maxlength: 60 },
+            defaultAmount: { type: Number, default: null, min: 0, max: 1000000000 },
+            includeOnBilty: { type: Boolean, required: true },
+            includeOnBill: { type: Boolean, required: true },
+            legacyBiltyField: { type: String, trim: true },
+            legacyBillField: { type: String, trim: true },
+          },
+          { _id: false }
+        ),
+      ],
+      default: DEFAULT_COMPANY_SETTINGS.chargeDefinitions,
+      validate: (value: ChargeDefinition[]) => Array.isArray(value) && value.length <= 40,
     },
   },
   { timestamps: true }

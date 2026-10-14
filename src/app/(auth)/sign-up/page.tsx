@@ -1,7 +1,7 @@
 'use client'
 
 import axios from "axios"
-import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { Eye, EyeOff, Loader2 } from "@/components/icons"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"

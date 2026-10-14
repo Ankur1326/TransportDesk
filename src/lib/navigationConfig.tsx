@@ -1,13 +1,12 @@
 import React from "react";
 import {
-  LuCalendarCheck,
   LuFilePlus2,
   LuLayoutDashboard,
   LuReceiptText,
   LuSettings,
   LuSend,
   LuUsersRound,
-} from "react-icons/lu";
+} from "@/components/icons";
 
 // A single sidebar menu item
 export interface NavItem {
@@ -52,40 +51,47 @@ export const NAVIGATION_CONFIG: Record<string, NavigationConfig> = {
       // Operations
       // ─────────────────────────────────────────
       {
-        name: "Bookings",
+        name: "Operations",
         items: [
           {
-            id: "new-consignment-entry",
-            title: "New Consignment",
-            icon: <LuFilePlus2 className="h-[18px] w-[18px]" />,
-            route: "/admin/consignment/new",
-          },
-          {
-            id: "all-consignments",
-            title: "ALL CNS",
-            icon: <LuCalendarCheck className="h-[18px] w-[18px]" />,
+            id: "bilties",
+            title: "Bilties",
+            icon: <LuReceiptText className="h-[18px] w-[18px]" />,
             route: "/admin/bookings",
+            childItems: [
+              {
+                id: "all-bilties",
+                title: "List All Bilties",
+                icon: <LuReceiptText className="h-4 w-4" />,
+                route: "/admin/bookings",
+              },
+              {
+                id: "create-bilty",
+                title: "Create Bilty",
+                icon: <LuFilePlus2 className="h-4 w-4" />,
+                route: "/admin/consignment/new",
+              },
+            ],
           },
-        ],
-      },
-
-      // ─────────────────────────────────────────
-      // Billing
-      // ─────────────────────────────────────────
-      {
-        name: "Billing",
-        items: [
           {
-            id: "create-bill",
-            title: "Create Bill",
-            icon: <LuFilePlus2 className="h-[18px] w-[18px]" />,
-            route: "/admin/billing/new",
-          },
-          {
-            id: "billings",
-            title: "All Bills",
+            id: "bills",
+            title: "Bills",
             icon: <LuReceiptText className="h-[18px] w-[18px]" />,
             route: "/admin/billings",
+            childItems: [
+              {
+                id: "all-bills",
+                title: "List All Bills",
+                icon: <LuReceiptText className="h-4 w-4" />,
+                route: "/admin/billings",
+              },
+              {
+                id: "create-bill",
+                title: "Create Bill",
+                icon: <LuFilePlus2 className="h-4 w-4" />,
+                route: "/admin/billing/new",
+              },
+            ],
           },
         ],
       },

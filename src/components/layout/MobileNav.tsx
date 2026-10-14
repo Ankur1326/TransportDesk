@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Phone, MessageCircle } from "lucide-react";
+import { Menu, X, Phone, MessageCircle } from "@/components/icons";
 import { siteConfig, buildTelLink, buildWhatsAppLink } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 

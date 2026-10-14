@@ -7,6 +7,7 @@ import { PrintItemsTable } from "@/components/bills/PrintItemsTable";
 import formatDate from "@/lib/formateDate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { siteConfig } from "@/lib/site-config";
+import { DEFAULT_CHARGE_DEFINITIONS, type ChargeDefinition } from "@/lib/charges";
 
 interface FreightBillPrintPreviewProps {
     onClose: () => void;
@@ -18,6 +19,28 @@ export function FreightBillPrintPreview({ onClose }: FreightBillPrintPreviewProp
     const { settings } = useCompanySettings();
     const items = values.items ?? [];
     const totals = computeBillTotals(items as never);
+    const chargeDefinitions = (items as BillItemValues[]).flatMap((item) => item.chargeLines ?? [])
+        .reduce<import("@/lib/charges").ChargeDefinition[]>((definitions, line) => {
+            if (!definitions.some((definition) => definition.id === line.chargeId)) {
+                definitions.push({
+                    id: line.chargeId,
+                    name: line.name,
+                    defaultAmount: null,
+                    includeOnBilty: false,
+                    includeOnBill: true,
+                });
+            }
+            return definitions;
+        }, []);
+    const printChargeDefinitions: ChargeDefinition[] = chargeDefinitions.length
+        ? chargeDefinitions
+        : [
+            ...settings.chargeDefinitions.filter((definition) => definition.includeOnBill),
+            ...DEFAULT_CHARGE_DEFINITIONS.filter((definition) =>
+                definition.legacyBillField &&
+                !settings.chargeDefinitions.some((configured) => configured.id === definition.id)
+            ),
+        ];
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 p-2 print:static print:bg-transparent print:p-0">
@@ -68,7 +91,7 @@ export function FreightBillPrintPreview({ onClose }: FreightBillPrintPreviewProp
                         </div>
                     </div>
 
-                    <PrintItemsTable items={(items as BillItemValues[]) ?? []} />
+                    <PrintItemsTable items={(items as BillItemValues[]) ?? []} chargeDefinitions={printChargeDefinitions} />
 
                     <div className="border-x border-slate-900 px-3 py-2 text-sm">
                         <p>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { chargeLineSchema } from "@/lib/charges";
 
 // ─── Shared primitives ──────────────────────────────────────────────────────
 
@@ -116,6 +117,7 @@ export const billingFormSchema = z.object({
     statisticalCharges: z.coerce.number().nonnegative().default(0),
     localCollectionCharges: z.coerce.number().nonnegative().default(0),
     printHidden: z.boolean().default(false),
+    chargeLines: z.array(chargeLineSchema).optional(),
   }),
 
   tax: z.object({
@@ -223,6 +225,7 @@ export function buildDefaultValues(consignmentNumber: string): BillingFormValues
       statisticalCharges: 0,
       localCollectionCharges: 0,
       printHidden: false,
+      chargeLines: [],
     },
     tax: { type: "NONE", percentage: "", customPercentage: undefined },
     payment: { type: "", billingParty: "Consignor", billingAccount: "", status: "Pending", receivedType: "", UTRNumber: "", receivedMoney: "", receivedDate: "", mrNumber: "", mrDate: "" },

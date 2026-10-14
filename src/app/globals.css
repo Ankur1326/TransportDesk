@@ -8,35 +8,35 @@
 
 @theme {
   /* ---------------------------------------------------------
-     Brand — Deep Navy
+     Brand — Transport Orange
      --------------------------------------------------------- */
 
-  --color-brand-50: #eef3fb;
-  --color-brand-100: #d6e2f3;
-  --color-brand-200: #adc5e7;
-  --color-brand-300: #7fa3d8;
-  --color-brand-400: #4f7fc6;
-  --color-brand-500: #2f5fac;
-  --color-brand-600: #1f4787;
-  --color-brand-700: #1a3a6e;
-  --color-brand-800: #152e57;
-  --color-brand-900: #0f2140;
-  --color-brand-950: #0a1730;
+  --color-brand-50: #fff7ef;
+  --color-brand-100: #feead9;
+  --color-brand-200: #fbd1ad;
+  --color-brand-300: #f7b577;
+  --color-brand-400: #f39a49;
+  --color-brand-500: #ef831e;
+  --color-brand-600: #db7007;
+  --color-brand-700: #a84f00;
+  --color-brand-800: #873f00;
+  --color-brand-900: #623000;
+  --color-brand-950: #2d1500;
 
   /* ---------------------------------------------------------
      Accent — Warm Amber
      --------------------------------------------------------- */
 
-  --color-accent-50: #fff8ec;
+  --color-accent-50: #fff7ef;
   --color-accent-100: #ffedc7;
   --color-accent-200: #ffd98a;
   --color-accent-300: #ffc04d;
   --color-accent-400: #ffab24;
-  --color-accent-500: #f7900a;
-  --color-accent-600: #db6f05;
-  --color-accent-700: #b54f08;
-  --color-accent-800: #923e0d;
-  --color-accent-900: #78340f;
+  --color-accent-500: #ef831e;
+  --color-accent-600: #db7007;
+  --color-accent-700: #a84f00;
+  --color-accent-800: #873f00;
+  --color-accent-900: #623000;
 
   /* ---------------------------------------------------------
      Neutral
@@ -434,4 +434,71 @@
   --sidebar-border: oklch(1 0 0 / 10%);
 
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+html[data-app-theme] body {
+  background-color: var(--app-page-background);
+  color: var(--app-text);
+}
+
+html[data-app-theme] [class~="bg-white"] {
+  background-color: var(--app-card-background);
+}
+
+html[data-app-theme] [class~="bg-white/95"] {
+  background-color: color-mix(in srgb, var(--app-card-background) 95%, transparent);
+}
+
+#main-sidebar {
+  background-color: var(--app-sidebar-background);
+  color: var(--app-sidebar-text);
+  border-color: var(--app-border);
+}
+
+#main-sidebar > nav button {
+  color: var(--app-sidebar-text);
+}
+
+#main-sidebar button[data-sidebar-active="true"] {
+  background-color: var(--app-sidebar-active-background);
+  color: var(--app-sidebar-active-text);
+}
+
+#main-sidebar button[data-sidebar-active="true"] [data-sidebar-icon="true"] {
+  background-color: color-mix(in srgb, var(--app-sidebar-active-text) 12%, transparent);
+  color: var(--app-sidebar-active-text);
+}
+
+#main-sidebar button[data-sidebar-active="true"] [data-sidebar-marker="true"] {
+  background-color: var(--app-sidebar-active-mark);
+}
+
+#main-sidebar [class~="border-neutral-200"],
+#main-sidebar [class~="border-neutral-200/80"],
+#main-sidebar [class~="border-brand-800"] {
+  border-color: var(--app-border);
+}
+
+html[data-app-theme] [class~="text-white"].app-theme-text {
+  color: var(--app-primary-foreground);
+}
+
+.app-button-primary {
+  background-color: var(--app-button-background);
+  color: var(--app-button-text);
+  box-shadow: 0 1px 2px rgb(22 24 26 / 0.12), 0 2px 5px rgb(22 24 26 / 0.08);
+}
+
+.app-button-primary:hover:not(:disabled) {
+  background-color: var(--app-button-hover);
+  box-shadow: 0 3px 8px rgb(22 24 26 / 0.16);
+}
+
+.app-button-secondary {
+  background-color: var(--color-accent-700);
+  color: var(--app-accent-foreground);
+}
+
+.app-button-secondary:hover:not(:disabled) {
+  background-color: var(--color-accent-800);
 }

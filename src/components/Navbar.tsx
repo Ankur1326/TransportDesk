@@ -4,7 +4,7 @@ import React from "react";
 import ProfileMenu from "@/components/ProfileMenu";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/components/icons";
 import ThemeSelector from "@/components/ThemeSelector";
 import FullScreenButton from "@/components/FullScreenButton";
 

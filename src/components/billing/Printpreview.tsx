@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Loader2, Printer, RefreshCw } from "@/components/icons";
 import { Button } from "@/components/Button"
 import { computeBillingTotals } from "@/lib/calculations/billing";
 import { amountToWords } from "@/lib/numberToWords";
@@ -27,6 +27,7 @@ const LR_FORMAT_LABELS: Record<LRFormat, string> = {
   classic: "Classic",
   modern: "Modern",
   compact: "Compact",
+  ledger: "Ledger",
 };
 
 const DEFAULT_SELECTED_COPIES: readonly CopyName[] = ["LORRY COPY", "CONSIGNEE COPY"];
@@ -405,30 +406,12 @@ function LorryCopy({
                 <span>Particulars</span>
                 <span>Amount in Rs.</span>
               </div>
-              <div className="lr-charge-row">
-                <span>Freight</span>
-                <span>{rupees(values.charges.freight)}</span>
-              </div>
-              <div className="lr-charge-row">
-                <span>Local Godown Charges</span>
-                <span>{rupees(values.charges.localGodownCharges)}</span>
-              </div>
-              <div className="lr-charge-row">
-                <span>Unloading Charge</span>
-                <span>{rupees(values.charges.unloadingCharge)}</span>
-              </div>
-              <div className="lr-charge-row">
-                <span>Loading Charge</span>
-                <span>{rupees(values.charges.loadingCharge)}</span>
-              </div>
-              <div className="lr-charge-row">
-                <span>Statistical Charges</span>
-                <span>{rupees(values.charges.statisticalCharges)}</span>
-              </div>
-              <div className="lr-charge-row">
-                <span>Local Collection Charges</span>
-                <span>{rupees(values.charges.localCollectionCharges)}</span>
-              </div>
+              {totals.lineItems.map((line, index) => (
+                <div className="lr-charge-row" key={`${line.label}-${index}`}>
+                  <span>{line.label}</span>
+                  <span>{rupees(line.amount)}</span>
+                </div>
+              ))}
               <div className="lr-charge-row lr-subtotal">
                 <strong>SUB TOTAL</strong>
                 <strong>{rupees(totals.subtotal)}</strong>
@@ -510,7 +493,7 @@ function LorryCopy({
 export function PrintPreview({ values, onClose }: PrintPreviewProps) {
   // Which copies the user wants printed — all four are selected by default.
   const [selectedCopies, setSelectedCopies] = useState<Set<CopyName>>(new Set(DEFAULT_SELECTED_COPIES));
-  const { settings } = useCompanySettings();
+  const { settings, isLoading, error, reload } = useCompanySettings();
 
   function toggleCopy(name: CopyName) {
     setSelectedCopies((prev) => {
@@ -546,8 +529,8 @@ export function PrintPreview({ values, onClose }: PrintPreviewProps) {
 
         {/* COPY SELECTOR — choose which copies get printed */}
         <div className="lr-copy-selector">
-          <span className="rounded-full bg-brand-50 px-2.5 py-1 font-semibold text-brand-800">
-            {LR_FORMAT_LABELS[settings.lrFormat]} format
+          <span className="rounded-full bg-brand-50 px-2.5 py-1 font-semibold text-brand-800" aria-live="polite">
+            {isLoading ? "Loading LR format…" : error ? "LR format unavailable" : `${LR_FORMAT_LABELS[settings.lrFormat]} format`}
           </span>
           <span className="lr-copy-selector-label">Copies:</span>
           {ALL_COPY_NAMES.map((name) => (
@@ -568,7 +551,7 @@ export function PrintPreview({ values, onClose }: PrintPreviewProps) {
           </button>
         </div>
 
-        <Button variant="primary" size="sm" onClick={() => window.print()} disabled={!hasSelection}>
+        <Button variant="primary" size="sm" onClick={() => window.print()} disabled={!hasSelection || isLoading || Boolean(error)}>
           <Printer className="h-4 w-4" aria-hidden="true" />
           Print / Save as PDF
         </Button>
@@ -576,7 +559,20 @@ export function PrintPreview({ values, onClose }: PrintPreviewProps) {
 
       {/* DOCUMENT — only the copies the user selected are rendered / printed */}
       <div className="lr-document">
-        {hasSelection ? (
+        {isLoading ? (
+          <div className="lr-no-selection print:hidden" role="status">
+            <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" aria-hidden="true" />
+            Loading saved LR format…
+          </div>
+        ) : error ? (
+          <div className="lr-no-selection print:hidden" role="alert">
+            <p>Could not load the saved LR format: {error}</p>
+            <Button className="mt-3" size="sm" onClick={reload}>
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              Retry
+            </Button>
+          </div>
+        ) : hasSelection ? (
           copiesToRender.map((name) => (
             <LorryCopy
               key={name}
@@ -742,11 +738,51 @@ export function PrintPreview({ values, onClose }: PrintPreviewProps) {
         }
 
         .lr-format-modern .lr-header {
-          grid-template-columns: 40% 35% 25%;
+          grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
         }
 
         .lr-format-modern .lr-company-section {
+          grid-column: 1 / -1;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          border-bottom: 1px solid #0f766e;
           background: rgba(204, 251, 241, 0.55);
+        }
+
+        .lr-format-modern .lr-company-top {
+          align-items: center;
+          margin-bottom: 0;
+        }
+
+        .lr-format-modern .lr-logo {
+          width: 54px;
+          height: 54px;
+          min-width: 54px;
+        }
+
+        .lr-format-modern .lr-registration {
+          width: auto;
+          margin: 0;
+          padding: 0;
+        }
+
+        .lr-format-modern .lr-route-section {
+          border-right: 1px solid #111;
+        }
+
+        .lr-format-modern .lr-segment-section {
+          border-right: 0;
+        }
+
+        .lr-format-modern .lr-segment-options {
+          flex-wrap: wrap;
+          gap: 3px;
+        }
+
+        .lr-format-modern .lr-content {
+          grid-template-columns: 70% 30%;
         }
 
         .lr-format-modern .lr-company-name,
@@ -771,6 +807,114 @@ export function PrintPreview({ values, onClose }: PrintPreviewProps) {
 
         .lr-format-modern .lr-copy-name {
           color: #0f766e;
+        }
+
+        .lr-page.lr-format-ledger {
+          border-color: #7c2d12;
+          font-family: Georgia, "Times New Roman", serif;
+          letter-spacing: 0.05px;
+        }
+
+        .lr-format-ledger .lr-header {
+          grid-template-columns: 60% 40%;
+        }
+
+        .lr-format-ledger .lr-company-section {
+          grid-column: 1 / -1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          padding: 4px 10px;
+          text-align: center;
+          border-bottom: 1px double #7c2d12;
+        }
+
+        .lr-format-ledger .lr-company-top {
+          align-items: center;
+          justify-content: center;
+          margin: 0;
+        }
+
+        .lr-format-ledger .lr-logo {
+          width: 48px;
+          height: 48px;
+          min-width: 48px;
+        }
+
+        .lr-format-ledger .lr-company-name {
+          color: #7c2d12;
+          font-family: Georgia, "Times New Roman", serif;
+          font-size: 18px;
+          letter-spacing: 0.25px;
+        }
+
+        .lr-format-ledger .lr-registration {
+          width: auto;
+          margin: 0;
+          padding: 0;
+          color: #7c2d12;
+        }
+
+        .lr-format-ledger .lr-route-section {
+          border-right: 1px solid #7c2d12;
+        }
+
+        .lr-format-ledger .lr-route-title,
+        .lr-format-ledger .lr-segment-title,
+        .lr-format-ledger .lr-vertical-title,
+        .lr-format-ledger .lr-charge-header {
+          background-color: #7c2d12;
+          color: #fff;
+        }
+
+        .lr-format-ledger .lr-content {
+          grid-template-columns: 64% 36%;
+        }
+
+        .lr-format-ledger .lr-parties {
+          min-height: 1.7in;
+        }
+
+        .lr-format-ledger .lr-party {
+          display: grid;
+          grid-template-columns: 24px minmax(0, 1fr);
+        }
+
+        .lr-format-ledger .lr-party .lr-ack-banner {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          writing-mode: vertical-rl;
+          transform: rotate(180deg);
+          padding: 3px 2px;
+        }
+
+        .lr-format-ledger .lr-party-content {
+          padding: 5px 7px;
+        }
+
+        .lr-format-ledger .lr-segment-options .active {
+          color: #7c2d12;
+        }
+
+        .lr-format-ledger .lr-grand-total {
+          background: #7c2d12;
+        }
+
+        .lr-format-ledger .lr-company-name,
+        .lr-format-ledger .lr-party-name,
+        .lr-format-ledger .lr-cns-number,
+        .lr-format-ledger .lr-vehicle-number,
+        .lr-format-ledger .lr-charge-row > *:last-child,
+        .lr-format-ledger .lr-amount-words > div:last-child,
+        .lr-format-ledger .lr-authorized strong {
+          color: #7c2d12;
+        }
+
+        .lr-format-ledger .lr-copy-name {
+          color: #7c2d12;
+          font-family: Arial, Helvetica, sans-serif;
         }
 
         .lr-page.lr-format-compact {

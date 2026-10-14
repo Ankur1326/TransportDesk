@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, PhoneCall, ShieldCheck } from "lucide-react";
+import { ArrowRight, PhoneCall, ShieldCheck } from "@/components/icons";
 import { Section } from "@/components/layout/Section";
 import { RouteIllustration } from "@/components/public/home/RouteIllustration";
 import { trustStats } from "@/lib/placeholder-data";

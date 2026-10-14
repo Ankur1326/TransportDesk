@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormProvider, useForm } from "react-hook-form";
 import toast from "react-hot-toast";
-import { ArrowDown, FilePlus2, X } from "lucide-react";
+import { ArrowDown, FilePlus2, X } from "@/components/icons";
 
 import {
   createConsignment,
@@ -29,9 +29,13 @@ import { InsuranceSection } from "@/components/billing/Insurancesection";
 import { AdditionalInfoSection } from "@/components/billing/Additionalinfosection";
 import { FormActionsBar } from "@/components/billing/Formactionsbar";
 import { PrintPreview } from "@/components/billing/Printpreview";
+import { WorkflowTabs } from "@/components/admin/WorkflowTabs";
 
 import { billingFormSchema, buildDefaultValues, type BillingFormValues } from "@/lib/validations/billing";
 import { fetchNextConsignmentNumber, generateConsignmentNumber, saveConsignmentNumber } from "@/lib/generateConsignmentNumber";
+import { chargeLinesFromLegacy, DEFAULT_CHARGE_DEFINITIONS } from "@/lib/charges";
+import type { ChargeDefinition } from "@/lib/charges";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 
 const DRAFT_STORAGE_KEY = "uts:billing-draft:v1";
 const AUTOSAVE_DEBOUNCE_MS = 1200;
@@ -67,6 +71,7 @@ function TransportBillingForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
+  const { settings: companySettings, isLoading: isLoadingSettings } = useCompanySettings();
 
   const [draftBanner, setDraftBanner] = useState<BillingFormValues | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -114,7 +119,7 @@ function TransportBillingForm() {
 
   // Editing an existing consignment: load it from the backend instead of a fresh draft.
   useEffect(() => {
-    if (!editId) return;
+    if (!editId || isLoadingSettings) return;
 
     let cancelled = false;
     setIsLoadingRecord(true);
@@ -122,7 +127,21 @@ function TransportBillingForm() {
     getConsignment(editId)
       .then((record) => {
         if (cancelled) return;
-        reset(record);
+        const charges = record.charges as BillingFormValues["charges"];
+        const legacyDefinitions = [
+          ...companySettings.chargeDefinitions,
+          ...DEFAULT_CHARGE_DEFINITIONS.filter((definition) =>
+            !companySettings.chargeDefinitions.some((current) => current.id === definition.id)
+          ),
+        ];
+        const chargeLines = Array.isArray(charges.chargeLines)
+          ? charges.chargeLines
+          : chargeLinesFromLegacy(
+              charges,
+              legacyDefinitions,
+              "bilty"
+            );
+        reset({ ...record, charges: { ...charges, chargeLines } });
         setRecordId(record._id);
       })
       .catch((error) => {
@@ -136,7 +155,20 @@ function TransportBillingForm() {
     return () => {
       cancelled = true;
     };
-  }, [editId, reset]);
+  }, [companySettings.chargeDefinitions, editId, isLoadingSettings, reset]);
+
+  useEffect(() => {
+    if (editId || isLoadingSettings) return;
+    const currentLines = methods.getValues("charges.chargeLines");
+    if (currentLines?.length) return;
+    methods.setValue(
+      "charges.chargeLines",
+      companySettings.chargeDefinitions
+        .filter((charge) => charge.includeOnBilty)
+        .map((charge) => ({ chargeId: charge.id, name: charge.name, amount: charge.defaultAmount ?? 0 })),
+      { shouldDirty: false }
+    );
+  }, [companySettings.chargeDefinitions, editId, isLoadingSettings, methods]);
 
   // Offer to restore an existing draft rather than silently overwriting it (new consignments only).
   useEffect(() => {
@@ -224,6 +256,19 @@ function TransportBillingForm() {
   };
 
   const values = watch();
+  const formChargeDefinitions: ChargeDefinition[] = (values.charges?.chargeLines ?? []).map((line) => {
+    const configured = companySettings.chargeDefinitions.find((charge) => charge.id === line.chargeId);
+    const legacy = DEFAULT_CHARGE_DEFINITIONS.find((charge) => charge.id === line.chargeId);
+    return {
+      id: line.chargeId,
+      name: line.name,
+      defaultAmount: configured?.defaultAmount ?? 0,
+      includeOnBilty: true,
+      includeOnBill: configured?.includeOnBill ?? false,
+      ...(legacy?.legacyBiltyField ? { legacyBiltyField: legacy.legacyBiltyField } : {}),
+      ...(legacy?.legacyBillField ? { legacyBillField: legacy.legacyBillField } : {}),
+    };
+  });
   const sectionNav = (
     <nav
       aria-label="Consignment form sections"
@@ -318,6 +363,7 @@ function TransportBillingForm() {
           className="mx-auto max-w-[1320px] space-y-4 pb-24 text-[12px]"
           onSubmit={(e) => e.preventDefault()}
         >
+          <WorkflowTabs workflow="consignment" activePage="create" />
           <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-brand-50/60 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-700 text-white shadow-sm">
@@ -393,7 +439,7 @@ function TransportBillingForm() {
               <p className="mt-0.5 text-xs text-slate-500">Enter freight and tax; totals update as you type.</p>
             </div>
             <div className="grid items-start gap-3 xl:grid-cols-[1.4fr_1fr]">
-              <ChargesSection />
+              <ChargesSection chargeDefinitions={formChargeDefinitions} />
               <div className="space-y-3">
                 <BillingSummary />
                 <GstSection />

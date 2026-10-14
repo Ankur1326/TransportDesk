@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { PackageSearch, ArrowRight } from "lucide-react";
+import { PackageSearch, ArrowRight } from "@/components/icons";
 import { Section } from "@/components/layout/Section";
 import { Button } from "@/components/Button";
 

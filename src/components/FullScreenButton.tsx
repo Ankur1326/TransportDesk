@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Maximize, Minimize } from 'lucide-react';
+import { Maximize, Minimize } from "@/components/icons";
 import { adminToolbarButtonClass } from '@/components/admin/admin-toolbar-styles';
 
 interface FullScreenDocument extends Document {

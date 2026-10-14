@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RotateCcw, Printer, Eye, Save } from "lucide-react";
+import { RotateCcw, Printer, Eye, Save } from "@/components/icons";
 import { Button } from "@/components/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 

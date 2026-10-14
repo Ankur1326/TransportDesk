@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useFormContext } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
-import { UserPlus } from "lucide-react";
+import { UserPlus } from "@/components/icons";
 import { FormSection } from "@/components/billing/FormSection";
 import { Input } from "@/components/ui/Input";
 import { Combobox } from "@/components/ui/Combobox";

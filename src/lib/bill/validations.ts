@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { chargeLineSchema } from "@/lib/charges";
 
 import { BILLING_PARTIES } from "@/lib/validations/billing";
 
@@ -76,6 +77,7 @@ export const billItemSchema = z.object({
   loadingCharges: z.coerce.number().nonnegative().default(0),
 
   gstinCharges: z.coerce.number().nonnegative().default(0),
+  chargeLines: z.array(chargeLineSchema).optional(),
 
   /**
    * sourceBillingParty is the billingParty stored on the consignment itself —
@@ -130,6 +132,8 @@ function chargeNumber(value: number | string | null | undefined): number {
 }
 
 export function computeItemTotal(item: BillItemValues): number {
+  const snapshotTotal = item.chargeLines?.reduce((sum, line) => sum + chargeNumber(line.amount), 0);
+  if (snapshotTotal !== undefined) return snapshotTotal;
   return (
     chargeNumber(item.freightAmt) +
     chargeNumber(item.lrCharges) +

@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/redux/store";
 import { createConsignee, fetchConsignees, updateConsignee, deleteConsignee } from "@/redux/slices/consigneeSlice";
 import toast from "react-hot-toast";
-import { Plus, Edit, Trash2, Eye, EyeOff, Minus } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, EyeOff, Minus } from "@/components/icons";
 import Pagination from "@/components/Pagination";
 import SearchBar from "@/components/SearchBar";
 import dynamic from "next/dynamic";
@@ -312,7 +312,7 @@ export default function ConsigneeManagement({ params }: { params: Promise<{ role
                         <div className="flex items-center space-x-1 sm:space-x-2 absolute top-3 right-3 sm:static">
                             <button
                                 onClick={() => onEdit(item)}
-                                className="p-1 sm:p-1.5 text-gray-600 hover:text-[#ED7225] hover:bg-green-50 rounded transition-colors dark:text-gray-300 dark:hover:text-[#ED7225] dark:hover:bg-green-900/20"
+                                className="p-1 sm:p-1.5 text-gray-600 hover:text-[#DB7007] hover:bg-orange-50 rounded transition-colors dark:text-gray-300 dark:hover:text-[#DB7007] dark:hover:bg-orange-900/20"
                                 title="Edit"
                                 aria-label="Edit consignee"
                             >

@@ -1,4 +1,4 @@
-import { Star } from "lucide-react";
+import { Star } from "@/components/icons";
 import { Section } from "@/components/layout/Section";
 import { SectionHeading } from "@/components/layout/SectionHeading";
 import { Card } from "@/components/ui/Card";

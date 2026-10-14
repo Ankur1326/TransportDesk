@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import SearchFilters from "./SearchFilters";
-import { Loader2, Search, ChevronRight, Filter, Check, ChevronUp, ChevronDown } from "lucide-react";
+import { Loader2, Search, ChevronRight, Filter, Check, ChevronUp, ChevronDown } from "@/components/icons";
 
 interface TableProps<T> {
     headings: Array<React.ReactNode>;
@@ -95,14 +95,14 @@ const Table = <T,>({
                                         placeholder="Search..."
                                         value={searchQuery}
                                         onChange={handleSearchInputChange}
-                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-md text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-[#ED7225] focus:border-[#ED7225] transition-all"
+                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-md text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-[#DB7007] focus:border-[#DB7007] transition-all"
                                     />
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <Search className="h-4 w-4 text-gray-400" />
                                     </div>
                                     <button
                                         type="submit"
-                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm font-medium text-[#ED7225] hover:text-[#da6923] transition-colors"
+                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm font-medium text-[#DB7007] hover:text-[#A84F00] transition-colors"
                                     >
                                         Search
                                     </button>
@@ -115,7 +115,7 @@ const Table = <T,>({
                         <button
                             onClick={handleFilterToggle}
                             className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all ${showFilters
-                                ? 'bg-[#ED7225]/10 text-[#ED7225] border border-[#ED7225]'
+                                ? 'bg-[#DB7007]/10 text-[#DB7007] border border-[#DB7007]'
                                 : 'bg-gray-50 dark:bg-gray-200 text-gray-700 dark:text-gray-300 border border-transparent hover:bg-gray-200 dark:hover:bg-gray-600'
                                 }`}
                         >
@@ -410,7 +410,7 @@ const Table = <T,>({
             {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm z-10">
                     <div className="flex flex-col items-center justify-center space-y-2 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-                        <Loader2 className="h-8 w-8 animate-spin text-[#ED7225]" />
+                        <Loader2 className="h-8 w-8 animate-spin text-[#DB7007]" />
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Loading data...</span>
                     </div>
                 </div>

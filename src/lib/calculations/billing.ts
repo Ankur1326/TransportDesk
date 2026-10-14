@@ -16,7 +16,7 @@ export interface BillingTotals {
   grandTotal: number;
 }
 
-const CHARGE_LABELS: Record<keyof BillingFormValues["charges"], string> = {
+const LEGACY_CHARGE_LABELS: Record<Exclude<keyof BillingFormValues["charges"], "chargeLines">, string> = {
   freight: "Freight",
   localGodownCharges: "Local Godown Charges",
   unloadingCharge: "Unloading Charges",
@@ -24,7 +24,7 @@ const CHARGE_LABELS: Record<keyof BillingFormValues["charges"], string> = {
   codCharges: "COD Charges",
   statisticalCharges: "Statistical Charges",
   localCollectionCharges: "Local Collection Charges",
-  printHidden: ""
+  printHidden: "",
 };
 
 function toNumber(v: unknown): number {
@@ -40,10 +40,13 @@ export function resolveGstPercentage(tax: BillingFormValues["tax"]): number {
 
 /** Computes the full charges → subtotal → GST → grand total breakdown. Pure function, no side effects. */
 export function computeBillingTotals(charges: BillingFormValues["charges"], tax: BillingFormValues["tax"]): BillingTotals {
-  const lineItems: ChargeLineItem[] = (Object.keys(CHARGE_LABELS) as (keyof typeof CHARGE_LABELS)[]).map((key) => ({
-    label: CHARGE_LABELS[key],
-    amount: toNumber(charges[key]),
-  }));
+  const snapshotLines: ChargeLineItem[] | null = Array.isArray(charges.chargeLines)
+    ? charges.chargeLines.map((line) => ({ label: line.name, amount: toNumber(line.amount) }))
+    : null;
+  const legacyLines: ChargeLineItem[] = (Object.keys(LEGACY_CHARGE_LABELS) as (keyof typeof LEGACY_CHARGE_LABELS)[])
+    .filter((key) => key !== "printHidden")
+    .map((key) => ({ label: LEGACY_CHARGE_LABELS[key], amount: toNumber(charges[key]) }));
+  const lineItems = snapshotLines ?? legacyLines;
 
   const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
   const gstPercentage = resolveGstPercentage(tax);
