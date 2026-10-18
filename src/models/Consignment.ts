@@ -12,6 +12,7 @@ import {
     RECEIVED_TYPES,
 } from "@/lib/validations/billing";
 import type { ChargeLine } from "@/lib/charges";
+import { LR_STATUSES, type LrStatus } from "@/lib/consignment-status";
 
 // ─── Sub-document interfaces ────────────────────────────────────────────────
 
@@ -96,6 +97,13 @@ export interface IInsurance {
     riskType?: string;
 }
 
+export interface IStatusHistory {
+    status: LrStatus;
+    at: Date;
+    by?: string;
+    note?: string;
+}
+
 export interface IConsignment extends Document {
     consignmentNumber: string;
     bookingDate: Date | string;
@@ -127,6 +135,21 @@ export interface IConsignment extends Document {
     internalNotes?: string;
     specialInstructions?: string;
 
+    // Lifecycle
+    status: LrStatus;
+    statusHistory?: IStatusHistory[];
+    deliveredAt?: Date;
+    cancelledAt?: Date;
+    cancelReason?: string;
+
+    // Proof of delivery
+    podUrl?: string;
+    podPublicId?: string;
+    podResourceType?: string;
+    podFileName?: string;
+    podUploadedAt?: Date;
+
+    companyId?: string;
     createdBy?: mongoose.Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
@@ -249,6 +272,16 @@ const insuranceSchema = new Schema<IInsurance>(
     { _id: false }
 );
 
+const statusHistorySchema = new Schema<IStatusHistory>(
+    {
+        status: { type: String, enum: LR_STATUSES, required: true },
+        at: { type: Date, default: Date.now },
+        by: { type: String, default: "" },
+        note: { type: String, default: "", maxlength: 200 },
+    },
+    { _id: false }
+);
+
 // ─── Main schema ─────────────────────────────────────────────────────────────
 
 const consignmentSchema = new Schema<IConsignment>(
@@ -256,7 +289,6 @@ const consignmentSchema = new Schema<IConsignment>(
         consignmentNumber: {
             type: String,
             required: [true, "Consignment number is required"],
-            unique: true,
             trim: true,
             index: true,
         },
@@ -289,11 +321,30 @@ const consignmentSchema = new Schema<IConsignment>(
         internalNotes: { type: String, default: "" },
         specialInstructions: { type: String, default: "" },
 
+        status: { type: String, enum: LR_STATUSES, default: "Booked", index: true },
+        statusHistory: { type: [statusHistorySchema], default: undefined },
+        deliveredAt: { type: Date },
+        cancelledAt: { type: Date },
+        cancelReason: { type: String, default: "", maxlength: 200 },
+
+        podUrl: { type: String, default: "" },
+        podPublicId: { type: String, default: "" },
+        podResourceType: { type: String, default: "" },
+        podFileName: { type: String, default: "" },
+        podUploadedAt: { type: Date },
+
+        companyId: { type: String, index: true },
         createdBy: { type: Schema.Types.ObjectId, ref: "User" },
     },
     { timestamps: true }
 );
 
+// Numbers are unique per company. (The legacy global `consignmentNumber_1`
+// unique index is dropped by scripts/migrate-consignments.mjs.)
+consignmentSchema.index({ companyId: 1, consignmentNumber: 1 }, { unique: true });
+consignmentSchema.index({ companyId: 1, status: 1, bookingDate: -1 });
+consignmentSchema.index({ "payment.status": 1 });
+consignmentSchema.index({ bookingDate: -1 });
 consignmentSchema.index({ "consignor.name": 1 });
 consignmentSchema.index({ "consignee.name": 1 });
 consignmentSchema.index({ createdAt: -1 });

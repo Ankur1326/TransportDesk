@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { BillingFormValues } from "@/lib/validations/billing";
 import type { ChargeLine } from "@/lib/charges";
+import type { LrStatus } from "@/lib/consignment-status";
 
 export interface ConsignmentRecord extends BillingFormValues {
   _id: string;
@@ -68,17 +69,45 @@ export interface ConsignmentListItem {
   remarks?: string;
   internalNotes?: string;
   specialInstructions?: string;
+
+  /** Missing on legacy records — treat as "Booked". */
+  status?: LrStatus;
+  statusHistory?: { status: LrStatus; at: MongoDate; by?: string; note?: string }[];
+  deliveredAt?: MongoDate;
+  cancelledAt?: MongoDate;
+  cancelReason?: string;
+
+  podUrl?: string;
+  podFileName?: string;
+  podUploadedAt?: MongoDate;
+
+  createdBy?: { name?: string };
   createdAt?: MongoDate;
   updatedAt?: MongoDate;
 }
 
+export type ConsignmentSort = "newest" | "oldest" | "booking_newest" | "booking_oldest";
+
 export interface ConsignmentListParams {
   search?: string;
+  status?: LrStatus;
   paymentStatus?: string;
   segment?: string;
+  /** Booking-date range, YYYY-MM-DD, inclusive. */
+  from?: string;
+  to?: string;
+  fromCity?: string;
+  toCity?: string;
+  consignor?: string;
+  consignee?: string;
+  vehicle?: string;
+  sort?: ConsignmentSort;
   page?: number;
   limit?: number;
 }
+
+/** Per-status totals for the tab badges (respects every filter except status). */
+export type ConsignmentCounts = { All: number } & Record<LrStatus, number>;
 
 export interface ConsignmentListResponse {
   success: boolean;
@@ -108,6 +137,14 @@ export function getApiErrorMessage(error: unknown, fallback = "Something went wr
 export async function listConsignments(params: ConsignmentListParams = {}): Promise<ConsignmentListResponse> {
   const { data } = await axios.get<ConsignmentListResponse>(`${BASE_URL}/get`, { params });
   return data;
+}
+
+/** Per-status counts for the same filters as the list (status itself is ignored). */
+export async function getConsignmentCounts(
+  params: Omit<ConsignmentListParams, "status" | "page" | "limit" | "sort"> = {}
+): Promise<ConsignmentCounts> {
+  const { data } = await axios.get<ApiResponse<ConsignmentCounts>>(`${BASE_URL}/counts`, { params });
+  return data.data as ConsignmentCounts;
 }
 
 /** Fetch a single consignment by its Mongo id. */
