@@ -20,8 +20,8 @@ interface PrintPreviewProps {
 /* Copy selection                                                             */
 /* -------------------------------------------------------------------------- */
 
-const ALL_COPY_NAMES = ["LORRY COPY", "CONSIGNEE COPY", "CONSIGNOR COPY", "FILE COPY"] as const;
-type CopyName = (typeof ALL_COPY_NAMES)[number];
+export const ALL_COPY_NAMES = ["LORRY COPY", "CONSIGNEE COPY", "CONSIGNOR COPY", "FILE COPY"] as const;
+export type CopyName = (typeof ALL_COPY_NAMES)[number];
 
 const LR_FORMAT_LABELS: Record<LRFormat, string> = {
   classic: "Classic",
@@ -589,7 +589,17 @@ export function PrintPreview({ values, onClose }: PrintPreviewProps) {
         )}
       </div>
 
-      <style jsx global>{`
+      <LRStyles />
+    </div>
+  );
+}
+
+/**
+ * The LR sheet's stylesheet as a plain <style> tag (not styled-jsx): styled-jsx
+ * only injects its CSS on the client in the App Router, and the PDF is rendered
+ * from server HTML with JavaScript switched off.
+ */
+export const LR_CSS = `
         * {
           box-sizing: border-box;
         }
@@ -992,23 +1002,13 @@ export function PrintPreview({ values, onClose }: PrintPreviewProps) {
           width: 70px;
           height: 110px;
           min-width: 60px;
-          // border-radius: 50%;
-          // display: flex;
-          // align-items: center;
-          // justify-content: center;
-          // color: #172f57;
-          // font-size: 15px;
-          // font-weight: 900;
           overflow: hidden;
           background: #fff;
-          // border: 1px solid #111;
         }
 
         .lr-logo img {
           width: 100%;
           height: 100%;
-          // object-fit: cover;
-          // border-radius: 50%;
         }
 
         .lr-company-name {
@@ -1202,7 +1202,6 @@ export function PrintPreview({ values, onClose }: PrintPreviewProps) {
         }
 
         .lr-party {
-          // display: flex;
           border-bottom: 1px solid #111;
           border-right: 1px solid #111;
         }
@@ -1772,11 +1771,6 @@ export function PrintPreview({ values, onClose }: PrintPreviewProps) {
         /* SCREEN RESPONSIVE                                              */
         /* ============================================================= */
 
-        // @media (max-width: 1200px) {
-        //   .lr-document {
-        //     overflow-x: auto;
-        //   }
-        // }
 
         /* ============================================================= */
         /* PRINT                                                          */
@@ -1844,16 +1838,8 @@ export function PrintPreview({ values, onClose }: PrintPreviewProps) {
               print-color-adjust: exact !important;
             }
           }
-        }
-      `}</style>
-    </div>
-  );
-}
+`;
 
 export function LRStyles() {
-  return (
-    <style jsx global>{`
-      /* ...your existing CSS, unchanged... */
-    `}</style>
-  );
+  return <style dangerouslySetInnerHTML={{ __html: LR_CSS }} />;
 }

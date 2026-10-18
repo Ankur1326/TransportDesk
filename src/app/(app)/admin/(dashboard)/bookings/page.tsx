@@ -31,13 +31,14 @@ import {
 import { canTransition, type LrStatus } from "@/lib/consignment-status";
 import { downloadCsv, getStatus, summaryText } from "@/lib/lr-helpers";
 import { preparePodFile } from "@/lib/image-compress";
+import { lrPdfPath, LR_STANDARD_COPIES } from "@/lib/lr-copies";
 
 const PAGE_SIZES = [10, 25, 50];
 const EXPORT_PAGE = 100;
 const EXPORT_MAX_PAGES = 50;
 
-// Phase 3 replaces this with a real PDF endpoint.
-const printUrl = (id: string) => `/admin/print/${id}`;
+// Row click, Share and Copy link all point at the real PDF endpoint.
+const printUrl = (id: string) => lrPdfPath(id);
 
 /** Drop empty filter values so they aren't sent as `?search=`. */
 function toParams(f: Filters): ConsignmentListParams {
@@ -329,6 +330,7 @@ export default function BookingsPage() {
     copyDetails: (r) => copyText(summaryText(r), "Details copied."),
     viewDetails: setViewTarget,
     printCopies,
+    pdfAllCopies: (r) => window.open(lrPdfPath(r._id, LR_STANDARD_COPIES), "_blank", "noopener"),
     duplicate: (r) => router.push(`/admin/consignment/new?copyFrom=${r._id}`),
     setStatus: (r, s) => void setStatus(r, s),
     cancel: setCancelTarget,

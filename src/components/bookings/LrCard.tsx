@@ -24,6 +24,8 @@ export interface LrCardActions {
   copyDetails: (r: ConsignmentListItem) => void;
   viewDetails: (r: ConsignmentListItem) => void;
   printCopies: (r: ConsignmentListItem) => void;
+  /** Open the PDF with the Consignor, Consignee and Driver copies. */
+  pdfAllCopies: (r: ConsignmentListItem) => void;
   duplicate: (r: ConsignmentListItem) => void;
   setStatus: (r: ConsignmentListItem, s: LrStatus) => void;
   cancel: (r: ConsignmentListItem) => void;
@@ -185,13 +187,14 @@ export function LrCard({
           <ActionBtn icon={<Pencil />} label="Edit" href={`/admin/consignment/new?id=${item._id}`} disabled={cancelled} />
 
           <Menu trigger={<><Share2 /> Share</>}>
-            <MenuItem icon={<MessageCircle />} onClick={() => actions.shareWhatsApp(item)}>WhatsApp (details + link)</MenuItem>
-            <MenuItem icon={<Link2 />} onClick={() => actions.copyLink(item)}>Copy LR link</MenuItem>
+            <MenuItem icon={<MessageCircle />} onClick={() => actions.shareWhatsApp(item)}>WhatsApp (details + PDF link)</MenuItem>
+            <MenuItem icon={<Link2 />} onClick={() => actions.copyLink(item)}>Copy PDF link</MenuItem>
             <MenuItem icon={<Copy />} onClick={() => actions.copyDetails(item)}>Copy details</MenuItem>
           </Menu>
 
           <Menu trigger={<><MoreHorizontal /> More</>}>
             <MenuItem icon={<Eye />} onClick={() => actions.viewDetails(item)}>View details</MenuItem>
+            <MenuItem icon={<Printer />} onClick={() => actions.pdfAllCopies(item)}>PDF · all 3 copies</MenuItem>
             <MenuItem icon={<Printer />} onClick={() => actions.printCopies(item)}>Print copies…</MenuItem>
             <MenuItem icon={<Copy />} onClick={() => actions.duplicate(item)}>Duplicate LR</MenuItem>
             {(status === "Booked" || status === "On Route" || status === "Delivered") && <MenuDivider />}
