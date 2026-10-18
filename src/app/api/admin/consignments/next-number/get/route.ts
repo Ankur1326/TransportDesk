@@ -4,6 +4,7 @@ import { getAuthenticatedCompanyId } from "@/lib/company-auth";
 import dbConnect from "@/lib/db";
 import CompanySettings from "@/models/CompanySettings";
 import ConsignmentModel from "@/models/Consignment";
+import { companyFilter } from "@/lib/company-scope";
 
 /**
  * GET /api/consignments/next-number
@@ -32,7 +33,7 @@ export async function GET() {
     const result = await ConsignmentModel.aggregate<{ maxNumber: number | null }>([
       // Only consider consignment numbers that are plain digits — anything
       // hand-edited into a non-numeric format is ignored for sequencing.
-      { $match: { consignmentNumber: { $regex: /^\d+$/ } } },
+      { $match: { consignmentNumber: { $regex: /^\d+$/ }, ...companyFilter(companyId) } },
       { $project: { numericValue: { $toLong: "$consignmentNumber" } } },
       { $group: { _id: null, maxNumber: { $max: "$numericValue" } } },
     ]);
