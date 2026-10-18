@@ -211,7 +211,7 @@
     border-color: var(--color-neutral-200);
   }
   * {
-    @apply border-border outline-ring/50;
+    /* @apply border-border outline-ring/50; */
   }
 }
 
@@ -468,6 +468,8 @@ html[data-app-theme] [class~="bg-white/95"] {
   background-color: color-mix(in srgb, var(--app-sidebar-active-text) 12%, transparent);
   color: var(--app-sidebar-active-text);
 }
+
+/*  */
 
 #main-sidebar button[data-sidebar-active="true"] [data-sidebar-marker="true"] {
   background-color: var(--app-sidebar-active-mark);

@@ -79,14 +79,11 @@ function LRField({ label, value, className = "" }: { label: string; value?: Reac
 /* Single Copy                                                                */
 /* -------------------------------------------------------------------------- */
 
-function LorryCopy({
-  values,
-  copyName,
-  company,
-  lrFormat,
-}: {
+
+
+export function LorryCopy({ values, copyName, company, lrFormat }: {
   values: BillingFormValues;
-  copyName: CopyName;
+  copyName?: CopyName;          // <- optional
   company: CompanySettingsValues;
   lrFormat: LRFormat;
 }) {
@@ -330,9 +327,11 @@ function LorryCopy({
                         <div className="lr-goods-value">{text(values.shipment.description)}</div>
                       </div>
                     </div>
-                    <div className="lr-copy-name-row">
-                      <div className="lr-copy-name">{copyName}</div>
-                    </div>
+                    {copyName && (
+                      <div className="lr-copy-name-row">
+                        <div className="lr-copy-name">{copyName}</div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -480,7 +479,7 @@ function LorryCopy({
         <div className="lr-footer-text">
           {company.lrTerms || "Goods carried at owner’s risk unless otherwise agreed. Claims are subject to the company’s terms and conditions."}
         </div>
-        <strong>{copyName}</strong>
+        {copyName && <strong>{copyName}</strong>}
       </div>
     </div>
   );
@@ -1848,5 +1847,13 @@ export function PrintPreview({ values, onClose }: PrintPreviewProps) {
         }
       `}</style>
     </div>
+  );
+}
+
+export function LRStyles() {
+  return (
+    <style jsx global>{`
+      /* ...your existing CSS, unchanged... */
+    `}</style>
   );
 }

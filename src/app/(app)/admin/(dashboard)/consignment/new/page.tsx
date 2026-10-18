@@ -137,10 +137,10 @@ function TransportBillingForm() {
         const chargeLines = Array.isArray(charges.chargeLines)
           ? charges.chargeLines
           : chargeLinesFromLegacy(
-              charges,
-              legacyDefinitions,
-              "bilty"
-            );
+            charges,
+            legacyDefinitions,
+            "bilty"
+          );
         reset({ ...record, charges: { ...charges, chargeLines } });
         setRecordId(record._id);
       })
@@ -269,27 +269,6 @@ function TransportBillingForm() {
       ...(legacy?.legacyBillField ? { legacyBillField: legacy.legacyBillField } : {}),
     };
   });
-  const sectionNav = (
-    <nav
-      aria-label="Consignment form sections"
-      className="sticky top-0 z-20 -mx-2 mb-5 border-y border-slate-200 bg-white/95 px-2 py-2 shadow-sm backdrop-blur sm:mx-0 sm:rounded-xl sm:border sm:px-3"
-    >
-      <div className="flex gap-2 overflow-x-auto">
-        {FORM_SECTIONS.map((section, index) => (
-          <a
-            key={section.id}
-            href={`#${section.id}`}
-            className="focus-ring inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-brand-50 hover:text-brand-800"
-          >
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[10px] text-slate-600">
-              {index + 1}
-            </span>
-            {section.label}
-          </a>
-        ))}
-      </div>
-    </nav>
-  );
 
   if (isLoadingRecord) {
     return <Loading fullPage label="Loading consignment…" />;
@@ -301,7 +280,7 @@ function TransportBillingForm() {
       {/* DRAFT BANNER                                                     */}
       {/* ================================================================ */}
 
-      {draftBanner && (
+      {/* {draftBanner && (
         <div className="mb-6 rounded-xl border border-brand-200 bg-brand-50/80 px-5 py-2 shadow-sm print:hidden">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
@@ -351,7 +330,7 @@ function TransportBillingForm() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {previewOpen ? (
         <PrintPreview
@@ -387,24 +366,17 @@ function TransportBillingForm() {
             </div>
           </header>
 
-          {sectionNav}
+          {/* {sectionNav} */}
 
           <div id="consignment-details" className="scroll-mt-24">
             <ConsignmentInfoSection />
           </div>
 
           <section id="consignment-parties" className="scroll-mt-24">
-            <div className="mb-2 flex items-end justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Parties</h2>
-                <p className="mt-0.5 text-xs text-slate-500">Select a saved customer or enter new party details.</p>
-              </div>
-              <span className="hidden text-[11px] text-slate-500 sm:inline">Consignor → Consignee</span>
-            </div>
             <div className="grid items-start gap-3 lg:grid-cols-2">
               <PartyCard
                 prefix="consignor"
-                title="Consignor"
+                title="Consigner"
                 description="Party sending the goods."
               />
               <PartyCard

@@ -1,7 +1,7 @@
 import mongoose, { model, Schema, Document, Model } from "mongoose";
 
 // Define the Category interface, extending Mongoose's Document
-export interface IConsigner extends Document {
+export interface ICustomer extends Document {
     name: string;
     address: string;
     city: string;
@@ -14,7 +14,7 @@ export interface IConsigner extends Document {
     updatedAt: Date;
 }
 
-const ConsignerSchema: Schema<IConsigner> = new mongoose.Schema(
+const CustomerSchema: Schema<ICustomer> = new mongoose.Schema(
     {
         name: {
             type: String,
@@ -58,6 +58,6 @@ const ConsignerSchema: Schema<IConsigner> = new mongoose.Schema(
     }
 )
 
-const Consigner: Model<IConsigner> = (mongoose?.models?.Consigner as Model<IConsigner>) || model<IConsigner>("Consigner", ConsignerSchema)
+const Customer: Model<ICustomer> = (mongoose?.models?.Customer as Model<ICustomer>) || model<ICustomer>("Customer", CustomerSchema)
 
-export default Consigner;
+export default Customer;

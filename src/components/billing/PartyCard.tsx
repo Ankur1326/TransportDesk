@@ -1,16 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import axios from "axios";
 import { useFormContext } from "react-hook-form";
-import { useDispatch, useSelector } from "react-redux";
 import { UserPlus } from "@/components/icons";
 import { FormSection } from "@/components/billing/FormSection";
 import { Input } from "@/components/ui/Input";
-import { Combobox } from "@/components/ui/Combobox";
-import type { AppDispatch, RootState } from "@/redux/store";
-import { fetchConsigners } from "@/redux/slices/consignerSlice";
-import { fetchConsignees } from "@/redux/slices/consigneeSlice";
-import { GST_STATES } from "@/data/gstStates";
 import type { BillingFormValues } from "@/lib/validations/billing";
 
 interface PartyCardProps {
@@ -19,17 +14,50 @@ interface PartyCardProps {
   description: string;
 }
 
-/**
- * State is stored as "24-GUJARAT" (code-name, see StateAutocomplete).
- * This builds extra, invisible search text so a user can find the same
- * record by typing the state code ("GJ"), the GST code ("24"), or the
- * plain name ("gujarat") — not just what's already shown on screen.
- */
-function stateSearchKeywords(state?: string): string {
-  if (!state) return "";
-  const code = state.split("-")[0]?.trim();
-  const match = GST_STATES.find((s) => s.code === code);
-  return match ? `${state} ${match.stateCode} ${match.name}` : state;
+interface CustomerRow {
+  _id: string;
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  gstin?: string;
+  mobile?: string;
+  email?: string;
+}
+
+/** Debounced, cancellable server-side search. Empty query = list all (first page). */
+function useCustomerSearch(query: string, enabled: boolean) {
+  const [items, setItems] = useState<CustomerRow[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const controller = new AbortController();
+
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await axios.get("/api/admin/customer/get", {
+          params: { search: query.trim() || undefined, currentPage: 1, itemsPerPage: 50 },
+          signal: controller.signal,
+        });
+        setItems(res.data?.data?.customers ?? []);
+        setLoading(false);
+      } catch (err) {
+        if (axios.isCancel(err)) return; // a newer request took over
+        setItems([]);
+        setLoading(false);
+      }
+    }, query ? 250 : 0); // no delay when just opening the list
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, enabled]);
+
+  return { items, loading };
 }
 
 export function PartyCard({ prefix, title, description }: PartyCardProps) {
@@ -41,74 +69,131 @@ export function PartyCard({ prefix, title, description }: PartyCardProps) {
   } = useFormContext<BillingFormValues>();
   const sectionErrors = errors[prefix];
 
-  const dispatch = useDispatch<AppDispatch>();
-  const isConsignor = prefix === "consignor";
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(""); // only what the user typed since opening
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Consignor and consignee are backed by separate collections/slices —
-  // pick the right one for this card.
-  const { consigners, status: consignersStatus } = useSelector((state: RootState) => state.consigners);
-  const { consignees, status: consigneesStatus } = useSelector((state: RootState) => state.consignees);
+  const { items, loading } = useCustomerSearch(searchTerm, open);
 
-  const customers = isConsignor ? consigners : consignees;
-  const status = isConsignor ? consignersStatus : consigneesStatus;
-
-  // Load the full customer list once (large itemsPerPage) so search is
-  // instant client-side as the user types, instead of a round trip per
-  // keystroke. Guarded by status so consignor + consignee cards on the same
-  // page don't refetch each other's data or refetch on every re-render.
+  // Close on outside click
   useEffect(() => {
-    if (status !== "idle") return;
-    if (isConsignor) {
-      dispatch(fetchConsigners({ itemsPerPage: 1000, currentPage: 1 }));
-    } else {
-      dispatch(fetchConsignees({ itemsPerPage: 1000, currentPage: 1 }));
-    }
-  }, [dispatch, isConsignor, status]);
+    const onDown = (e: MouseEvent) => {
+      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  const handleSelect = (c: CustomerRow) => {
+    setValue(`${prefix}.customerId`, c._id);
+    setValue(`${prefix}.name`, c.name, { shouldValidate: true });
+    setValue(`${prefix}.address`, c.address ?? "", { shouldValidate: true });
+    setValue(`${prefix}.city`, c.city ?? "", { shouldValidate: true });
+    setValue(`${prefix}.state`, c.state ?? "", { shouldValidate: true });
+    setValue(`${prefix}.pincode`, c.pincode ?? "");
+    setValue(`${prefix}.gstin`, c.gstin ?? "", { shouldValidate: true });
+    setValue(`${prefix}.mobile`, c.mobile ?? "", { shouldValidate: true });
+    setValue(`${prefix}.email`, c.email ?? "");
+    setOpen(false);
+    setActiveIndex(-1);
+  };
 
   const handleAddNew = () => {
-    resetField(`${prefix}.customerId`, { defaultValue: "" });
-    resetField(`${prefix}.name`, { defaultValue: "" });
-    resetField(`${prefix}.address`, { defaultValue: "" });
-    resetField(`${prefix}.city`, { defaultValue: "" });
-    resetField(`${prefix}.state`, { defaultValue: "" });
-    resetField(`${prefix}.pincode`, { defaultValue: "" });
-    resetField(`${prefix}.gstin`, { defaultValue: "" });
-    resetField(`${prefix}.mobile`, { defaultValue: "" });
-    resetField(`${prefix}.email`, { defaultValue: "" });
+    (["customerId", "name", "address", "city", "state", "pincode", "gstin", "mobile", "email"] as const).forEach(
+      (f) => resetField(`${prefix}.${f}`, { defaultValue: "" })
+    );
+    setOpen(false);
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      setSearchTerm("");
+      setOpen(true);
+      return;
+    }
+    if (!open) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.min(i + 1, items.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter" && activeIndex >= 0 && items[activeIndex]) {
+      e.preventDefault(); // don't submit the form
+      handleSelect(items[activeIndex]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
+  // Wrap RHF's handlers so we keep validation AND add search behaviour
+  const nameField = register(`${prefix}.name`);
 
   return (
     <FormSection title={title} description={description}>
       <div className="space-y-3">
-        <Combobox
-          size="compact"
-          label="Select existing customer"
-          placeholder="Search customer…"
-          items={customers.map((c) => ({
-            id: c._id,
-            label: c.name,
-            subLabel: `${c.city}, ${c.state}`,
-            keywords: stateSearchKeywords(c.state),
-          }))}
-          onSelect={(item) => {
-            const customer = customers.find((c) => c._id === item.id);
-            if (!customer) return;
-            setValue(`${prefix}.customerId`, customer._id);
-            setValue(`${prefix}.name`, customer.name, { shouldValidate: true });
-            setValue(`${prefix}.address`, customer.address, { shouldValidate: true });
-            setValue(`${prefix}.city`, customer.city);
-            setValue(`${prefix}.state`, customer.state);
-            setValue(`${prefix}.pincode`, customer.pincode);
-            setValue(`${prefix}.gstin`, customer.gstin);
-            setValue(`${prefix}.mobile`, customer.mobile, { shouldValidate: true });
-            setValue(`${prefix}.email`, customer.email);
-          }}
-          onCreateNew={handleAddNew}
-          createNewLabel="+ Add New Customer"
-        />
-
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Input size="compact" label="Company / Customer Name" required error={sectionErrors?.name?.message} {...register(`${prefix}.name`)} />
+          <div ref={wrapperRef} className="relative">
+            <Input
+              size="compact"
+              label="Company / Customer Name"
+              required
+              autoComplete="off"
+              error={sectionErrors?.name?.message}
+              {...nameField}
+              onFocus={() => {
+                setSearchTerm(""); // show everyone on click
+                setActiveIndex(-1);
+                setOpen(true);
+              }}
+              onChange={(e) => {
+                nameField.onChange(e);
+                setValue(`${prefix}.customerId`, ""); // manual edit → no longer a saved customer
+                setSearchTerm(e.target.value);
+                setActiveIndex(-1);
+                setOpen(true);
+              }}
+              onKeyDown={handleKeyDown}
+            />
+
+            {open && (
+              <ul
+                role="listbox"
+                className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-card-hover"
+              >
+                {loading && items.length === 0 && (
+                  <li className="px-3.5 py-2.5 text-body-sm text-neutral-500">Searching…</li>
+                )}
+                {!loading && items.length === 0 && (
+                  <li className="px-3.5 py-2.5 text-body-sm text-neutral-500">
+                    No matches. Keep typing to add a new customer.
+                  </li>
+                )}
+                {items.map((c, i) => (
+                  <li
+                    key={c._id}
+                    role="option"
+                    aria-selected={i === activeIndex}
+                    // onMouseDown (not onClick) so it fires before the input blurs
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleSelect(c);
+                    }}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    className={`cursor-pointer px-3.5 py-2 ${i === activeIndex ? "bg-neutral-100" : ""}`}
+                  >
+                    <p className="text-body-sm font-medium text-neutral-900">{c.name}</p>
+                    <p className="text-[11px] text-neutral-500">
+                      {[c.city, c.state].filter(Boolean).join(", ")}
+                      {c.gstin ? ` · ${c.gstin}` : ""}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <Input size="compact" label="Address" required error={sectionErrors?.address?.message} {...register(`${prefix}.address`)} />
         </div>
 
@@ -133,7 +218,7 @@ export function PartyCard({ prefix, title, description }: PartyCardProps) {
           className="focus-ring inline-flex items-center gap-1 text-[11px] font-medium text-brand-700 hover:text-brand-800"
         >
           <UserPlus className="h-3 w-3" aria-hidden="true" />
-          Add as new customer
+          Clear / add as new customer
         </button>
       </div>
     </FormSection>

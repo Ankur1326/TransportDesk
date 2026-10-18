@@ -33,27 +33,6 @@ export interface AppearancePreset {
 
 export const APPEARANCE_PRESETS: AppearancePreset[] = [
   {
-    id: "transport-orange",
-    name: "Transport Orange",
-    description: "Warm, confident orange with charcoal neutrals.",
-    colors: {
-      primary: "#DB7007",
-      accent: "#B85C05",
-      pageBackground: "#F7F7F5",
-      cardBackground: "#FFFFFF",
-      text: "#242321",
-      mutedText: "#6C6A66",
-      border: "#E5E2DC",
-      sidebarBackground: "#FFFFFF",
-      sidebarText: "#45423E",
-      sidebarActiveBackground: "#FFF0E1",
-      sidebarActiveText: "#793B00",
-      buttonBackground: "#B85C05",
-      buttonText: "#FFFFFF",
-      buttonHover: "#A84F00",
-    },
-  },
-  {
     id: "executive-navy",
     name: "Executive Navy",
     description: "Classic navy, crisp white, and restrained blue accents.",
@@ -74,6 +53,28 @@ export const APPEARANCE_PRESETS: AppearancePreset[] = [
       buttonHover: "#193C62",
     },
   },
+  {
+    id: "transport-orange",
+    name: "Transport Orange",
+    description: "Warm, confident orange with charcoal neutrals.",
+    colors: {
+      primary: "#DB7007",
+      accent: "#B85C05",
+      pageBackground: "#F7F7F5",
+      cardBackground: "#FFFFFF",
+      text: "#242321",
+      mutedText: "#6C6A66",
+      border: "#E5E2DC",
+      sidebarBackground: "#FFFFFF",
+      sidebarText: "#45423E",
+      sidebarActiveBackground: "#FFF0E1",
+      sidebarActiveText: "#793B00",
+      buttonBackground: "#B85C05",
+      buttonText: "#FFFFFF",
+      buttonHover: "#A84F00",
+    },
+  },
+
   {
     id: "forest-green",
     name: "Forest Green",

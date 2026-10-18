@@ -103,16 +103,10 @@ export const NAVIGATION_CONFIG: Record<string, NavigationConfig> = {
         name: "Customers",
         items: [
           {
-            id: "consigners",
-            title: "Consigners",
+            id: "customers",
+            title: "customers",
             icon: <LuSend className="h-[18px] w-[18px]" />,
-            route: "/admin/consigners",
-          },
-          {
-            id: "consignees",
-            title: "Consignees",
-            icon: <LuUsersRound className="h-[18px] w-[18px]" />,
-            route: "/admin/consignees",
+            route: "/admin/customers",
           },
         ],
       },

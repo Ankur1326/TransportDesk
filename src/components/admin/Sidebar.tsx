@@ -1,10 +1,13 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
+import Image from 'next/image';
 import { FaAngleDown } from "@/components/icons";
 import { NAVIGATION_CONFIG, NavigationConfig } from '@/lib/navigationConfig';
 import { cn } from '@/lib/utils';
+import { useCompanySettings } from '@/hooks/useCompanySettings';
+import { siteConfig } from '@/lib/site-config';
 import ProfileMenu from '@/components/ProfileMenu';
 import ThemeSelector from '@/components/ThemeSelector';
 
@@ -17,6 +20,15 @@ interface SidebarProps {
     onCollapsedChange?: (collapsed: boolean) => void;
 }
 
+const AURORA: CSSProperties = {
+    background: [
+        'radial-gradient(120% 55% at 0% 0%, color-mix(in srgb, var(--primary) 24%, transparent), transparent 62%)',
+        'radial-gradient(90% 45% at 100% 38%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%)',
+        'radial-gradient(120% 50% at 100% 100%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 62%)',
+    ].join(','),
+};
+ 
+
 export default function Sidebar({
     isSidebarOpen,
     userRole = 'transporter',
@@ -24,6 +36,9 @@ export default function Sidebar({
 }: SidebarProps) {
     const router = useRouter();
     const currentRoute = usePathname();
+    const { settings } = useCompanySettings();
+    const companyName = settings.companyName || siteConfig.name;
+    const companyEmail = settings.email || siteConfig.email;
 
     const [expansionOverride, setExpansionOverride] = useState<{
         pathname: string;
@@ -80,7 +95,7 @@ export default function Sidebar({
                 : item.route === activeGroupRoute;
 
         return (
-            <div key={item.route} className="relative mb-0.5 px-2">
+            <div key={item.route} className="relative mb-0.5 pr-1">
                 <button
                     type="button"
                     onClick={() =>
@@ -93,7 +108,7 @@ export default function Sidebar({
                     aria-expanded={hasChildren ? isExpanded : undefined}
                     aria-controls={hasChildren ? `section-${item.route}` : undefined}
                     className={cn(
-                        'group relative flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5',
+                        'group relative flex w-full cursor-pointer items-center gap-3 px-3 py-3',
                         'text-body-sm transition-all duration-150 outline-none',
                         'focus-visible:ring-2 focus-visible:ring-accent-500/40 focus-visible:ring-offset-2',
                         'dark:focus-visible:ring-offset-brand-950',
@@ -106,19 +121,15 @@ export default function Sidebar({
                         <span
                             aria-hidden="true"
                             data-sidebar-marker="true"
-                            className="absolute bottom-2 left-0 top-2 w-1 rounded-r-sm bg-accent-500"
-                            style={{ clipPath: 'polygon(0 0, 100% 12%, 100% 88%, 0 100%)' }}
+                            className="absolute bottom-0 left-0 top-0 w-1 bg-accent-500"
+                            // style={{ clipPath: 'polygon(0 0, 100% 12%, 100% 88%, 0 100%)' }}
                         />
                     )}
 
                     <span
                         className={cn(
-                            'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                            isActive
-                                ? 'bg-accent-500/15 text-accent-600 dark:bg-accent-500/20 dark:text-accent-400'
-                                : 'bg-neutral-100 text-neutral-500 group-hover:bg-neutral-200/80 dark:bg-brand-900 dark:text-neutral-400 dark:group-hover:bg-brand-800'
+                            '',
                         )}
-                        data-sidebar-icon="true"
                         aria-hidden="true"
                     >
                         {item.icon}
@@ -161,15 +172,15 @@ export default function Sidebar({
                                         aria-current={childActive ? 'page' : undefined}
                                         data-sidebar-active={childActive ? "true" : "false"}
                                         className={cn(
-                                            'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-body-sm',
-                                            'transition-all duration-150 outline-none',
+                                            'flex w-full items-center gap-2.5 px-3 py-2 text-left text-body-sm',
+                                            '  outline-none',
                                             'focus-visible:ring-2 focus-visible:ring-accent-500/40',
                                             childActive
-                                                ? 'bg-brand-900 font-medium text-white dark:bg-accent-600'
+                                                ? 'bg-white font-medium text-white dark:bg-accent-600'
                                                 : 'text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-brand-900/60'
                                         )}
                                     >
-                                        <span data-sidebar-icon="true" className="shrink-0" aria-hidden="true">
+                                        <span data-sidebar-icon="true" className="shrink-0 !text-neutral-900 dark:!text-white" aria-hidden="true">
                                             {child.icon}
                                         </span>
                                         <span>{child.title}</span>
@@ -189,12 +200,46 @@ export default function Sidebar({
             role="navigation"
             aria-label="Main navigation"
             className={cn(
-                'fixed z-40 flex h-dvh max-h-dvh w-64 flex-col',
-                'border-r border-neutral-200/80 bg-white dark:border-brand-800 dark:bg-brand-950',
-                'transition-transform duration-300 ease-out',
-                isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+                'fixed isolate z-40 flex h-dvh max-h-dvh w-64 flex-col overflow-hidden',
+                'border-r border-[var(--app-border)] bg-[var(--app-sidebar-background)]',
+                'transition-transform duration-300 ease-out motion-reduce:transition-none',
+                isSidebarOpen
+                    ? 'translate-x-0 shadow-2xl md:shadow-none'
+                    : '-translate-x-full md:translate-x-0'
             )}
         >
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 -z-10"
+                style={AURORA}
+            />
+            <div className="flex shrink-0 items-center gap-3 border-b border-neutral-200 px-4 py-4 dark:border-brand-800">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-brand-800">
+                    {settings.companyLogo ? (
+                        <Image
+                            src={settings.companyLogo}
+                            alt={`${companyName} logo`}
+                            width={44}
+                            height={44}
+                            unoptimized
+                            className="h-full w-full object-contain"
+                        />
+                    ) : (
+                        <span className="text-sm font-bold text-brand-800 dark:text-accent-300">
+                            {companyName.slice(0, 3).toUpperCase()}
+                        </span>
+                    )}
+                </div>
+                <div className="min-w-0">
+                    <p className="truncate text-body-sm font-semibold text-brand-900 dark:text-white" title={companyName}>
+                        {companyName}
+                    </p>
+                    <p className="truncate text-caption text-neutral-500 dark:text-neutral-400" title={companyEmail}>
+                        {companyEmail}
+                    </p>
+                </div>
+            </div>
+
             {/* Navigation */}
             <nav className="min-h-0 flex-1 space-y-0 overflow-y-auto overflow-x-hidden py-3">
                 {sidebarConfig?.sections?.map((section, index) => (

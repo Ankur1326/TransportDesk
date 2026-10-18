@@ -25,17 +25,27 @@ export function WorkflowTabs({
   return (
     <nav
       aria-label={`${workflow === "consignment" ? "Bilty" : "Billing"} navigation`}
-      className="mb-5 print:hidden"
+      // Pinned to the top while the page scrolls underneath
+      className="sticky top-0  z-30 print:hidden"
     >
-      <div className="flex w-full rounded-xl border border-neutral-200 bg-neutral-100 p-1 shadow-sm dark:border-brand-800 dark:bg-brand-900/70">
+      <div
+        className={cn(
+          "flex w-full divide-x divide-[var(--app-border)]",
+          "border border-[var(--app-border)] bg-[var(--app-card-background)] shadow-sm"
+        )}
+      >
         {WORKFLOWS[workflow].map((item, index) => {
           const isActive = (activePage === "list" ? 0 : 1) === index;
           const className = cn(
-            "flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-lg px-3 py-2 text-center text-sm font-semibold transition-colors sm:px-4",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-brand-950",
+            "flex min-h-10 min-w-0 flex-1 items-center justify-center border-b-[3px]  text-center text-sm transition-colors sm:px-4",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/60",
             isActive
-              ? "bg-white text-brand-900 shadow-sm ring-1 ring-neutral-200 dark:bg-brand-800 dark:text-white dark:ring-brand-700"
-              : "text-neutral-600 hover:bg-white/70 hover:text-brand-900 dark:text-neutral-300 dark:hover:bg-brand-800/70 dark:hover:text-white"
+              ? "border-blue-500 bg-[var(--app-card-background)] font-semibold text-blue-600 dark:text-blue-400"
+              : cn(
+                  "border-transparent bg-[color-mix(in_srgb,var(--app-border)_35%,var(--app-card-background))]",
+                  "font-medium text-[var(--app-muted-text)]",
+                  "hover:bg-[var(--app-card-background)] hover:text-[var(--app-text)]"
+                )
           );
 
           return isActive ? (

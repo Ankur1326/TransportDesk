@@ -1,6 +1,6 @@
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import dbConnect from "@/lib/db";
-import Consignee from "@/models/Consignee";
+import Customer from "@/models/Customer";
 import { getServerSession } from "next-auth";
 // import { getSession } from "next-auth/react";
 
@@ -34,14 +34,14 @@ export async function DELETE(request: Request) {
 
     try {
         const data = await request.json();
-        const consigneeId = data._id
+        const customerId = data._id
 
         // Fixing validation to check for undefined for isActive
-        if (!consigneeId) {
+        if (!customerId) {
             return Response.json(
                 {
                     success: false,
-                    message: "Consignee ID is required."
+                    message: "Customer ID is required."
                 },
                 {
                     status: 400
@@ -49,13 +49,13 @@ export async function DELETE(request: Request) {
             );
         }
 
-        const result = await Consignee.deleteOne({ _id: consigneeId });
+        const result = await Customer.deleteOne({ _id: customerId });
 
         if (result.deletedCount === 0) {
             return Response.json(
                 {
                     success: false,
-                    message: "Consignee not found.",
+                    message: "Customer not found.",
                 },
                 {
                     status: 404,
@@ -66,7 +66,7 @@ export async function DELETE(request: Request) {
         return Response.json(
             {
                 success: true,
-                message: "Consignee deleted successfully.",
+                message: "Customer deleted successfully.",
             },
             {
                 status: 200,
@@ -74,11 +74,11 @@ export async function DELETE(request: Request) {
         );
 
     } catch (error) {
-        console.log("Error while deleting Consignee : ", error);
+        console.log("Error while deleting Customer : ", error);
         return Response.json(
             {
                 success: false,
-                message: "Internal server error while Consignee",
+                message: "Internal server error while Customer",
                 error
             },
             {

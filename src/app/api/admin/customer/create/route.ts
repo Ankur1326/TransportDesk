@@ -1,6 +1,6 @@
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import dbConnect from "@/lib/db";
-import Consignee from "@/models/Consignee";
+import Customer from "@/models/Customer";
 import { getServerSession } from "next-auth";
 // import { getSession } from "next-auth/react";
 
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
             return Response.json(
                 {
                     success: false,
-                    message: "Consignee name is required."
+                    message: "Customer name is required."
                 },
                 {
                     status: 400
@@ -39,31 +39,31 @@ export async function POST(request: Request) {
         }
 
         // Check if the category already exists by name
-        const existingConsignee = await Consignee.findOne({ name });
-        console.log("existingConsignee : ", existingConsignee);
+        const existingCustomer = await Customer.findOne({ name });
+        console.log("existingCustomer : ", existingCustomer);
 
-        if (existingConsignee) {
+        if (existingCustomer) {
             return Response.json(
                 {
                     success: true,
-                    message: "Consignee with this name already exists",
+                    message: "Customer with this name already exists",
                 },
                 { status: 400 }
             )
         }
 
-        const newConsignee = new Consignee({
+        const newCustomer = new Customer({
             name, address, city, state, pincode, gstin, mobile, email
         });
 
         // Save the new category to the database
-        await newConsignee.save();
+        await newCustomer.save();
 
         return Response.json(
             {
                 success: true,
-                message: "New Consignee tag created successfully",
-                data: newConsignee,
+                message: "New Customer tag created successfully",
+                data: newCustomer,
             },
             {
                 status: 200
@@ -71,11 +71,11 @@ export async function POST(request: Request) {
         );
 
     } catch (error) {
-        console.log("Error while creating new Consignee : ", error);
+        console.log("Error while creating new Customer : ", error);
         return Response.json(
             {
                 success: false,
-                message: "Internal server error while creating new Consignee",
+                message: "Internal server error while creating new Customer",
                 error
             },
             {

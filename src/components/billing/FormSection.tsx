@@ -1,4 +1,5 @@
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
+import { CardLabel } from "@/components/ui/CardLabel";
 import { cn } from "@/lib/utils";
 
 interface FormSectionProps {
@@ -12,19 +13,20 @@ interface FormSectionProps {
 
 export function FormSection({ title, description, children, className, headerAction }: FormSectionProps) {
   return (
-    <Card padding="sm" className={cn("scroll-mt-20 relative rounded-xl border-slate-200 shadow-sm", className)}>
-      <CardHeader className="mb-3 flex flex-row items-start justify-between gap-3">
-        <div>
-          <CardTitle className="text-sm font-bold text-slate-900">
-            {title}
-          </CardTitle>
-          {description && (
-            <CardDescription className="mt-1 text-xs leading-snug">{description}</CardDescription>
-          )}
-        </div>
-        {headerAction}
-      </CardHeader>
-      {children}
+    <Card
+      padding="none"
+      className={cn(
+        "relative scroll-mt-20 overflow-hidden rounded-xl border-slate-200 shadow-sm",
+        className
+      )}
+    >
+      <CardLabel title={title} right={headerAction} />
+      <div className="p-3">
+        {description && (
+          <p className="mb-3 text-xs leading-snug text-slate-500">{description}</p>
+        )}
+        {children}
+      </div>
     </Card>
   );
 }

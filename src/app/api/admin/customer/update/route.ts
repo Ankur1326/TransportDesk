@@ -1,5 +1,5 @@
 import dbConnect from "@/lib/db";
-import Consignee from "@/models/Consignee";
+import Customer from "@/models/Customer";
 // import { getSession } from "next-auth/react";
 
 export async function PUT(request: Request) {
@@ -28,13 +28,13 @@ export async function PUT(request: Request) {
         const { _id, name, address, city, state, pincode, gstin, mobile, email } = await request.json();
         console.log(name, address, city, state, pincode, gstin, mobile, email);
 
-        const consigneeId = _id;
+        const customerId = _id;
 
-        if (!consigneeId) {
+        if (!customerId) {
             return Response.json(
                 {
                     success: false,
-                    message: "consigneeId is required",
+                    message: "customerId is required",
                 },
                 {
                     status: 400,
@@ -43,12 +43,12 @@ export async function PUT(request: Request) {
         }
 
         // Check if the new name is already taken
-        const existingConsignee: any = await Consignee.findOne({ name });
-        if (existingConsignee && existingConsignee._id.toString() !== consigneeId) {
+        const existingCustomer: any = await Customer.findOne({ name });
+        if (existingCustomer && existingCustomer._id.toString() !== customerId) {
             return Response.json(
                 {
                     success: false,
-                    message: "Consignee with this name already exists",
+                    message: "Customer with this name already exists",
                 },
                 {
                     status: 400,
@@ -57,17 +57,17 @@ export async function PUT(request: Request) {
         }
 
         // Find the category by ID and update it
-        const updatedConsignee = await Consignee.findByIdAndUpdate(
-            consigneeId,
+        const updatedCustomer = await Customer.findByIdAndUpdate(
+            customerId,
             { name, address, city, state, pincode, gstin, mobile, email },
             { new: true, runValidators: true }
         );
 
-        if (!updatedConsignee) {
+        if (!updatedCustomer) {
             return Response.json(
                 {
                     success: false,
-                    message: "Consignee not found",
+                    message: "Customer not found",
                 },
                 {
                     status: 404
@@ -78,8 +78,8 @@ export async function PUT(request: Request) {
         return Response.json(
             {
                 success: true,
-                message: "Consignee updated successfully",
-                data: updatedConsignee
+                message: "Customer updated successfully",
+                data: updatedCustomer
             },
             {
                 status: 200
@@ -87,11 +87,11 @@ export async function PUT(request: Request) {
         );
 
     } catch (error) {
-        console.log("Error while updating consignee : ", error);
+        console.log("Error while updating Customer : ", error);
         return Response.json(
             {
                 success: false,
-                message: "Internal server error while Updating Consignee",
+                message: "Internal server error while Updating Customer",
                 error
             },
             {
