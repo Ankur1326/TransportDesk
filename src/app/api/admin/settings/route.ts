@@ -9,6 +9,7 @@ import {
 } from "@/lib/company-settings";
 import { DEFAULT_CHARGE_DEFINITIONS, type ChargeDefinition } from "@/lib/charges";
 import dbConnect from "@/lib/db";
+import { loadCompanySettings } from "@/lib/company-settings-server";
 import CompanySettings, { removeLegacyCompanyIdIndex } from "@/models/CompanySettings";
 
 const TEXT_LIMITS: Partial<Record<keyof CompanySettingsValues, number>> = {
@@ -258,25 +259,11 @@ export async function GET() {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    await dbConnect();
-    const settings = await CompanySettings.findOne({ ownerId })
-      .select("-_id -ownerId -createdAt -updatedAt -__v")
-      .lean();
+    const data = await loadCompanySettings(ownerId);
 
     return NextResponse.json({
       success: true,
-      data: {
-        ...DEFAULT_COMPANY_SETTINGS,
-        ...settings,
-        lrFormatBackgrounds: {
-          ...DEFAULT_COMPANY_SETTINGS.lrFormatBackgrounds,
-          ...settings?.lrFormatBackgrounds,
-        },
-        chargeDefinitions: settings?.chargeDefinitions?.map((charge) => ({
-          ...charge,
-          defaultAmount: charge.defaultAmount === 0 ? null : charge.defaultAmount,
-        })) ?? DEFAULT_COMPANY_SETTINGS.chargeDefinitions,
-      },
+      data,
     });
   } catch (error) {
     console.error("Error loading company settings:", error);
