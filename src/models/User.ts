@@ -45,7 +45,8 @@ const userSchema = new Schema<IUser>({
         type: String,
         required: [true, "Email is required"],
         unique: true,
-        // match: [, "Please use a valid email address"]
+        lowercase: true,
+        trim: true,
     },
     role: {
         type: String,

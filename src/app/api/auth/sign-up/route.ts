@@ -1,67 +1,62 @@
-// import { generateOTP } from "@/helpers/generateOtp";
 import dbConnect from "@/lib/db";
 import UserModel from "@/models/User";
+import {
+  isStrongPassword,
+  isValidEmail,
+  normalizeEmail,
+} from "@/lib/auth-config";
+
+function fail(message: string, status: number, field?: string) {
+  return Response.json({ success: false, message, field }, { status });
+}
 
 export async function POST(request: Request) {
-    await dbConnect()
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return fail("Invalid request body", 400);
+  }
 
-    try {
-        const { email, password } = await request.json()
+  const email = normalizeEmail(body.email);
+  const password = typeof body.password === "string" ? body.password : "";
+  const fullName = typeof body.fullName === "string" ? body.fullName.trim().slice(0, 80) : "";
 
-        const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
-        if (!normalizedEmail || typeof password !== "string" || !password) {
-            return Response.json({
-                success: false,
-                message: "Email and password are required",
-            }, { status: 400 });
-        }
+  if (!isValidEmail(email)) return fail("Enter a valid email address", 400, "email");
+  if (!isStrongPassword(password)) {
+    return fail("Password must be 8+ characters with upper and lower case letters and a number", 400, "password");
+  }
 
-        const existingUserByEmail = await UserModel.findOne({ email: normalizedEmail })
+  try {
+    await dbConnect();
 
-        if (existingUserByEmail) {
-            if (existingUserByEmail.isVerified) {
-                console.log("User already exist with this email")
-                return Response.json({
-                    success: false,
-                    message: "User already exist with this email",
-                }, { status: 400 })
-            }
-            // else if (existingUserByEmail.verifyCodeExpiry && existingUserByEmail.verifyCodeExpiry > new Date()) {
-            //     return new Response(
-            //         JSON.stringify({ success: false, message: "A verification code is already active. Please use it or wait until it expires." }),
-            //         { status: 400 }
-            //     );
-            // } else {
-            //     existingUserByEmail.password = password
-            //     await existingUserByEmail.save()
-            // }
-        } else {
-            const newUser = new UserModel({
-                email: normalizedEmail,
-                password,
-                role: "transporter",
-                isVerified: true
-            })
-
-            await newUser.save()
-
-            return Response.json({
-                success: true,
-                message: "User created successfully",
-            }, { status: 200 })
-        }
-
-    } catch (error) {
-        console.log("Error registring user: ", error);
-        return Response.json(
-            {
-                success: false,
-                message: "Error registring user"
-            },
-            {
-                status: 500
-            }
-        )
-
+    const existing = await UserModel.findOne({ email }).select("_id").lean();
+    if (existing) {
+      return fail("An account with this email already exists. Try signing in instead.", 409, "email");
     }
+
+    await UserModel.create({
+      email,
+      password, // hashed by the model's pre-save hook
+      fullName,
+      role: "transporter",
+      isVerified: true,
+      isApproved: true, // self-serve SaaS: new accounts can sign in immediately
+    });
+
+    return Response.json(
+      {
+        success: true,
+        message: "Account created successfully.",
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    // Two simultaneous sign-ups for the same email hit the unique index.
+    if ((error as { code?: number })?.code === 11000) {
+      return fail("An account with this email already exists. Try signing in instead.", 409, "email");
+    }
+    console.error("Error registering user:", error instanceof Error ? error.message : error);
+    return fail("We couldn't create your account. Please try again.", 500);
+  }
 }

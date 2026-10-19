@@ -1,184 +1,177 @@
-'use client'
+"use client";
 
-import axios from "axios"
-import { Eye, EyeOff, Loader2 } from "@/components/icons"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
-// import ReCAPTCHA from "react-google-recaptcha"
-const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+import axios from "axios";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, type FormEvent } from "react";
+import { signIn } from "next-auth/react";
+import { AuthAlert, AuthShell } from "@/components/auth/AuthShell";
+import { GOOGLE_AUTH_ENABLED, GoogleButton, OrDivider } from "@/components/auth/GoogleButton";
+import { PasswordField } from "@/components/auth/PasswordField";
+import { TextField } from "@/components/auth/TextField";
+import { Button } from "@/components/Button";
+import { Check } from "@/components/icons";
+import { PASSWORD_RULES, isStrongPassword, isValidEmail, normalizeEmail } from "@/lib/auth-config";
+import { cn } from "@/lib/utils";
+
+type Errors = Partial<Record<"fullName" | "email" | "password" | "confirmPassword", string>>;
 
 export default function Page() {
-    const [email, setEmail] = useState<string>('')
-    const [password, setPassword] = useState<string>('')
-    const [confirmPassword, setConfirmPassword] = useState<string>('')
+    const router = useRouter();
+    const [fullName, setFullName] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [errors, setErrors] = useState<Errors>({});
+    const [formError, setFormError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
 
-    const [showPassword, setShowPassword] = useState<boolean>(false)
-    const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false)
+    const rules = useMemo(() => PASSWORD_RULES.map((rule) => ({ ...rule, ok: rule.test(password) })), [password]);
 
-    const [isSubmitting, setSubmitting] = useState<boolean>(false)
-    const router = useRouter()
+    function validate(): Errors {
+        const next: Errors = {};
+        if (!fullName.trim()) next.fullName = "Enter your name";
+        if (!isValidEmail(normalizeEmail(email))) next.email = "Enter a valid email address";
+        if (!isStrongPassword(password)) next.password = "Password doesn't meet the requirements below";
+        if (confirmPassword !== password) next.confirmPassword = "Passwords don't match";
+        return next;
+    }
 
-    const onSubmit = async (e: any) => {
-        e.preventDefault()
-        setSubmitting(true)
-        if (!email || !password) {
-            // toast.error("All fields required")
-            setSubmitting(false)
-            return
-        }
+    async function onSubmit(e: FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        if (submitting) return;
 
-        if (!passwordRegex.test(password)) {
-            // toast.error("Password must be at least 8 characters long and include an uppercase letter, a lowercase letter, a number, and a special character.")
-            setSubmitting(false)
-            return
-        }
+        const found = validate();
+        setErrors(found);
+        setFormError(null);
+        if (Object.keys(found).length) return;
 
-        if (password !== confirmPassword) {
-            // toast.error("Passwords do not match")
-            setSubmitting(false)
-            return
-        }
+        setSubmitting(true);
         try {
-            const response = await axios.post("/api/auth/sign-up", {
-                email,
+            const normalized = normalizeEmail(email);
+            const { data } = await axios.post("/api/auth/sign-up", {
+                fullName: fullName.trim(),
+                email: normalized,
                 password,
             });
 
-            if (response.data.success) {
-                // toast.success(response.data.message)
-                router.push("/sign-in");
+            // Sign them straight in so there's no second login step.
+            const result = await signIn("credentials", { redirect: false, email: normalized, password });
+            if (result?.error) {
+                router.replace("/sign-in?registered=1");
+                return;
             }
-        } catch (error: any) {
-            const errorMessage = error.response?.data.message || "Something went wrong"
-
-            // Check if it's a verification code already active error
-            if (errorMessage.includes("verification code is already active") ||
-
-                errorMessage.includes("already pending") ||
-                errorMessage.includes("wait until it expires")) {
-                // router.replace(`/verify/${username}`)
-                // toast.error("A verification code is already pending for this account")
+            router.replace("/admin/dashboard");
+            router.refresh();
+        } catch (error) {
+            const payload = axios.isAxiosError(error)
+                ? (error.response?.data as { message?: string; field?: string } | undefined)
+                : undefined;
+            const message = payload?.message || "Something went wrong. Please try again.";
+            if (payload?.field === "email" || payload?.field === "password") {
+                setErrors({ [payload.field]: message });
             } else {
-                // toast.error(errorMessage)
+                setFormError(message);
             }
-
-            console.error("Error in sign up of user", error)
         } finally {
-            setSubmitting(false)
+            setSubmitting(false);
         }
     }
 
     return (
-        <div className="flex items-center justify-center min-h-screen w-full bg-[#f8faf9]">
-            <div className="w-full max-w-md">
-                {/* <div className="text-center mb-8">
-                        <Image
-                            src="/media/logo/beats-engineer.jpg"
-                            alt="Mastery Hub"
-                            width={160}
-                            height={48}
-                            className="mx-auto mb-6"
-                            priority
-                        />
-                    </div> */}
+        <AuthShell
+            title="Create your account"
+            subtitle="Set up your workspace in under a minute."
+            footer={
+                <>
+                    Already have an account?{" "}
+                    <Link href="/sign-in" className="focus-ring rounded font-semibold text-brand-700 hover:underline">
+                        Sign in
+                    </Link>
+                </>
+            }
+        >
+            {formError && (
+                <div className="mb-4">
+                    <AuthAlert>{formError}</AuthAlert>
+                </div>
+            )}
 
-                <div className="mb-6 text-center">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Account</h2>
-                    <p className="text-gray-600 text-sm">
-                        Already have an account? <Link href="/sign-in" className="text-brand-500 hover:text-brand-700 font-semibold hover:underline transition-colors">Sign in</Link>
-                    </p>
+            {GOOGLE_AUTH_ENABLED && (
+                <div>
+                    <GoogleButton callbackUrl="/admin/dashboard" label="Sign up with Google" />
+                    <OrDivider />
+                </div>
+            )}
+
+            <form onSubmit={onSubmit} noValidate className="space-y-4">
+                <TextField
+                    label="Full name"
+                    name="name"
+                    autoComplete="name"
+                    placeholder="Your name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    error={errors.fullName}
+                    autoFocus
+                />
+                <TextField
+                    label="Work email"
+                    type="email"
+                    name="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    error={errors.email}
+                />
+
+                <div>
+                    <PasswordField
+                        label="Password"
+                        name="new-password"
+                        autoComplete="new-password"
+                        placeholder="Create a password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        error={errors.password}
+                    />
+                    <ul className="mt-2.5 space-y-1" aria-label="Password requirements">
+                        {rules.map((rule) => (
+                            <li
+                                key={rule.id}
+                                className={cn("flex items-center gap-2 text-body-sm", rule.ok ? "text-success-700" : "text-neutral-500")}
+                            >
+                                <span
+                                    className={cn(
+                                        "flex h-4 w-4 items-center justify-center rounded-full border",
+                                        rule.ok ? "border-success-500 bg-success-500 text-white" : "border-neutral-300"
+                                    )}
+                                    aria-hidden="true"
+                                >
+                                    {rule.ok && <Check className="h-3 w-3" />}
+                                </span>
+                                {rule.label}
+                            </li>
+                        ))}
+                    </ul>
                 </div>
 
-                <form onSubmit={onSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-gray-600 text-sm mb-2">Email</label>
-                        <input
-                            type="email"
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            className="focus-ring h-11 w-full rounded-lg border border-neutral-200 bg-white px-3.5 pr-11 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-brand-600"
-                            placeholder="Enter Email"
-                            value={email}
-                        />
-                    </div>
+                <PasswordField
+                    label="Confirm password"
+                    name="confirm-password"
+                    autoComplete="new-password"
+                    placeholder="Re-enter your password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    error={errors.confirmPassword}
+                />
 
-                    <div className="relative">
-                        <label className="block text-gray-600 text-sm mb-2">Password</label>
-                        <input
-                            type={showPassword ? "text" : "password"}
-                            onChange={(e) => setPassword(e.target.value)}
-                            value={password}
-                            required
-                            className="focus-ring h-11 w-full rounded-lg border border-neutral-200 bg-white px-3.5 pr-11 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-brand-600"
-                            placeholder="Enter Password"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
-                            aria-label="Toggle password visibility"
-                        >
-                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                    </div>
-
-                    <div className="relative">
-                        <label className="block text-gray-600 text-sm mb-2">Confirm Password</label>
-                        <input
-                            type={showConfirmPassword ? "text" : "password"}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            value={confirmPassword}
-                            required
-                            className="focus-ring h-11 w-full rounded-lg border border-neutral-200 bg-white px-3.5 pr-11 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-brand-600"
-                            placeholder="Confirm Password"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
-                            aria-label="Toggle password visibility"
-                        >
-                            {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                    </div>
-
-                    {password !== confirmPassword && password && confirmPassword && (
-                        <p className="text-sm text-red-500 -mt-2">Passwords do not match</p>
-                    )}
-
-                    {/* <div className="flex justify-center mt-5">
-                            <ReCAPTCHA
-                                sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!}
-                                onChange={setCaptchaToken}
-                            />
-                        </div> */}
-
-                    <button
-                        type="submit"
-                        className="focus-ring flex h-11 w-full items-center justify-center rounded-lg bg-brand-700 px-4 text-sm font-medium text-white transition-colors hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        {isSubmitting ? (
-                            <div className="flex items-center justify-center gap-2">
-                                <Loader2 className="animate-spin" size={20} />
-                                <span>Please wait...</span>
-                            </div>
-                        ) : (
-                            "Create Account"
-                        )}
-                    </button>
-
-                    <div className="flex items-center my-6">
-                        <div className="flex-grow border-t border-gray-200"></div>
-                        {/* <span className="px-4 text-gray-500 text-sm">or</span> */}
-                        <div className="flex-grow border-t border-gray-200"></div>
-                    </div>
-                </form>
-
-                <div className="mt-5 text-center text-xs text-gray-500">
-                    By signing up, you agree to our <a href="#" className="text-[#66B788] hover:text-[#4a8f65] hover:underline">Terms of Service</a> and <a href="#" className="text-[#66B788] hover:text-[#4a8f65] hover:underline">Privacy Policy</a>
-                </div>
-            </div>
-        </div>
-    )
+                <Button type="submit" size="lg" isLoading={submitting} className="w-full">
+                    {submitting ? "Creating account…" : "Create account"}
+                </Button>
+            </form>
+        </AuthShell>
+    );
 }

@@ -7,17 +7,8 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import 'nprogress/nprogress.css';
 import '../globals.css';
 import { useSession } from "next-auth/react";
-import type { DefaultSession } from "next-auth";
 
 type UserRole = 'transporter';
-
-declare module "next-auth" {
-  interface Session {
-    user: DefaultSession["user"] & {
-      role?: UserRole;
-    };
-  }
-}
 
 function RootLayoutContent({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();

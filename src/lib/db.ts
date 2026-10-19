@@ -1,31 +1,37 @@
-import mongoose from "mongoose"
-// import dns from "node:dns/promises"
+import mongoose from "mongoose";
 
-// dns.setServers(["8.8.8.8", "1.1.1.1"])
-
-type ConnectionObject = {
-    isConnected?: number
-}
-
-const connection: ConnectionObject = {}
+/**
+ * Cached connection promise (survives hot reloads in dev and is shared by
+ * concurrent requests, so a burst of sign-ins opens one connection, not many).
+ *
+ * Previous behaviour, now fixed:
+ *  - a failed connection called process.exit(1), taking the whole server down
+ *    and turning a brief DB blip into an outage — it now throws, so only the
+ *    affected request fails and the next one retries;
+ *  - the full MONGODB_URI (including the password) was written to the logs on
+ *    every connect.
+ *
+ * The database name still defaults to "UTS" so existing data is untouched;
+ * set MONGODB_DB_NAME to use a different one.
+ */
+const globalCache = globalThis as unknown as { __mongoose?: Promise<typeof mongoose> };
 
 async function dbConnect(): Promise<void> {
-    if (connection.isConnected) {
-        console.log("Already connected to database");
-        return
+    if (mongoose.connection.readyState === 1) return;
+
+    const uri = process.env.MONGODB_URI;
+    if (!uri) throw new Error("MONGODB_URI is not set");
+
+    if (!globalCache.__mongoose) {
+        const dbName = process.env.MONGODB_DB_NAME || "UTS";
+        globalCache.__mongoose = mongoose.connect(`${uri}/${dbName}`).catch((error) => {
+            globalCache.__mongoose = undefined; // allow the next request to retry
+            console.error("Database connection failed:", error instanceof Error ? error.message : error);
+            throw error;
+        });
     }
-    try {
-        console.log(`${process.env.MONGODB_URI}/UTS`);
 
-        const db = await mongoose.connect(`${process.env.MONGODB_URI}/UTS` as string)
-
-        connection.isConnected = db.connections[0].readyState
-        console.log("db connected successfully!");
-
-    } catch (error) {
-        console.log("Database connection failed: ", error);
-        process.exit(1)
-    }
+    await globalCache.__mongoose;
 }
 
-export default dbConnect
+export default dbConnect;

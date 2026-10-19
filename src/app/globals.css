@@ -535,3 +535,39 @@ html[data-app-theme] [class~="text-white"].app-theme-text {
 @media (prefers-reduced-motion: reduce) {
   .uts-rise, .uts-pop, .uts-shake { animation: none !important; }
 }
+
+/* =========================================================
+   FALLBACK BUTTON COLORS
+   The per-user appearance theme (AppearanceProvider) only sets these once a
+   signed-in user's theme has loaded. Without defaults, <Button variant="primary">
+   rendered with no background/text colour on /sign-in, /sign-up and every
+   public page.
+   ========================================================= */
+
+:root {
+  --app-button-background: var(--color-brand-700);
+  --app-button-text: #ffffff;
+  --app-button-hover: var(--color-brand-800);
+  --app-accent-foreground: #ffffff;
+}
+
+/* Keyboard focus ring (was referenced everywhere but never defined). */
+@layer components {
+  .focus-ring {
+    outline: none;
+  }
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
+}
+/* Keyboard focus ring (was referenced everywhere but never defined). */
+@layer components {
+  .focus-ring {
+    outline: none;
+  }
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
+}
