@@ -18,7 +18,7 @@ const fail = (message: string, status: number) =>
   NextResponse.json({ success: false, message }, { status });
 
 /**
- * GET /api/admin/consignments/:id/pdf[?copies=transporter,consignor,consignee,driver|all][&download=1]
+ * GET /api/admin/consignments/:id/pdf[?copies=lorry,consignee,consignor,file|all][&download=1]
  *
  * `download=1` sends the PDF as an attachment (file download) instead of
  * opening it inline in the browser's viewer.

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import toast from "react-hot-toast";
-import { CarFront, Download, Loader2, Truck, UserRound, UserRoundCheck, X } from "lucide-react";
+import { Download, FileText, Loader2, Truck, UserRound, UserRoundCheck, X } from "lucide-react";
 import type { ConsignmentListItem } from "@/lib/api/consignments";
 import { downloadLrPdf } from "@/lib/api/lr-download";
 import { LR_STANDARD_COPIES, type LrCopyKey } from "@/lib/lr-copies";
@@ -11,10 +11,10 @@ import { LR_STANDARD_COPIES, type LrCopyKey } from "@/lib/lr-copies";
 type Option = { key: LrCopyKey | "all"; label: string; icon: ReactNode };
 
 const OPTIONS: Option[] = [
-  { key: "driver", label: "Driver Copy", icon: <CarFront /> },
-  { key: "transporter", label: "Transporter Copy", icon: <Truck /> },
-  { key: "consignor", label: "Consignor Copy", icon: <UserRound /> },
+  { key: "lorry", label: "Lorry Copy", icon: <Truck /> },
   { key: "consignee", label: "Consignee Copy", icon: <UserRoundCheck /> },
+  { key: "consignor", label: "Consignor Copy", icon: <UserRound /> },
+  { key: "file", label: "File Copy", icon: <FileText /> },
   { key: "all", label: "Download All", icon: <Download /> },
 ];
 

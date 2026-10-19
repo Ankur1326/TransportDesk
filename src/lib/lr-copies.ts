@@ -1,33 +1,33 @@
 /**
  * Which LR copies a PDF should contain.
  *
- *   ?copies=consignor,consignee,driver   one page per copy, each labelled
- *   ?copies=all                          transporter + consignor + consignee + driver
- *   (no param)                           a single page with no copy label
+ *   ?copies=lorry,consignee,consignor,file   one page per copy, each labelled
+ *   ?copies=all                              all four copies, in that order
+ *   (no param)                               a single page with no copy label
  *
  * Keep this file free of server-only imports — the list page uses it too.
  */
 export const LR_COPY_LABELS = {
-  transporter: "TRANSPORTER COPY",
-  consignor: "CONSIGNOR COPY",
+  lorry: "LORRY COPY",
   consignee: "CONSIGNEE COPY",
-  driver: "LORRY COPY",
+  consignor: "CONSIGNOR COPY",
+  file: "FILE COPY",
 } as const;
 
 export type LrCopyKey = keyof typeof LR_COPY_LABELS;
 
 /** Every copy of a consignment, in the order the Share dialog lists them. */
-export const LR_STANDARD_COPIES: readonly LrCopyKey[] = ["transporter", "consignor", "consignee", "driver"];
+export const LR_STANDARD_COPIES: readonly LrCopyKey[] = ["lorry", "consignee", "consignor", "file"];
 
 const ALIASES: Record<string, LrCopyKey> = {
+  lorry: "lorry",
+  driver: "lorry",
+  consignee: "consignee",
   consignor: "consignor",
   consigner: "consignor",
-  consignee: "consignee",
-  driver: "driver",
-  lorry: "driver",
-  transporter: "transporter",
-  file: "transporter",
-  office: "transporter",
+  file: "file",
+  transporter: "file",
+  office: "file",
 };
 
 export type ParsedCopies =
@@ -50,7 +50,7 @@ export function parseCopies(raw: string | null | undefined): ParsedCopies {
   if (unknown.length > 0 || copies.length === 0) {
     return {
       ok: false,
-      message: `Unknown copy type${unknown.length > 1 ? "s" : ""}: ${unknown.join(", ") || value}. Use transporter, consignor, consignee, driver or all.`,
+      message: `Unknown copy type${unknown.length > 1 ? "s" : ""}: ${unknown.join(", ") || value}. Use lorry, consignee, consignor, file or all.`,
     };
   }
   return { ok: true, copies };
