@@ -1,5 +1,6 @@
 "use client";
 
+import { CHARGE_HINDI } from "@/lib/hindi-labels";
 import { useFormContext, useWatch } from "react-hook-form";
 import { FormSection } from "@/components/billing/FormSection";
 import { Input } from "@/components/ui/Input";
@@ -44,6 +45,7 @@ export function ChargesSection({ chargeDefinitions }: { chargeDefinitions: Charg
             min={0}
             step="0.01"
             label={charge.name}
+            hi={CHARGE_HINDI[charge.id]}
             startIcon={<span className="text-[11px]">₹</span>}
             error={errors.charges?.chargeLines?.[index]?.amount?.message}
             {...register(`charges.chargeLines.${index}.amount`)}

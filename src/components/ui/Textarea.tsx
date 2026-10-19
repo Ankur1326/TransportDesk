@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
+  /** Hindi meaning shown in brackets after the label. */
+  hi?: string;
   error?: string;
   helperText?: string;
   /**
@@ -14,7 +16,7 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, label, error, helperText, id, required, rows = 3, size = "default", ...props }, ref) => {
+  ({ className, label, hi, error, helperText, id, required, rows = 3, size = "default", ...props }, ref) => {
     const generatedId = useId();
     const textareaId = id ?? generatedId;
     const helperId = `${textareaId}-helper`;
@@ -32,6 +34,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             )}
           >
             {label}
+            {hi && <span className="ml-1 text-[11px] font-medium normal-case tracking-normal text-neutral-500">({hi})</span>}
             {required && <span className="ml-0.5 text-error-600">*</span>}
           </label>
         )}

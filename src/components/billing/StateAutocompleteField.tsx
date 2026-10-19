@@ -8,6 +8,8 @@ import { formatGstState, searchGstStates } from "@/lib/gstStates";
 interface StateAutocompleteFieldProps<T extends FieldValues> {
   name: FieldPath<T>;
   label?: string;
+  /** Hindi meaning shown in brackets after the label. */
+  hi?: string;
   required?: boolean;
   error?: string;
   size?: "default" | "compact";
@@ -16,6 +18,7 @@ interface StateAutocompleteFieldProps<T extends FieldValues> {
 export function StateAutocompleteField<T extends FieldValues>({
   name,
   label = "State",
+  hi,
   required,
   error,
   size = "compact",
@@ -49,6 +52,7 @@ export function StateAutocompleteField<T extends FieldValues>({
           )}
         >
           {label}
+          {hi && <span className="ml-1 text-[11px] font-medium normal-case tracking-normal text-neutral-500">({hi})</span>}
           {required && <span className="ml-1 text-error-600">*</span>}
         </label>
       )}

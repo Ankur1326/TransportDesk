@@ -34,14 +34,14 @@ export function GstSection() {
   return (
     <FormSection title="GST" description="Tax is calculated automatically from the charges above.">
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-        <Select size="compact" label="GST Type" options={GST_TYPE_OPTIONS} {...register("tax.type")} />
+        <Select size="compact" label="GST Type" hi="जीएसटी का प्रकार" options={GST_TYPE_OPTIONS} {...register("tax.type")} />
         <Controller
           control={control}
           name="tax.percentage"
           render={({ field }) => (
             <Select
               size="compact"
-              label="GST Percentage"
+              label="GST Percentage" hi="जीएसटी प्रतिशत"
               options={GST_PERCENTAGE_OPTIONS}
               disabled={gstType === "NONE"}
               value={String(field.value)}
@@ -50,7 +50,7 @@ export function GstSection() {
           )}
         />
         {gstPercentage === "custom" && gstType !== "NONE" && (
-          <Input size="compact" type="number" min={0} max={100} step="0.01" label="Custom GST %" {...register("tax.customPercentage")} />
+          <Input size="compact" type="number" min={0} max={100} step="0.01" label="Custom GST %" hi="कस्टम जीएसटी %" {...register("tax.customPercentage")} />
         )}
       </div>
 

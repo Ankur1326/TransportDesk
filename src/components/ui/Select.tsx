@@ -9,6 +9,8 @@ interface SelectOption {
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
+  /** Hindi meaning shown in brackets after the label. */
+  hi?: string;
   error?: string;
   helperText?: string;
   options: SelectOption[];
@@ -23,7 +25,7 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, label, error, helperText, options, placeholder, id, required, size = "default", ...props }, ref) => {
+  ({ className, label, hi, error, helperText, options, placeholder, id, required, size = "default", ...props }, ref) => {
     const generatedId = useId();
     const selectId = id ?? generatedId;
     const helperId = `${selectId}-helper`;
@@ -41,6 +43,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             )}
           >
             {label}
+            {hi && <span className="ml-1 text-[11px] font-medium normal-case tracking-normal text-neutral-500">({hi})</span>}
             {required && <span className="ml-0.5 text-error-600">*</span>}
           </label>
         )}

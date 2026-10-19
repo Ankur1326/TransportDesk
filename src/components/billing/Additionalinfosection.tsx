@@ -13,7 +13,7 @@ export function AdditionalInfoSection() {
       <div className="space-y-1.5">
         <Textarea
           size="compact"
-          label="Internal Notes"
+          label="Internal Notes" hi="आंतरिक टिप्पणी"
           rows={2}
           helperText="Private — not shown on the customer's printed copy."
           {...register("internalNotes")}

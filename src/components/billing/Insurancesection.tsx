@@ -56,18 +56,18 @@ export function InsuranceSection() {
     >
       {required && (
         <div className="grid grid-cols-2 gap-1.5">
-          <Input size="compact" label="Insurance Company" error={insuranceErrors?.company?.message} {...register("insurance.company")} />
-          <Input size="compact" label="Policy Number" error={insuranceErrors?.policyNumber?.message} {...register("insurance.policyNumber")} />
+          <Input size="compact" label="Insurance Company" hi="बीमा कंपनी" error={insuranceErrors?.company?.message} {...register("insurance.company")} />
+          <Input size="compact" label="Policy Number" hi="पॉलिसी नंबर" error={insuranceErrors?.policyNumber?.message} {...register("insurance.policyNumber")} />
           <Input
             size="compact"
             type="number"
             min={0}
-            label="Insurance Amount (₹)"
+            label="Insurance Amount (₹)" hi="बीमा राशि"
             error={insuranceErrors?.amount?.message}
             {...register("insurance.amount")}
           />
-          <Input size="compact" type="date" label="Insurance Date" error={insuranceErrors?.date?.message} {...register("insurance.date")} />
-          <Input size="compact" label="Risk Type" error={insuranceErrors?.riskType?.message} {...register("insurance.riskType")} />
+          <Input size="compact" type="date" label="Insurance Date" hi="बीमा की तारीख" error={insuranceErrors?.date?.message} {...register("insurance.date")} />
+          <Input size="compact" label="Risk Type" hi="जोखिम का प्रकार" error={insuranceErrors?.riskType?.message} {...register("insurance.riskType")} />
         </div>
       )}
     </FormSection>

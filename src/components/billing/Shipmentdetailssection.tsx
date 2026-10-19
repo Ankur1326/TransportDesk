@@ -23,83 +23,69 @@ export function ShipmentDetailsSection() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Input
             size="compact"
-            type="number"
-            label="Packages"
-            min={1}
+            label="Packages" hi="पैकेज / नग"
             error={shipmentErrors?.packages?.message}
             {...register("shipment.packages")}
           />
           <Select
             size="compact"
-            label="Packing"
+            label="Packing" hi="पैकिंग"
             options={toOptions(PACKING_TYPES)}
             error={shipmentErrors?.packing?.message}
             {...register("shipment.packing")}
           />
           <Input
             size="compact"
-            label="Classification / Product Code"
+            label="Classification / Product Code" hi="वर्गीकरण / उत्पाद कोड"
             error={shipmentErrors?.classification?.message}
             {...register("shipment.classification")}
           />
           <Input
             size="compact"
-            type="number"
-            min={0}
-            step="0.01"
-            label="Declared Value (₹)"
+            label="Declared Value (₹)" hi="घोषित मूल्य"
             error={shipmentErrors?.declaredValue?.message}
             {...register("shipment.declaredValue")}
           />
-          <Input size="compact" label="Invoice Number" error={errors.invoiceNumber?.message} {...register("invoiceNumber")} />
+          <Input size="compact" label="Invoice Number" hi="इनवॉइस नंबर" error={errors.invoiceNumber?.message} {...register("invoiceNumber")} />
 
-          <Input size="compact" type="date" label="Invoice Date" error={errors.invoiceDate?.message} {...register("invoiceDate")} />
+          <Input size="compact" type="date" label="Invoice Date" hi="इनवॉइस की तारीख" error={errors.invoiceDate?.message} {...register("invoiceDate")} />
           <Input
             size="compact"
-            type="number"
-            label="Volume LxBXH = CFT"
-            min={0}
-            step="0.01"
+            label="Volume LxBXH = CFT" hi="आयतन"
             error={shipmentErrors?.volume?.message}
             {...register("shipment.volume")}
           />
           <Input
             size="compact"
-            type="number"
-            label="Actual Weight"
-            min={0}
-            step="0.01"
+            label="Actual Weight" hi="वास्तविक वजन"
             error={shipmentErrors?.actualWeight?.message}
             {...register("shipment.actualWeight")}
           />
 
           <Input
             size="compact"
-            type="number"
-            label="Charged Wt. as agreed"
-            min={0}
-            step="0.01"
+            label="Charged Wt. as agreed" hi="तय चार्ज वजन"
             error={shipmentErrors?.chargeWeight?.message}
             {...register("shipment.chargeWeight")}
           />
           <Input
             size="compact"
             type="date"
-            label="Acknowledgement Date"
+            label="Acknowledgement Date" hi="पावती की तारीख"
             error={errors.bookingDate?.message}
             {...register("bookingDate")}
           />
           <Input
             size="compact"
             type="date"
-            label="Expected Delivery Date"
+            label="Expected Delivery Date" hi="अनुमानित डिलीवरी तिथि"
             {...register("vehicle.expectedDeliveryDate")}
           />
           <Textarea
             size="compact"
             rows={3}
             className="col-span-full w-full"
-            label="Description of Goods"
+            label="Description of Goods" hi="माल का विवरण"
             placeholder="e.g. Activated Carbon"
             error={shipmentErrors?.description?.message}
             {...register("shipment.description")}

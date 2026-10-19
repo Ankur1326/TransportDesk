@@ -9,6 +9,9 @@ interface InputProps
   extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
 
+  /** Hindi meaning shown in brackets after the label, e.g. "पैकेज". */
+  hi?: string;
+
   /** Validation error message */
   error?: string;
 
@@ -30,6 +33,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     {
       className,
       label,
+      hi,
       error,
       helperText,
       startIcon,
@@ -62,6 +66,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             )}
           >
             {label}
+            {hi && <span className="ml-1 text-[11px] font-medium normal-case tracking-normal text-neutral-500">({hi})</span>}
 
             {required && (
               <span className="ml-1 text-error-600">

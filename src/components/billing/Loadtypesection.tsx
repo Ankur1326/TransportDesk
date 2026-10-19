@@ -48,7 +48,9 @@ export function LoadTypeSection() {
     <FormSection title="Segment & Load Type" description="Classifies how this shipment is billed and moved.">
       <div className="space-y-2">
         <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.02em] text-neutral-600">Segment</p>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.02em] text-neutral-600">Segment
+            <span className="ml-1 text-[11px] font-medium normal-case tracking-normal text-neutral-500">(श्रेणी)</span>
+          </p>
           <Controller
             control={control}
             name="segment"
@@ -57,7 +59,9 @@ export function LoadTypeSection() {
         </div>
 
         <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.02em] text-neutral-600">Load Type</p>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.02em] text-neutral-600">Load Type
+            <span className="ml-1 text-[11px] font-medium normal-case tracking-normal text-neutral-500">(लोड का प्रकार)</span>
+          </p>
           <Controller
             control={control}
             name="loadType"

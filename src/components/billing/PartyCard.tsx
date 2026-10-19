@@ -137,7 +137,7 @@ export function PartyCard({ prefix, title, description }: PartyCardProps) {
           <div ref={wrapperRef} className="relative">
             <Input
               size="compact"
-              label="Company / Customer Name"
+              label="Company / Customer Name" hi="कंपनी / ग्राहक का नाम"
               required
               autoComplete="off"
               error={sectionErrors?.name?.message}
@@ -194,22 +194,22 @@ export function PartyCard({ prefix, title, description }: PartyCardProps) {
             )}
           </div>
 
-          <Input size="compact" label="Address" required error={sectionErrors?.address?.message} {...register(`${prefix}.address`)} />
+          <Input size="compact" label="Address" hi="पता" required error={sectionErrors?.address?.message} {...register(`${prefix}.address`)} />
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Input size="compact" required label="City" error={sectionErrors?.city?.message} {...register(`${prefix}.city`)} />
-          <Input size="compact" required label="State" error={sectionErrors?.state?.message} {...register(`${prefix}.state`)} />
+          <Input size="compact" required label="City" hi="शहर" error={sectionErrors?.city?.message} {...register(`${prefix}.city`)} />
+          <Input size="compact" required label="State" hi="राज्य" error={sectionErrors?.state?.message} {...register(`${prefix}.state`)} />
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Input size="compact" label="PIN Code" error={sectionErrors?.pincode?.message} {...register(`${prefix}.pincode`)} />
-          <Input size="compact" required label="GSTIN" error={sectionErrors?.gstin?.message} {...register(`${prefix}.gstin`)} />
+          <Input size="compact" label="PIN Code" hi="पिन कोड" error={sectionErrors?.pincode?.message} {...register(`${prefix}.pincode`)} />
+          <Input size="compact" required label="GSTIN" hi="जीएसटीआईएन" error={sectionErrors?.gstin?.message} {...register(`${prefix}.gstin`)} />
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Input size="compact" label="Mobile Number" error={sectionErrors?.mobile?.message} {...register(`${prefix}.mobile`)} />
-          <Input size="compact" type="email" label="Email" error={sectionErrors?.email?.message} {...register(`${prefix}.email`)} />
+          <Input size="compact" label="Mobile Number" hi="मोबाइल नंबर" error={sectionErrors?.mobile?.message} {...register(`${prefix}.mobile`)} />
+          <Input size="compact" type="email" label="Email" hi="ईमेल" error={sectionErrors?.email?.message} {...register(`${prefix}.email`)} />
         </div>
 
         <button

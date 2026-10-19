@@ -29,7 +29,7 @@ export function PaymentSection() {
       <div className="grid grid-cols-2 gap-1.5">
         <Select
           size="compact"
-          label="Payment Type"
+          label="Payment Type" hi="भुगतान का प्रकार"
           // required
           placeholder="Select payment type"
           options={toOptions(PAYMENT_TYPES)}
@@ -38,7 +38,7 @@ export function PaymentSection() {
         />
         <Select
           size="compact"
-          label="Billing Party"
+          label="Billing Party" hi="बिलिंग पार्टी"
           options={toOptions(BILLING_PARTIES)}
           error={paymentErrors?.billingParty?.message}
           {...register("payment.billingParty")}
@@ -59,7 +59,7 @@ export function PaymentSection() {
 
         <Select
           size="compact"
-          label="Payment Status"
+          label="Payment Status" hi="भुगतान की स्थिति"
           options={toOptions(PAYMENT_STATUSES)}
           error={paymentErrors?.status?.message}
           {...register("payment.status")}
@@ -69,7 +69,7 @@ export function PaymentSection() {
           <>
             <Select
               size="compact"
-              label="Received Type"
+              label="Received Type" hi="प्राप्ति का प्रकार"
               options={toOptions(RECEIVED_TYPES)}
               {...register("payment.receivedType")}
             />
@@ -78,33 +78,33 @@ export function PaymentSection() {
               <Input
                 size="compact"
                 type="text"
-                label="UTR Number"
+                label="UTR Number" hi="यूटीआर नंबर"
                 {...register("payment.UTRNumber")}
               />
             }
             <Input
               size="compact"
               type="text"
-              label="Received Money"
+              label="Received Money" hi="प्राप्त राशि"
               {...register("payment.receivedMoney")}
             />
             <Input
               size="compact"
               type="Date"
-              label="Received Date"
+              label="Received Date" hi="प्राप्ति की तारीख"
               {...register("payment.receivedDate")}
             />
 
             <Input
               size="compact"
               type="text"
-              label="MR. No."
+              label="MR. No." hi="एमआर नंबर"
               {...register("payment.mrNumber")}
             />
             <Input
               size="compact"
               type="Date"
-              label="MR. Date"
+              label="MR. Date" hi="एमआर की तारीख"
               {...register("payment.mrDate")}
             />
 
