@@ -9,6 +9,7 @@ import { amountToWords } from "@/lib/numberToWords";
 import { siteConfig } from "@/lib/site-config";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import type { CompanySettingsValues, LRFormat } from "@/lib/company-settings";
+import { LR_FORMAT_META } from "@/lib/lr-formats";
 import type { BillingFormValues } from "@/lib/validations/billing";
 
 interface PrintPreviewProps {
@@ -23,12 +24,6 @@ interface PrintPreviewProps {
 export const ALL_COPY_NAMES = ["LORRY COPY", "CONSIGNEE COPY", "CONSIGNOR COPY", "FILE COPY"] as const;
 export type CopyName = (typeof ALL_COPY_NAMES)[number];
 
-const LR_FORMAT_LABELS: Record<LRFormat, string> = {
-  classic: "Classic",
-  modern: "Modern",
-  compact: "Compact",
-  ledger: "Ledger",
-};
 
 const DEFAULT_SELECTED_COPIES: readonly CopyName[] = ["LORRY COPY", "CONSIGNEE COPY"];
 
@@ -529,7 +524,7 @@ export function PrintPreview({ values, onClose }: PrintPreviewProps) {
         {/* COPY SELECTOR — choose which copies get printed */}
         <div className="lr-copy-selector">
           <span className="rounded-full bg-brand-50 px-2.5 py-1 font-semibold text-brand-800" aria-live="polite">
-            {isLoading ? "Loading LR format…" : error ? "LR format unavailable" : `${LR_FORMAT_LABELS[settings.lrFormat]} format`}
+            {isLoading ? "Loading LR format…" : error ? "LR format unavailable" : `${LR_FORMAT_META[settings.lrFormat].name} format`}
           </span>
           <span className="lr-copy-selector-label">Copies:</span>
           {ALL_COPY_NAMES.map((name) => (
@@ -816,6 +811,332 @@ export const LR_CSS = `
 
         .lr-format-modern .lr-copy-name {
           color: #0f766e;
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* EXECUTIVE — navy band, gold accents                               */
+        /* ---------------------------------------------------------------- */
+        .lr-page.lr-format-executive {
+          border: 2px solid #0b1f3a;
+          font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+        }
+
+        .lr-format-executive .lr-header {
+          grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+        }
+
+        .lr-format-executive .lr-company-section {
+          grid-column: 1 / -1;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          padding: 8px 14px;
+          border-right: 0;
+          border-bottom: 3px solid #b8893b;
+          background: linear-gradient(100deg, #0b1f3a 0%, #15335d 100%);
+          color: #e8edf5;
+        }
+
+        .lr-format-executive .lr-company-top {
+          align-items: center;
+          margin-bottom: 0;
+        }
+
+        .lr-format-executive .lr-logo {
+          width: 58px;
+          height: 58px;
+          min-width: 58px;
+          padding: 3px;
+          border-radius: 6px;
+          border: 1px solid #b8893b;
+          background: #fff;
+          color: #0b1f3a;
+        }
+
+        .lr-format-executive .lr-company-details *:not(.lr-company-name) {
+          color: #e8edf5;
+        }
+
+        .lr-format-executive .lr-company-name {
+          color: #e6c17a;
+          font-size: 22px;
+          letter-spacing: 0.8px;
+        }
+
+        .lr-format-executive .lr-registration {
+          width: auto;
+          margin: 0;
+          padding: 0;
+          color: #e6c17a;
+        }
+
+        .lr-format-executive .lr-route-section {
+          border-right: 1px solid #0b1f3a;
+        }
+
+        .lr-format-executive .lr-route-title {
+          background: #f6ecd6;
+          color: #0b1f3a;
+        }
+
+        .lr-format-executive .lr-segment-section {
+          border-right: 0;
+        }
+
+        .lr-format-executive .lr-segment-title,
+        .lr-format-executive .lr-vertical-title,
+        .lr-format-executive .lr-charge-header,
+        .lr-format-executive .lr-ack-banner {
+          background: #0b1f3a;
+          letter-spacing: 1.2px;
+        }
+
+        .lr-format-executive .lr-ack-banner {
+          border-bottom: 2px solid #b8893b;
+        }
+
+        .lr-format-executive .lr-content {
+          grid-template-columns: 72% 28%;
+        }
+
+        .lr-format-executive .lr-label {
+          color: #8a7547;
+        }
+
+        .lr-format-executive .lr-party-name,
+        .lr-format-executive .lr-route-value,
+        .lr-format-executive .lr-charge-row > *:last-child,
+        .lr-format-executive .lr-subtotal strong {
+          color: #0b1f3a;
+        }
+
+        .lr-format-executive .lr-cns-number,
+        .lr-format-executive .lr-copy-name {
+          color: #9a6f1f;
+        }
+
+        .lr-format-executive .lr-segment-options .active {
+          color: #9a6f1f;
+          text-decoration-color: #b8893b;
+        }
+
+        .lr-format-executive .lr-subtotal {
+          background: #f6ecd6;
+        }
+
+        .lr-format-executive .lr-grand-total {
+          background: linear-gradient(90deg, #b8893b, #d9ae5a);
+          color: #0b1f3a;
+          font-weight: 900;
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* MINIMAL — hairlines, light headings                               */
+        /* ---------------------------------------------------------------- */
+        .lr-page.lr-format-minimal {
+          border: 1px solid #cbd5e1;
+          color: #0f172a;
+          font-family: "Inter", "Segoe UI", Arial, Helvetica, sans-serif;
+          letter-spacing: 0;
+        }
+
+        .lr-format-minimal * {
+          border-color: #cbd5e1 !important;
+        }
+
+        .lr-format-minimal .lr-company-name {
+          color: #0f172a;
+          font-weight: 800;
+          letter-spacing: 0.2px;
+        }
+
+        .lr-format-minimal .lr-segment-title,
+        .lr-format-minimal .lr-vertical-title,
+        .lr-format-minimal .lr-ack-banner,
+        .lr-format-minimal .lr-charge-header {
+          background: #f1f5f9;
+          color: #334155;
+          font-weight: 700;
+          letter-spacing: 1.4px;
+        }
+
+        .lr-format-minimal .lr-charge-header {
+          letter-spacing: 0.4px;
+        }
+
+        .lr-format-minimal .lr-registration,
+        .lr-format-minimal .lr-registration * {
+          color: #475569;
+        }
+
+        .lr-format-minimal .lr-route-title {
+          color: #64748b;
+          letter-spacing: 1.2px;
+        }
+
+        .lr-format-minimal .lr-label {
+          color: #94a3b8;
+        }
+
+        .lr-format-minimal .lr-party-name,
+        .lr-format-minimal .lr-route-value,
+        .lr-format-minimal .lr-charge-row > *:last-child,
+        .lr-format-minimal .lr-subtotal strong {
+          color: #0f172a;
+        }
+
+        .lr-format-minimal .lr-cns-number {
+          color: #0f172a;
+        }
+
+        .lr-format-minimal .lr-copy-name {
+          color: #475569;
+        }
+
+        .lr-format-minimal .lr-segment-options .active {
+          padding: 0 6px;
+          border-radius: 4px;
+          background: #e2e8f0;
+          color: #0f172a;
+          text-decoration: none;
+        }
+
+        .lr-format-minimal .lr-subtotal {
+          background: #f8fafc;
+        }
+
+        .lr-format-minimal .lr-grand-total {
+          background: #0f172a;
+          color: #fff;
+        }
+
+        /* ---------------------------------------------------------------- */
+        /* BOLD — black rules, yellow band, copier-proof                     */
+        /* ---------------------------------------------------------------- */
+        .lr-page.lr-format-bold {
+          border: 3px solid #000;
+          color: #000;
+          font-family: Arial, Helvetica, sans-serif;
+          font-weight: 600;
+          letter-spacing: 0;
+        }
+
+        .lr-format-bold * {
+          border-color: #000 !important;
+        }
+
+        .lr-format-bold .lr-header {
+          grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+        }
+
+        .lr-format-bold .lr-company-section {
+          grid-column: 1 / -1;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 7px 12px;
+          border-right: 0;
+          border-bottom: 3px solid #000;
+          background: #facc15;
+          color: #000;
+        }
+
+        .lr-format-bold .lr-company-top {
+          align-items: center;
+          margin-bottom: 0;
+        }
+
+        .lr-format-bold .lr-logo {
+          width: 56px;
+          height: 56px;
+          min-width: 56px;
+          background: #fff;
+          border: 2px solid #000;
+          color: #000;
+        }
+
+        .lr-format-bold .lr-company-name {
+          color: #000;
+          font-size: 25px;
+          font-weight: 900;
+          letter-spacing: 0.4px;
+        }
+
+        .lr-format-bold .lr-registration {
+          width: auto;
+          margin: 0;
+          padding: 0;
+          font-weight: 800;
+        }
+
+        .lr-format-bold .lr-registration,
+        .lr-format-bold .lr-registration * {
+          color: #000;
+        }
+
+        .lr-format-bold .lr-route-title {
+          background: #000;
+          color: #fff;
+        }
+
+        .lr-format-bold .lr-segment-section {
+          border-right: 0;
+        }
+
+        .lr-format-bold .lr-segment-title,
+        .lr-format-bold .lr-vertical-title,
+        .lr-format-bold .lr-charge-header,
+        .lr-format-bold .lr-ack-banner {
+          background: #000;
+          color: #fff;
+        }
+
+        .lr-format-bold .lr-label {
+          color: #111;
+          font-weight: 800;
+        }
+
+        .lr-format-bold .lr-party-name {
+          color: #000;
+          font-size: 18px;
+          font-weight: 900;
+        }
+
+        .lr-format-bold .lr-route-value,
+        .lr-format-bold .lr-charge-row > *:last-child,
+        .lr-format-bold .lr-subtotal strong {
+          color: #000;
+        }
+
+        .lr-format-bold .lr-cns-number {
+          color: #000;
+          font-size: 24px;
+        }
+
+        .lr-format-bold .lr-copy-name {
+          color: #000;
+        }
+
+        .lr-format-bold .lr-segment-options .active {
+          padding: 0 6px;
+          border-radius: 2px;
+          background: #000;
+          color: #facc15;
+          text-decoration: none;
+        }
+
+        .lr-format-bold .lr-subtotal {
+          background: #fef9c3;
+        }
+
+        .lr-format-bold .lr-grand-total {
+          background: #facc15;
+          border-top: 3px solid #000;
+          color: #000;
+          font-size: 16px;
+          font-weight: 900;
         }
 
         .lr-page.lr-format-ledger {

@@ -13,12 +13,12 @@ import {
 } from "@/lib/appearance-theme";
 import {
   DEFAULT_COMPANY_SETTINGS,
-  LR_FORMATS,
   type CompanySettingsResponse,
   type LRFormat,
   type CompanySettingsValues,
 } from "@/lib/company-settings";
 import type { ChargeDefinition } from "@/lib/charges";
+import { LrFormatGallery } from "@/components/settings/LrFormatGallery";
 
 const TABS = [
   { id: "company", label: "Company Account", icon: Building2 },
@@ -57,12 +57,6 @@ const APPEARANCE_COLOR_LABELS: Record<AppearanceColorKey, string> = {
   buttonHover: "Button hover",
 };
 
-const LR_FORMAT_OPTIONS: Record<LRFormat, { name: string; description: string }> = {
-  classic: { name: "Classic", description: "Traditional ruled layout with a balanced company, route, and shipment header." },
-  modern: { name: "Modern", description: "A company-forward header with clear route and party panels." },
-  compact: { name: "Compact", description: "A dense, smaller-type layout that keeps all document details on one page." },
-  ledger: { name: "Ledger", description: "A formal full-width company heading with aligned route and shipment sections." },
-};
 
 function Field({
   label,
@@ -624,181 +618,25 @@ export default function SettingsPage() {
                       </div>
                     ))}
                   </section>
-                  <div className="space-y-2">
-                    <div>
-                      <h4 className="font-semibold text-slate-900">Lorry Receipt format</h4>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                      {LR_FORMATS.map((format) => {
-                        const selected = settings.lrFormat === format;
-                        const background = settings.lrFormatBackgrounds[format];
-                        return (
-                          <section
-                            key={format}
-                            className={`overflow-hidden rounded-xl border ${selected ? "border-brand-600 ring-2 ring-brand-100" : "border-slate-200"}`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSettings((current) => ({ ...current, lrFormat: format }));
-                                setSavedMessage("");
-                              }}
-                              aria-pressed={selected}
-                              className="block w-full p-3 text-left"
-                            >
-                              <div
-                                className={`relative flex h-32 flex-col gap-2 overflow-hidden rounded-lg border border-slate-300 p-2 ${
-                                  format === "modern" ? "border-t-4 border-t-teal-700" :
-                                  format === "compact" ? "font-mono" :
-                                  format === "ledger" ? "font-serif ring-1 ring-amber-900/20" : ""
-                                }`}
-                                style={{
-                                  backgroundColor: background.backgroundColor,
-                                  backgroundImage: background.backgroundImage
-                                    ? `linear-gradient(rgba(255,255,255,.72),rgba(255,255,255,.72)),url("${background.backgroundImage}")`
-                                    : undefined,
-                                  backgroundPosition: "center",
-                                  backgroundSize: "cover",
-                                }}
-                              >
-                                <div className="flex min-h-0 flex-1 flex-col gap-1.5 rounded-sm bg-white/80 p-1.5">
-                                  <div className={`flex items-center justify-between gap-1 border-b border-slate-500 pb-1 ${
-                                    format === "modern" ? "text-teal-800" :
-                                    format === "ledger" ? "justify-center text-amber-900" : ""
-                                  }`}>
-                                    <span className="text-[8px] font-extrabold uppercase text-slate-900">Company Name</span>
-                                    <span className="text-[7px] font-bold text-slate-700">LR No. 2051</span>
-                                  </div>
-                                  {format === "classic" && (
-                                    <>
-                                      <div className="grid grid-cols-3 gap-1">
-                                        <div className="h-5 border border-slate-500 p-0.5 text-[6px]">FROM / TO</div>
-                                        <div className="h-5 border border-slate-500 p-0.5 text-[6px]">SEGMENT</div>
-                                        <div className="h-5 border border-slate-500 p-0.5 text-[6px]">VEHICLE</div>
-                                      </div>
-                                      <div className="grid min-h-0 flex-1 grid-cols-[2fr_1fr] gap-1">
-                                        <div className="grid grid-cols-2 gap-1">
-                                          <div className="border border-slate-500 p-0.5 text-[6px]">CONSIGNOR</div>
-                                          <div className="border border-slate-500 p-0.5 text-[6px]">CONSIGNEE</div>
-                                          <div className="col-span-2 border border-slate-500 p-0.5 text-[6px]">GOODS / PARTICULARS</div>
-                                        </div>
-                                        <div className="border border-slate-500 p-0.5 text-[6px]">CHARGES</div>
-                                      </div>
-                                    </>
-                                  )}
-                                  {format === "modern" && (
-                                    <>
-                                      <div className="grid grid-cols-[1.5fr_1fr] gap-1">
-                                        <div className="h-5 border border-slate-500 p-0.5 text-[6px]">FROM → TO</div>
-                                        <div className="h-5 border border-slate-500 p-0.5 text-[6px]">SEGMENT / RISK</div>
-                                      </div>
-                                      <div className="grid min-h-0 flex-1 grid-cols-[1fr_1fr_0.8fr] gap-1">
-                                        <div className="border border-slate-500 p-0.5 text-[6px]">CONSIGNOR</div>
-                                        <div className="border border-slate-500 p-0.5 text-[6px]">CONSIGNEE</div>
-                                        <div className="border border-slate-500 p-0.5 text-[6px]">LR / VEHICLE</div>
-                                      </div>
-                                      <div className="h-4 border border-slate-500 p-0.5 text-[6px]">GOODS · CHARGES · SIGNATURE</div>
-                                    </>
-                                  )}
-                                  {format === "compact" && (
-                                    <>
-                                      <div className="grid grid-cols-4 gap-0.5">
-                                        {["FROM", "TO", "LR NO.", "DATE"].map((label) => (
-                                          <div key={label} className="h-4 border border-slate-500 p-0.5 text-[5px]">{label}</div>
-                                        ))}
-                                      </div>
-                                      <div className="grid min-h-0 flex-1 grid-cols-4 gap-0.5">
-                                        <div className="col-span-3 grid grid-cols-2 gap-0.5">
-                                          <div className="border border-slate-500 p-0.5 text-[5px]">CONSIGNOR</div>
-                                          <div className="border border-slate-500 p-0.5 text-[5px]">CONSIGNEE</div>
-                                          <div className="col-span-2 border border-slate-500 p-0.5 text-[5px]">GOODS / WEIGHT / INVOICE</div>
-                                        </div>
-                                        <div className="border border-slate-500 p-0.5 text-[5px]">CHARGES</div>
-                                      </div>
-                                    </>
-                                  )}
-                                  {format === "ledger" && (
-                                    <>
-                                      <div className="grid grid-cols-2 gap-1">
-                                        <div className="h-5 border border-slate-500 p-0.5 text-[6px]">CONSIGNOR</div>
-                                        <div className="h-5 border border-slate-500 p-0.5 text-[6px]">CONSIGNEE</div>
-                                      </div>
-                                      <div className="grid min-h-0 flex-1 grid-cols-[1fr_1fr_0.65fr] gap-1">
-                                        <div className="col-span-2 grid grid-rows-2 gap-1">
-                                          <div className="border border-slate-500 p-0.5 text-[6px]">ROUTE / DELIVERY OFFICE</div>
-                                          <div className="border border-slate-500 p-0.5 text-[6px]">GOODS / WEIGHT / TERMS</div>
-                                        </div>
-                                        <div className="border border-slate-500 p-0.5 text-[6px]">CHARGES / TOTAL</div>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                              <span className="mt-3 flex items-center justify-between gap-2">
-                                <span>
-                                  <span className="block text-sm font-semibold text-slate-900">{LR_FORMAT_OPTIONS[format].name}</span>
-                                </span>
-                                <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${selected ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600"}`}>
-                                  {selected ? "Selected" : "Select"}
-                                </span>
-                              </span>
-                            </button>
-                            <div className="space-y-3 border-t border-slate-100 bg-slate-50 p-3">
-                              <Field label={`${LR_FORMAT_OPTIONS[format].name} background color`}>
-                                <span className="flex items-center gap-3">
-                                  <input
-                                    aria-label={`${LR_FORMAT_OPTIONS[format].name} background color`}
-                                    type="color"
-                                    value={background.backgroundColor}
-                                    onChange={(event) => updateLRBackgroundColor(format, event.target.value)}
-                                    className="h-10 w-14 cursor-pointer rounded border border-slate-300 bg-white p-1"
-                                  />
-                                  <span className="text-xs font-medium uppercase text-slate-600">{background.backgroundColor}</span>
-                                </span>
-                              </Field>
-                              <div>
-                                <p className="mb-1.5 text-sm font-medium text-slate-700">Background image</p>
-                                {background.backgroundImage && (
-                                  <img
-                                    src={background.backgroundImage}
-                                    alt={`${LR_FORMAT_OPTIONS[format].name} background preview`}
-                                    className="mb-2 h-16 w-full rounded border border-slate-200 object-cover"
-                                  />
-                                )}
-                                <div className="flex flex-wrap gap-2">
-                                  <label className="focus-ring inline-flex h-9 cursor-pointer items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                    Choose image
-                                    <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => void handleLRBackgroundChange(format, event)} />
-                                  </label>
-                                  {background.backgroundImage && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => {
-                                        setSettings((current) => ({
-                                          ...current,
-                                          lrFormatBackgrounds: {
-                                            ...current.lrFormatBackgrounds,
-                                            [format]: { ...current.lrFormatBackgrounds[format], backgroundImage: "" },
-                                          },
-                                        }));
-                                        setSavedMessage("");
-                                      }}
-                                    >
-                                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                      Remove
-                                    </Button>
-                                  )}
-                                </div>
-                                <p className="mt-1 text-xs text-slate-500">PNG, JPEG or WebP, max 256 KB.</p>
-                              </div>
-                            </div>
-                          </section>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <LrFormatGallery
+                    settings={settings}
+                    onSelect={(format) => {
+                      setSettings((current) => ({ ...current, lrFormat: format }));
+                      setSavedMessage("");
+                    }}
+                    onBackgroundColor={updateLRBackgroundColor}
+                    onBackgroundImage={(format, event) => void handleLRBackgroundChange(format, event)}
+                    onRemoveBackgroundImage={(format) => {
+                      setSettings((current) => ({
+                        ...current,
+                        lrFormatBackgrounds: {
+                          ...current.lrFormatBackgrounds,
+                          [format]: { ...current.lrFormatBackgrounds[format], backgroundImage: "" },
+                        },
+                      }));
+                      setSavedMessage("");
+                    }}
+                  />
                   <Field label="Default Invoice Terms And Conditions">
                     <textarea className={`${inputClassName} min-h-24 py-2`} rows={3} maxLength={10000} value={settings.invoiceTerms} onChange={(e) => updateText("invoiceTerms", e.target.value)} />
                   </Field>

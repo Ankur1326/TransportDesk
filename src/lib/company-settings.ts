@@ -1,6 +1,6 @@
 import { DEFAULT_CHARGE_DEFINITIONS, type ChargeDefinition } from "@/lib/charges";
 
-export const LR_FORMATS = ["classic", "modern", "compact", "ledger"] as const;
+export const LR_FORMATS = ["classic", "modern", "compact", "ledger", "executive", "minimal", "bold"] as const;
 export type LRFormat = (typeof LR_FORMATS)[number];
 
 export interface LRFormatBackground {
@@ -68,12 +68,9 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettingsValues = {
   quotationTerms: "",
   lrTerms: "",
   lrFormat: "classic",
-  lrFormatBackgrounds: {
-    classic: { backgroundColor: "#ffffff", backgroundImage: "" },
-    modern: { backgroundColor: "#ffffff", backgroundImage: "" },
-    compact: { backgroundColor: "#ffffff", backgroundImage: "" },
-    ledger: { backgroundColor: "#ffffff", backgroundImage: "" },
-  },
+  lrFormatBackgrounds: Object.fromEntries(
+    LR_FORMATS.map((format) => [format, { backgroundColor: "#ffffff", backgroundImage: "" }])
+  ) as Record<LRFormat, LRFormatBackground>,
   chargeDefinitions: DEFAULT_CHARGE_DEFINITIONS,
 };
 

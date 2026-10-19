@@ -40,24 +40,15 @@ const companySettingsSchema = new Schema<ICompanySettings>(
     lrFormat: { type: String, enum: LR_FORMATS, default: DEFAULT_COMPANY_SETTINGS.lrFormat },
     lrFormatBackgrounds: {
       type: new Schema(
-        {
-          classic: {
-            backgroundColor: { type: String, default: "#ffffff", match: /^#[0-9a-fA-F]{6}$/ },
-            backgroundImage: { type: String, default: "", maxlength: 350000 },
-          },
-          modern: {
-            backgroundColor: { type: String, default: "#ffffff", match: /^#[0-9a-fA-F]{6}$/ },
-            backgroundImage: { type: String, default: "", maxlength: 350000 },
-          },
-          compact: {
-            backgroundColor: { type: String, default: "#ffffff", match: /^#[0-9a-fA-F]{6}$/ },
-            backgroundImage: { type: String, default: "", maxlength: 350000 },
-          },
-          ledger: {
-            backgroundColor: { type: String, default: "#ffffff", match: /^#[0-9a-fA-F]{6}$/ },
-            backgroundImage: { type: String, default: "", maxlength: 350000 },
-          },
-        },
+        Object.fromEntries(
+          LR_FORMATS.map((format) => [
+            format,
+            {
+              backgroundColor: { type: String, default: "#ffffff", match: /^#[0-9a-fA-F]{6}$/ },
+              backgroundImage: { type: String, default: "", maxlength: 350000 },
+            },
+          ])
+        ),
         { _id: false }
       ),
       default: DEFAULT_COMPANY_SETTINGS.lrFormatBackgrounds,
