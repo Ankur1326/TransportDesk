@@ -7,7 +7,7 @@ import ConsignmentModel from "@/models/Consignment";
 import { companyFilter, requireCompany } from "@/lib/company-scope";
 import { loadCompanySettings } from "@/lib/company-settings-server";
 import { LR_COPY_LABELS, parseCopies } from "@/lib/lr-copies";
-import { LorryCopy, LRStyles, type CopyName } from "@/components/billing/Printpreview";
+import { LorryCopy, LRStyles } from "@/components/billing/Printpreview";
 import { PrintToolbar } from "./PrintToolbar";
 
 /**
@@ -66,8 +66,8 @@ export default async function LrSheetPage({ params, searchParams }: Props) {
 
   // Dates / ObjectIds -> plain JSON, the same shape the API returns.
   const values = JSON.parse(JSON.stringify(record));
-  const copies: (CopyName | undefined)[] = parsed.copies.length
-    ? parsed.copies.map((key) => LR_COPY_LABELS[key] as CopyName)
+  const copies: (string | undefined)[] = parsed.copies.length
+    ? parsed.copies.map((key) => LR_COPY_LABELS[key])
     : [undefined]; // single copy with no "LORRY COPY" label
 
   return (

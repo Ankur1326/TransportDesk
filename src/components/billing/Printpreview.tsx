@@ -83,7 +83,7 @@ function LRField({ label, value, className = "" }: { label: string; value?: Reac
 
 export function LorryCopy({ values, copyName, company, lrFormat }: {
   values: BillingFormValues;
-  copyName?: CopyName;          // <- optional
+  copyName?: string;            // <- optional label printed on the sheet
   company: CompanySettingsValues;
   lrFormat: LRFormat;
 }) {

@@ -18,7 +18,10 @@ const fail = (message: string, status: number) =>
   NextResponse.json({ success: false, message }, { status });
 
 /**
- * GET /api/admin/consignments/:id/pdf[?copies=consignor,consignee,driver|all]
+ * GET /api/admin/consignments/:id/pdf[?copies=transporter,consignor,consignee,driver|all][&download=1]
+ *
+ * `download=1` sends the PDF as an attachment (file download) instead of
+ * opening it inline in the browser's viewer.
  *
  * Streams the LR as a real PDF so the browser's own viewer opens it — no app
  * shell, no hydration. The PDF is produced by loading the bare sheet page
@@ -56,11 +59,14 @@ export async function GET(request: NextRequest, { params }: Ctx) {
     });
 
     const safeName = String(lr.consignmentNumber ?? id).replace(/[^\w.-]+/g, "_");
+    const suffix =
+      parsed.copies.length === 1 ? `-${parsed.copies[0]}` : parsed.copies.length > 1 ? "-all-copies" : "";
+    const disposition = request.nextUrl.searchParams.get("download") === "1" ? "attachment" : "inline";
     return new NextResponse(new Uint8Array(pdf), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="LR-${safeName}.pdf"`,
+        "Content-Disposition": `${disposition}; filename="LR-${safeName}${suffix}.pdf"`,
         "Content-Length": String(pdf.length),
         // Private + uncached: the LR changes when it is edited, and the URL
         // is only valid for the signed-in company.

@@ -19,12 +19,14 @@ export interface LrCardActions {
   podUpload: (r: ConsignmentListItem) => void;
   podView: (r: ConsignmentListItem) => void;
   podRemove: (r: ConsignmentListItem) => void;
+  /** Open the Share dialog (download Transporter / Consignor / Consignee / Driver / all copies). */
+  share: (r: ConsignmentListItem) => void;
   shareWhatsApp: (r: ConsignmentListItem) => void;
   copyLink: (r: ConsignmentListItem) => void;
   copyDetails: (r: ConsignmentListItem) => void;
   viewDetails: (r: ConsignmentListItem) => void;
   printCopies: (r: ConsignmentListItem) => void;
-  /** Open the PDF with the Consignor, Consignee and Driver copies. */
+  /** Open the PDF with every copy in the browser's PDF viewer. */
   pdfAllCopies: (r: ConsignmentListItem) => void;
   duplicate: (r: ConsignmentListItem) => void;
   setStatus: (r: ConsignmentListItem, s: LrStatus) => void;
@@ -186,16 +188,15 @@ export function LrCard({
 
           <ActionBtn icon={<Pencil />} label="Edit" href={`/admin/consignment/new?id=${item._id}`} disabled={cancelled} />
 
-          <Menu trigger={<><Share2 /> Share</>}>
-            <MenuItem icon={<MessageCircle />} onClick={() => actions.shareWhatsApp(item)}>WhatsApp (details + PDF link)</MenuItem>
-            <MenuItem icon={<Link2 />} onClick={() => actions.copyLink(item)}>Copy PDF link</MenuItem>
-            <MenuItem icon={<Copy />} onClick={() => actions.copyDetails(item)}>Copy details</MenuItem>
-          </Menu>
+          <ActionBtn icon={<Share2 />} label="Share" onClick={() => actions.share(item)} />
 
           <Menu trigger={<><MoreHorizontal /> More</>}>
             <MenuItem icon={<Eye />} onClick={() => actions.viewDetails(item)}>View details</MenuItem>
-            <MenuItem icon={<Printer />} onClick={() => actions.pdfAllCopies(item)}>PDF · all 3 copies</MenuItem>
+            <MenuItem icon={<Printer />} onClick={() => actions.pdfAllCopies(item)}>View PDF · all copies</MenuItem>
             <MenuItem icon={<Printer />} onClick={() => actions.printCopies(item)}>Print copies…</MenuItem>
+            <MenuItem icon={<MessageCircle />} onClick={() => actions.shareWhatsApp(item)}>WhatsApp (details + PDF link)</MenuItem>
+            <MenuItem icon={<Link2 />} onClick={() => actions.copyLink(item)}>Copy PDF link</MenuItem>
+            <MenuItem icon={<Copy />} onClick={() => actions.copyDetails(item)}>Copy details</MenuItem>
             <MenuItem icon={<Copy />} onClick={() => actions.duplicate(item)}>Duplicate LR</MenuItem>
             {(status === "Booked" || status === "On Route" || status === "Delivered") && <MenuDivider />}
             {status === "Booked" && (

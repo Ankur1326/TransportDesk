@@ -18,6 +18,7 @@ import { AccountModal } from "@/components/bookings/AccountModal";
 import { BulkBar } from "@/components/bookings/BulkBar";
 import { CancelDialog } from "@/components/bookings/CancelDialog";
 import { EMPTY_FILTERS, FilterBar, type Filters } from "@/components/bookings/FilterBar";
+import { ShareDialog } from "@/components/bookings/ShareDialog";
 import { LrCard, LrCardSkeleton, type LrCardActions } from "@/components/bookings/LrCard";
 import { Menu, MenuItem } from "@/components/bookings/Menu";
 import { STATUS_TABS, StatusTabs, type StatusTab } from "@/components/bookings/StatusTabs";
@@ -71,6 +72,7 @@ export default function BookingsPage() {
   const [accountTarget, setAccountTarget] = useState<ConsignmentListItem | null>(null);
   const [viewTarget, setViewTarget] = useState<ConsignmentListItem | null>(null);
   const [podRemoveTarget, setPodRemoveTarget] = useState<ConsignmentListItem | null>(null);
+  const [shareTarget, setShareTarget] = useState<ConsignmentListItem | null>(null);
   const [printTarget, setPrintTarget] = useState<ConsignmentRecord | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -324,6 +326,7 @@ export default function BookingsPage() {
     podUpload: (r) => { podFor.current = r; podInput.current?.click(); },
     podView: (r) => r.podUrl && window.open(r.podUrl, "_blank", "noopener"),
     podRemove: setPodRemoveTarget,
+    share: setShareTarget,
     shareWhatsApp: (r) =>
       window.open(`https://wa.me/?text=${encodeURIComponent(summaryText(r, absoluteLink(r)))}`, "_blank", "noopener"),
     copyLink: (r) => copyText(absoluteLink(r), "Link copied."),
@@ -474,6 +477,7 @@ export default function BookingsPage() {
 
       <ConsignmentDetailsModal consignment={viewTarget as never} onClose={() => setViewTarget(null)} />
       <AccountModal row={accountTarget} onClose={() => setAccountTarget(null)} onSave={savePayment} />
+      <ShareDialog row={shareTarget} onClose={() => setShareTarget(null)} />
       <CancelDialog row={cancelTarget} onClose={() => setCancelTarget(null)} onConfirm={confirmCancel} />
 
       <ConfirmDialog
