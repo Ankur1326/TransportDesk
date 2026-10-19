@@ -1,5 +1,6 @@
 "use client";
 
+import { Box, IndianRupee, Package, Receipt, Scale, Tag, Weight } from "lucide-react";
 import { useFormContext } from "react-hook-form";
 import { FormSection } from "@/components/billing/FormSection";
 import { Input } from "@/components/ui/Input";
@@ -23,7 +24,7 @@ export function ShipmentDetailsSection() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Input
             size="compact"
-            label="Packages" hi="पैकेज / नग"
+            label="Packages" hi="पैकेज / नग" startIcon={<Package className="h-3.5 w-3.5" />}
             error={shipmentErrors?.packages?.message}
             {...register("shipment.packages")}
           />
@@ -36,35 +37,35 @@ export function ShipmentDetailsSection() {
           />
           <Input
             size="compact"
-            label="Classification / Product Code" hi="वर्गीकरण / उत्पाद कोड"
+            label="Classification / Product Code" hi="वर्गीकरण / उत्पाद कोड" startIcon={<Tag className="h-3.5 w-3.5" />}
             error={shipmentErrors?.classification?.message}
             {...register("shipment.classification")}
           />
           <Input
             size="compact"
-            label="Declared Value (₹)" hi="घोषित मूल्य"
+            label="Declared Value (₹)" hi="घोषित मूल्य" startIcon={<IndianRupee className="h-3.5 w-3.5" />}
             error={shipmentErrors?.declaredValue?.message}
             {...register("shipment.declaredValue")}
           />
-          <Input size="compact" label="Invoice Number" hi="इनवॉइस नंबर" error={errors.invoiceNumber?.message} {...register("invoiceNumber")} />
+          <Input size="compact" label="Invoice Number" hi="इनवॉइस नंबर" startIcon={<Receipt className="h-3.5 w-3.5" />} error={errors.invoiceNumber?.message} {...register("invoiceNumber")} />
 
           <Input size="compact" type="date" label="Invoice Date" hi="इनवॉइस की तारीख" error={errors.invoiceDate?.message} {...register("invoiceDate")} />
           <Input
             size="compact"
-            label="Volume LxBXH = CFT" hi="आयतन"
+            label="Volume LxBXH = CFT" hi="आयतन" startIcon={<Box className="h-3.5 w-3.5" />}
             error={shipmentErrors?.volume?.message}
             {...register("shipment.volume")}
           />
           <Input
             size="compact"
-            label="Actual Weight" hi="वास्तविक वजन"
+            label="Actual Weight" hi="वास्तविक वजन" startIcon={<Weight className="h-3.5 w-3.5" />}
             error={shipmentErrors?.actualWeight?.message}
             {...register("shipment.actualWeight")}
           />
 
           <Input
             size="compact"
-            label="Charged Wt. as agreed" hi="तय चार्ज वजन"
+            label="Charged Wt. as agreed" hi="तय चार्ज वजन" startIcon={<Scale className="h-3.5 w-3.5" />}
             error={shipmentErrors?.chargeWeight?.message}
             {...register("shipment.chargeWeight")}
           />

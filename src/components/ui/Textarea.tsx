@@ -24,12 +24,12 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     const isCompact = size === "compact";
 
     return (
-      <div className="w-full">
+      <div className="group w-full">
         {label && (
           <label
             htmlFor={textareaId}
             className={cn(
-              "mb-1.5 block text-body-sm font-medium text-neutral-800",
+              "mb-1.5 block text-body-sm font-medium text-neutral-800 transition-colors group-focus-within:text-brand-700",
               isCompact && "mb-0.5 text-[9.5px] font-semibold uppercase tracking-[0.02em] text-neutral-600"
             )}
           >
@@ -50,14 +50,14 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             "focus-ring w-full resize-y rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-body text-neutral-900 placeholder:text-neutral-400",
             "transition-colors hover:border-neutral-400",
             isCompact && "rounded-md px-2 py-1.5 text-[12px]",
-            error && "border-error-500 hover:border-error-500 focus-visible:ring-error-500",
+            error && "uts-shake border-error-500 hover:border-error-500 focus-visible:ring-error-500",
             className
           )}
           {...props}
         />
 
         {error ? (
-          <p id={errorId} className={cn("mt-1.5 text-body-sm text-error-600", isCompact && "mt-0.5 text-[10px]")}>
+          <p id={errorId} className={cn("uts-pop mt-1.5 text-body-sm text-error-600", isCompact && "mt-0.5 text-[10px]")}>
             {error}
           </p>
         ) : helperText ? (

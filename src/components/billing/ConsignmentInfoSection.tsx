@@ -1,5 +1,6 @@
 "use client";
 
+import { FileCheck2, Hash, Truck } from "lucide-react";
 import { useFormContext } from "react-hook-form";
 import { FormSection } from "@/components/billing/FormSection";
 import { Input } from "@/components/ui/Input";
@@ -16,7 +17,7 @@ export function ConsignmentInfoSection() {
         <div className="sm:col-span-2 xl:col-span-1">
           <Input
             size="compact"
-            label="Consignment No." hi="बिल्टी नंबर"
+            label="Consignment No." hi="बिल्टी नंबर" startIcon={<Hash className="h-3.5 w-3.5" />}
             required
             className="font-bold text-brand-800"
             error={errors.consignmentNumber?.message}
@@ -28,7 +29,7 @@ export function ConsignmentInfoSection() {
 
         <Input
           size="compact"
-          label="Vehicle Number" hi="गाड़ी नंबर"
+          label="Vehicle Number" hi="गाड़ी नंबर" startIcon={<Truck className="h-3.5 w-3.5" />}
           placeholder="e.g. GJ 01 AB 1234"
           error={errors.vehicleNumber?.message}
           {...register("vehicleNumber")}
@@ -36,7 +37,7 @@ export function ConsignmentInfoSection() {
 
         <Input
           size="compact"
-          label="E-Way Bill Number" hi="ई-वे बिल नंबर"
+          label="E-Way Bill Number" hi="ई-वे बिल नंबर" startIcon={<FileCheck2 className="h-3.5 w-3.5" />}
           placeholder="Optional"
           error={errors.eWayBillNumber?.message}
           {...register("eWayBillNumber")}

@@ -1,5 +1,6 @@
 "use client";
 
+import { BadgeCheck, Building2, Hash, Home, Landmark, Mail, Map, Smartphone } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useFormContext } from "react-hook-form";
@@ -137,7 +138,7 @@ export function PartyCard({ prefix, title, description }: PartyCardProps) {
           <div ref={wrapperRef} className="relative">
             <Input
               size="compact"
-              label="Company / Customer Name" hi="कंपनी / ग्राहक का नाम"
+              label="Company / Customer Name" hi="कंपनी / ग्राहक का नाम" startIcon={<Building2 className="h-3.5 w-3.5" />}
               required
               autoComplete="off"
               error={sectionErrors?.name?.message}
@@ -194,22 +195,22 @@ export function PartyCard({ prefix, title, description }: PartyCardProps) {
             )}
           </div>
 
-          <Input size="compact" label="Address" hi="पता" required error={sectionErrors?.address?.message} {...register(`${prefix}.address`)} />
+          <Input size="compact" label="Address" hi="पता" startIcon={<Home className="h-3.5 w-3.5" />} required error={sectionErrors?.address?.message} {...register(`${prefix}.address`)} />
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Input size="compact" required label="City" hi="शहर" error={sectionErrors?.city?.message} {...register(`${prefix}.city`)} />
-          <Input size="compact" required label="State" hi="राज्य" error={sectionErrors?.state?.message} {...register(`${prefix}.state`)} />
+          <Input size="compact" required label="City" hi="शहर" startIcon={<Landmark className="h-3.5 w-3.5" />} error={sectionErrors?.city?.message} {...register(`${prefix}.city`)} />
+          <Input size="compact" required label="State" hi="राज्य" startIcon={<Map className="h-3.5 w-3.5" />} error={sectionErrors?.state?.message} {...register(`${prefix}.state`)} />
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Input size="compact" label="PIN Code" hi="पिन कोड" error={sectionErrors?.pincode?.message} {...register(`${prefix}.pincode`)} />
-          <Input size="compact" required label="GSTIN" hi="जीएसटीआईएन" error={sectionErrors?.gstin?.message} {...register(`${prefix}.gstin`)} />
+          <Input size="compact" label="PIN Code" hi="पिन कोड" startIcon={<Hash className="h-3.5 w-3.5" />} error={sectionErrors?.pincode?.message} {...register(`${prefix}.pincode`)} />
+          <Input size="compact" required label="GSTIN" hi="जीएसटीआईएन" startIcon={<BadgeCheck className="h-3.5 w-3.5" />} error={sectionErrors?.gstin?.message} {...register(`${prefix}.gstin`)} />
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Input size="compact" label="Mobile Number" hi="मोबाइल नंबर" error={sectionErrors?.mobile?.message} {...register(`${prefix}.mobile`)} />
-          <Input size="compact" type="email" label="Email" hi="ईमेल" error={sectionErrors?.email?.message} {...register(`${prefix}.email`)} />
+          <Input size="compact" label="Mobile Number" hi="मोबाइल नंबर" startIcon={<Smartphone className="h-3.5 w-3.5" />} error={sectionErrors?.mobile?.message} {...register(`${prefix}.mobile`)} />
+          <Input size="compact" type="email" label="Email" hi="ईमेल" startIcon={<Mail className="h-3.5 w-3.5" />} error={sectionErrors?.email?.message} {...register(`${prefix}.email`)} />
         </div>
 
         <button

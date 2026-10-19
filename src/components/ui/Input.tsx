@@ -52,7 +52,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const errorId = `${inputId}-error`;
 
     return (
-      <div className="w-full">
+      <div className="group w-full">
         {/* ========================================================== */}
         {/* LABEL                                                        */}
         {/* ========================================================== */}
@@ -61,7 +61,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <label
             htmlFor={inputId}
             className={cn(
-              "mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.04em] text-neutral-600",
+              "mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.04em] text-neutral-600 transition-colors group-focus-within:text-brand-700",
               isCompact && "mb-0.5 text-[9.5px] tracking-[0.02em]"
             )}
           >
@@ -85,7 +85,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           {startIcon && (
             <span
               className={cn(
-                "pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-neutral-400",
+                "pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-neutral-400 transition-colors group-focus-within:text-brand-600",
                 isCompact && "left-2"
               )}
             >
@@ -161,6 +161,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
                   focus:border-error-500
                   focus:bg-white
                   focus:ring-error-500
+                  uts-shake
                 `,
 
               className
@@ -177,7 +178,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <p
             id={errorId}
             className={cn(
-              "mt-1.5 text-[11px] font-medium text-error-600",
+              "uts-pop mt-1.5 text-[11px] font-medium text-error-600",
               isCompact && "mt-0.5 text-[10px]"
             )}
           >

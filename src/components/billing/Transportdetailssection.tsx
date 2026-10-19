@@ -1,5 +1,6 @@
 "use client";
 
+import { Phone, Route, UserRound, Warehouse } from "lucide-react";
 import { useFormContext } from "react-hook-form";
 import { FormSection } from "@/components/billing/FormSection";
 import { Input } from "@/components/ui/Input";
@@ -24,12 +25,12 @@ export function TransportDetailsSection() {
     <FormSection title="Vehicle & transport" description="Transport mode, vehicle route and operating branches.">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Select size="compact" label="Transport Mode" hi="परिवहन का माध्यम" options={TRANSPORT_MODES} error={vehicleErrors?.transportMode?.message} {...register("vehicle.transportMode")} />
-        <Input size="compact" label="Route" hi="मार्ग" placeholder="e.g. Baddi → Solan" error={vehicleErrors?.route?.message} {...register("vehicle.route")} />
+        <Input size="compact" label="Route" hi="मार्ग" startIcon={<Route className="h-3.5 w-3.5" />} placeholder="e.g. Baddi → Solan" error={vehicleErrors?.route?.message} {...register("vehicle.route")} />
 
-        <Input size="compact" label="Booking Branch" hi="बुकिंग शाखा" error={vehicleErrors?.branch?.message} {...register("vehicle.branch")} />
-        <Input size="compact" label="Delivery Branch" hi="डिलीवरी शाखा" error={vehicleErrors?.deliveryBranch?.message} {...register("vehicle.deliveryBranch")} />
-        <Input size="compact" label="Driver Name" hi="ड्राइवर का नाम" error={vehicleErrors?.driverName?.message} {...register("vehicle.driverName")} />
-        <Input size="compact" type="tel" label="Driver Mobile" hi="ड्राइवर का मोबाइल" error={vehicleErrors?.driverMobile?.message} {...register("vehicle.driverMobile")} />
+        <Input size="compact" label="Booking Branch" hi="बुकिंग शाखा" startIcon={<Warehouse className="h-3.5 w-3.5" />} error={vehicleErrors?.branch?.message} {...register("vehicle.branch")} />
+        <Input size="compact" label="Delivery Branch" hi="डिलीवरी शाखा" startIcon={<Warehouse className="h-3.5 w-3.5" />} error={vehicleErrors?.deliveryBranch?.message} {...register("vehicle.deliveryBranch")} />
+        <Input size="compact" label="Driver Name" hi="ड्राइवर का नाम" startIcon={<UserRound className="h-3.5 w-3.5" />} error={vehicleErrors?.driverName?.message} {...register("vehicle.driverName")} />
+        <Input size="compact" type="tel" label="Driver Mobile" hi="ड्राइवर का मोबाइल" startIcon={<Phone className="h-3.5 w-3.5" />} error={vehicleErrors?.driverMobile?.message} {...register("vehicle.driverMobile")} />
       </div>
     </FormSection>
   );

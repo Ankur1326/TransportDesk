@@ -343,7 +343,7 @@ function TransportBillingForm() {
           onSubmit={(e) => e.preventDefault()}
         >
           <WorkflowTabs workflow="consignment" activePage="create" />
-          <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-brand-50/60 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <header className="uts-rise flex flex-col gap-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-brand-50/60 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-700 text-white shadow-sm">
                 <FilePlus2 className="h-5 w-5" aria-hidden="true" />
@@ -362,7 +362,7 @@ function TransportBillingForm() {
             </div>
             <div className="flex shrink-0 items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 py-2 sm:self-center">
               <span className="text-xs font-medium text-slate-500">LR No.</span>
-              <span className="text-base font-bold text-brand-800">{values.consignmentNumber || "—"}</span>
+              <span  className="uts-pop inline-block text-base font-bold text-brand-800">{values.consignmentNumber || "—"}</span>
             </div>
           </header>
 

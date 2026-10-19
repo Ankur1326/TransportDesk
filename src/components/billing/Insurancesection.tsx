@@ -1,5 +1,6 @@
 "use client";
 
+import { FileSignature, IndianRupee, Shield, ShieldCheck } from "lucide-react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { FormSection } from "@/components/billing/FormSection";
 import { Input } from "@/components/ui/Input";
@@ -56,18 +57,18 @@ export function InsuranceSection() {
     >
       {required && (
         <div className="grid grid-cols-2 gap-1.5">
-          <Input size="compact" label="Insurance Company" hi="बीमा कंपनी" error={insuranceErrors?.company?.message} {...register("insurance.company")} />
-          <Input size="compact" label="Policy Number" hi="पॉलिसी नंबर" error={insuranceErrors?.policyNumber?.message} {...register("insurance.policyNumber")} />
+          <Input size="compact" label="Insurance Company" hi="बीमा कंपनी" startIcon={<ShieldCheck className="h-3.5 w-3.5" />} error={insuranceErrors?.company?.message} {...register("insurance.company")} />
+          <Input size="compact" label="Policy Number" hi="पॉलिसी नंबर" startIcon={<FileSignature className="h-3.5 w-3.5" />} error={insuranceErrors?.policyNumber?.message} {...register("insurance.policyNumber")} />
           <Input
             size="compact"
             type="number"
             min={0}
-            label="Insurance Amount (₹)" hi="बीमा राशि"
+            label="Insurance Amount (₹)" hi="बीमा राशि" startIcon={<IndianRupee className="h-3.5 w-3.5" />}
             error={insuranceErrors?.amount?.message}
             {...register("insurance.amount")}
           />
           <Input size="compact" type="date" label="Insurance Date" hi="बीमा की तारीख" error={insuranceErrors?.date?.message} {...register("insurance.date")} />
-          <Input size="compact" label="Risk Type" hi="जोखिम का प्रकार" error={insuranceErrors?.riskType?.message} {...register("insurance.riskType")} />
+          <Input size="compact" label="Risk Type" hi="जोखिम का प्रकार" startIcon={<Shield className="h-3.5 w-3.5" />} error={insuranceErrors?.riskType?.message} {...register("insurance.riskType")} />
         </div>
       )}
     </FormSection>

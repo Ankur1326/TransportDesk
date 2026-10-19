@@ -30,7 +30,7 @@ export function BillingSummary({ className }: { className?: string }) {
           {nonZeroLines.map((item) => (
             <div key={item.label} className="flex items-center gap-1.5 text-[10.5px]">
               <dt className="text-neutral-500">{item.label}:</dt>
-              <dd className="font-medium text-neutral-900">{formatINR(item.amount)}</dd>
+              <dd key={item.amount} className="uts-pop font-medium text-neutral-900">{formatINR(item.amount)}</dd>
             </div>
           ))}
         </dl>
@@ -49,7 +49,7 @@ export function BillingSummary({ className }: { className?: string }) {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <span className="text-xs font-semibold text-neutral-900">Grand Total</span>
-          <span className="text-lg font-bold text-brand-700">{formatINR(totals.grandTotal)}</span>
+          <span key={totals.grandTotal} className="uts-pop inline-block text-lg font-bold text-brand-700">{formatINR(totals.grandTotal)}</span>
         </div>
       </div>
 

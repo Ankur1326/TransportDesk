@@ -33,12 +33,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const isCompact = size === "compact";
 
     return (
-      <div className="w-full">
+      <div className="group w-full">
         {label && (
           <label
             htmlFor={selectId}
             className={cn(
-              "mb-1.5 block text-body-sm font-medium text-neutral-800",
+              "mb-1.5 block text-body-sm font-medium text-neutral-800 transition-colors group-focus-within:text-brand-700",
               isCompact && "mb-0.5 text-[9.5px] font-semibold uppercase tracking-[0.02em] text-neutral-600"
             )}
           >
@@ -59,7 +59,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               "focus-ring h-11 w-full appearance-none rounded-lg border border-neutral-300 bg-white px-3.5 pr-9 text-body text-neutral-900",
               "transition-colors hover:border-neutral-400",
               isCompact && "h-8 rounded-md px-2 pr-6 text-[12px]",
-              error && "border-error-500 hover:border-error-500 focus-visible:ring-error-500",
+              error && "uts-shake border-error-500 hover:border-error-500 focus-visible:ring-error-500",
               className
             )}
             {...props}

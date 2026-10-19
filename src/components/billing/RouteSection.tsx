@@ -1,5 +1,6 @@
 "use client";
 
+import { BadgeCheck, Building2, Map, MapPin } from "lucide-react";
 import { useFormContext } from "react-hook-form";
 import { FormSection } from "@/components/billing/FormSection";
 import { Input } from "@/components/ui/Input";
@@ -17,11 +18,11 @@ function RouteColumn({ prefix }: { prefix: "from" | "to" }) {
         {label}
       </h3>
       <div className="space-y-1.5">
-        <Input size="compact" label="City / Location" hi="शहर / स्थान" placeholder={`Enter ${label.toLowerCase()} city`} error={sectionErrors?.location?.message} {...register(`${prefix}.location`)} />
-        <Input size="compact" label="Branch / Office" hi="शाखा / कार्यालय" error={sectionErrors?.branch?.message} {...register(`${prefix}.branch`)} />
+        <Input size="compact" label="City / Location" hi="शहर / स्थान" startIcon={<MapPin className="h-3.5 w-3.5" />} placeholder={`Enter ${label.toLowerCase()} city`} error={sectionErrors?.location?.message} {...register(`${prefix}.location`)} />
+        <Input size="compact" label="Branch / Office" hi="शाखा / कार्यालय" startIcon={<Building2 className="h-3.5 w-3.5" />} error={sectionErrors?.branch?.message} {...register(`${prefix}.branch`)} />
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Input size="compact" label="State" hi="राज्य" error={sectionErrors?.state?.message} {...register(`${prefix}.state`)} />
-          <Input size="compact" label="GSTIN" hi="जीएसटीआईएन" error={sectionErrors?.gstin?.message} {...register(`${prefix}.gstin`)} />
+          <Input size="compact" label="State" hi="राज्य" startIcon={<Map className="h-3.5 w-3.5" />} error={sectionErrors?.state?.message} {...register(`${prefix}.state`)} />
+          <Input size="compact" label="GSTIN" hi="जीएसटीआईएन" startIcon={<BadgeCheck className="h-3.5 w-3.5" />} error={sectionErrors?.gstin?.message} {...register(`${prefix}.gstin`)} />
         </div>
       </div>
     </div>
