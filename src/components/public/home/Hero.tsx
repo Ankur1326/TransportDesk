@@ -1,73 +1,63 @@
 import Link from "next/link";
-import { ArrowRight, PhoneCall, ShieldCheck } from "@/components/icons";
-import { Section } from "@/components/layout/Section";
-import { RouteIllustration } from "@/components/public/home/RouteIllustration";
-import { trustStats } from "@/lib/placeholder-data";
+import { ArrowRight, CheckCircle2 } from "@/components/icons";
+import { Container } from "@/components/layout/Container";
+import { ProductPreview } from "@/components/public/ProductPreview";
+import { SIGN_IN_HREF, SIGN_UP_HREF } from "@/lib/brand";
+
+const points = ["Lorry receipts & GST freight bills", "Delivery status and proof of delivery", "Your company name on every document"];
 
 export function Hero() {
   return (
-    <Section background="muted" spacing="lg" className="overflow-hidden">
-      <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-16">
-        {/* Copy */}
-        <div>
-          <span className="eyebrow inline-flex items-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-            Trusted Freight Partner
+    <section className="relative overflow-hidden bg-gradient-to-b from-brand-50 via-white to-white">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-0 opacity-[0.35] [background-image:radial-gradient(var(--color-brand-200)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_75%)]"
+      />
+
+      <Container className="relative grid items-center gap-14 py-16 md:py-24 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:py-28">
+        <div className="pub-fade-up">
+          <span className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white px-3 py-1 text-caption font-semibold text-brand-800 shadow-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-brand-500" aria-hidden="true" />
+            Built for transport companies
           </span>
 
-          <h1 className="mt-4">
-            Freight delivered on time, <span className="text-brand-700">every time.</span>
+          <h1 className="mt-5">
+            Run your transport business from <span className="text-brand-700">one dashboard.</span>
           </h1>
 
-          <p className="mt-5 max-w-lg text-lead text-neutral-600">
-            From single-city drops to full-truckload freight, we plan the route, assign a
-            vetted driver, and keep you updated until it's signed for.
+          <p className="mt-5 max-w-xl text-lead text-neutral-600">
+            Create lorry receipts, raise GST freight bills, follow every booking to delivery and keep your parties organised —
+            without paper books or scattered spreadsheets.
           </p>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <ul className="mt-6 space-y-2.5">
+            {points.map((point) => (
+              <li key={point} className="flex items-center gap-2.5 text-body text-neutral-700">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-success-600" aria-hidden="true" />
+                {point}
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/quote"
-              className="focus-ring inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-brand-700 px-6 text-body font-medium text-white hover:bg-brand-800"
+              href={SIGN_UP_HREF}
+              className="focus-ring inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-brand-700 px-6 text-body font-semibold text-white shadow-sm transition hover:bg-brand-800"
             >
-              Get a Quote
+              Get started
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
             <Link
-              href="/contact"
-              className="focus-ring inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-white px-6 text-body font-medium text-neutral-800 hover:bg-neutral-50"
+              href={SIGN_IN_HREF}
+              className="focus-ring inline-flex h-12 items-center justify-center rounded-lg border border-neutral-300 bg-white px-6 text-body font-semibold text-neutral-800 transition hover:bg-neutral-50"
             >
-              <PhoneCall className="h-4 w-4" aria-hidden="true" />
-              Contact Us
+              Sign in
             </Link>
           </div>
-
-          {/* Trust indicators */}
-          <dl className="mt-10 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-neutral-200 pt-8 sm:grid-cols-4 sm:gap-x-4">
-            {trustStats.map((stat) => (
-              <div key={stat.label}>
-                <dt className="sr-only">{stat.label}</dt>
-                <dd className="text-h3 font-bold text-brand-800">{stat.value}</dd>
-                <dd className="mt-0.5 text-caption text-neutral-500">{stat.label}</dd>
-              </div>
-            ))}
-          </dl>
         </div>
 
-        {/* Illustration */}
-        <div className="relative">
-          <RouteIllustration className="max-w-md lg:max-w-none" />
-
-          <div className="absolute -bottom-5 left-4 flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-card sm:left-8">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success-50 text-success-600">
-              <ShieldCheck className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <div>
-              <p className="text-body-sm font-semibold text-neutral-900">On-Time Guarantee</p>
-              <p className="text-caption text-neutral-500">Tracked from pickup to delivery</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Section>
+        <ProductPreview className="pub-fade-up [animation-delay:120ms] lg:pl-4" />
+      </Container>
+    </section>
   );
 }

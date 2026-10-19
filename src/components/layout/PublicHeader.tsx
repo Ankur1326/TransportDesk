@@ -1,49 +1,45 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Truck } from "@/components/icons";
+import { useSession } from "next-auth/react";
+import { BrandMark } from "@/components/auth/BrandMark";
 import { Container } from "@/components/layout/Container";
 import { MobileNav } from "@/components/layout/MobileNav";
-import { siteConfig } from "@/lib/site-config";
+import { brand, SIGN_IN_HREF, SIGN_UP_HREF } from "@/lib/brand";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
-import { useSession } from "next-auth/react";
 
 /**
- * Responsive site navbar: logo, desktop link row with active-link
- * highlighting, a "Get a Quote" CTA, and a MobileNav drawer on small
- * screens. Sticky so it stays reachable while scrolling long pages.
+ * Sticky marketing header: brand, primary nav, and auth actions that adapt to
+ * the session (Sign in / Get started  →  Go to dashboard).
  */
 export function PublicHeader() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
+  const [scrolled, setScrolled] = useState(false);
 
-  const dashboardHref = session?.user ? "/admin/dashboard" : "/sign-in";
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
-  const authButtonLabel = session?.user ? "Go to Dashboard" : "Transporter Login";
+  const signedIn = Boolean(session?.user);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/95 backdrop-blur">
-      <Container className="flex h-16 items-center justify-between">
-        <Link
-          href="/"
-          className="focus-ring flex items-center gap-2 rounded-md font-semibold text-brand-800"
-        >
-          {/* <span className=""> */}
-            <Image
-              src="/media/UTS-logo.png"
-              alt="Mastery Hub"
-              width={70}
-              height={50}
-              priority
-            />
-          {/* </span> */}
-          <span className="text-h4">{siteConfig.name}</span>
-        </Link>
+    <header
+      className={cn(
+        "sticky top-0 z-30 border-b bg-white/90 backdrop-blur transition-shadow",
+        scrolled ? "border-neutral-200 shadow-sm" : "border-transparent"
+      )}
+    >
+      <Container className="flex h-16 items-center justify-between gap-6">
+        <BrandMark />
 
         <nav aria-label="Primary" className="hidden items-center gap-1 md:flex">
-          {siteConfig.navLinks.map((link) => {
+          {brand.navLinks.map((link) => {
             const isActive = pathname === link.href;
             return (
               <Link
@@ -52,7 +48,7 @@ export function PublicHeader() {
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "focus-ring rounded-md px-3 py-2 text-body-sm font-medium transition-colors",
-                  isActive ? "text-brand-700" : "text-neutral-600 hover:text-brand-700"
+                  isActive ? "text-brand-700" : "text-neutral-600 hover:text-neutral-900"
                 )}
               >
                 {link.label}
@@ -62,27 +58,34 @@ export function PublicHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link
-            href="/quote"
-            className="focus-ring hidden h-10 items-center justify-center rounded-lg bg-brand-700 px-4 text-body-sm font-medium text-white hover:bg-brand-800 sm:inline-flex"
-          >
-            Get a Quote
-          </Link>
+          {/* Reserve the space while the session loads so the buttons don't jump. */}
+          <div className={cn("hidden items-center gap-2 sm:flex", status === "loading" && "invisible")}>
+            {signedIn ? (
+              <Link
+                href="/admin/dashboard"
+                className="focus-ring inline-flex h-10 items-center justify-center rounded-lg bg-brand-700 px-4 text-body-sm font-semibold text-white shadow-sm hover:bg-brand-800"
+              >
+                Go to dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href={SIGN_IN_HREF}
+                  className="focus-ring inline-flex h-10 items-center justify-center rounded-lg px-4 text-body-sm font-semibold text-neutral-700 hover:bg-neutral-100"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href={SIGN_UP_HREF}
+                  className="focus-ring inline-flex h-10 items-center justify-center rounded-lg bg-brand-700 px-4 text-body-sm font-semibold text-white shadow-sm hover:bg-brand-800"
+                >
+                  Get started
+                </Link>
+              </>
+            )}
+          </div>
 
-          {status === "loading" ? (
-            <span className="hidden h-10 items-center justify-center rounded-lg border border-neutral-200 px-4 text-body-sm font-medium text-neutral-500 sm:inline-flex">
-              Loading...
-            </span>
-          ) : (
-            <Link
-              href={dashboardHref}
-              className="focus-ring hidden h-10 items-center justify-center rounded-lg border border-neutral-200 px-4 text-body-sm font-medium text-neutral-700 hover:bg-neutral-50 sm:inline-flex"
-            >
-              {authButtonLabel}
-            </Link>
-          )}
-
-          <MobileNav />
+          <MobileNav signedIn={signedIn} />
         </div>
       </Container>
     </header>

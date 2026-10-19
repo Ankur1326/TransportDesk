@@ -3,26 +3,23 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Phone, MessageCircle } from "@/components/icons";
-import { siteConfig, buildTelLink, buildWhatsAppLink } from "@/lib/site-config";
+import { Menu, X } from "@/components/icons";
+import { BrandMark } from "@/components/auth/BrandMark";
+import { brand, SIGN_IN_HREF, SIGN_UP_HREF } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 /**
- * Self-contained mobile navigation: a hamburger button that opens a
- * full-height slide-in panel. Locks body scroll while open and closes
- * on route change, backdrop click, or Escape — standard mobile drawer
- * accessibility behavior.
+ * Mobile drawer. Locks body scroll while open and closes on route change,
+ * backdrop click or Escape.
  */
-export function MobileNav() {
-  const [open, setOpen] = useState(false);
+export function MobileNav({ signedIn = false }: { signedIn?: boolean }) {
+  // Remember *which page* the drawer was opened on; navigating elsewhere closes it
+  // without needing an effect to reset state.
   const pathname = usePathname();
+  const [openOn, setOpenOn] = useState<string | null>(null);
+  const open = openOn === pathname;
+  const setOpen = (value: boolean) => setOpenOn(value ? pathname : null);
 
-  // Close the drawer whenever the route changes
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
-  // Lock body scroll while the drawer is open
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => {
@@ -30,13 +27,12 @@ export function MobileNav() {
     };
   }, [open]);
 
-  // Close on Escape
   useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpenOn(null);
     }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   return (
@@ -52,7 +48,6 @@ export function MobileNav() {
         <Menu className="h-6 w-6" aria-hidden="true" />
       </button>
 
-      {/* Backdrop */}
       <div
         aria-hidden="true"
         onClick={() => setOpen(false)}
@@ -62,7 +57,6 @@ export function MobileNav() {
         )}
       />
 
-      {/* Slide-in panel */}
       <div
         id="mobile-nav-panel"
         role="dialog"
@@ -70,11 +64,11 @@ export function MobileNav() {
         aria-label="Mobile navigation"
         className={cn(
           "fixed inset-y-0 right-0 z-50 flex w-[85%] max-w-sm flex-col bg-white shadow-xl transition-transform duration-300 ease-out",
-          open ? "translate-x-0" : "translate-x-full"
+          open ? "translate-x-0" : "pointer-events-none translate-x-full"
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-neutral-200 px-5">
-          <span className="font-semibold text-brand-800">{siteConfig.name}</span>
+          <BrandMark />
           <button
             type="button"
             onClick={() => setOpen(false)}
@@ -87,17 +81,17 @@ export function MobileNav() {
 
         <nav aria-label="Mobile primary" className="flex-1 overflow-y-auto px-5 py-4">
           <ul className="space-y-1">
-            {siteConfig.navLinks.map((link) => {
+            {brand.navLinks.map((link) => {
               const isActive = pathname === link.href;
               return (
                 <li key={link.href}>
                   <Link
                     href={link.href}
+                    aria-current={isActive ? "page" : undefined}
                     className={cn(
                       "focus-ring block rounded-lg px-3 py-3 text-base font-medium",
                       isActive ? "bg-brand-50 text-brand-700" : "text-neutral-700 hover:bg-neutral-50"
                     )}
-                    aria-current={isActive ? "page" : undefined}
                   >
                     {link.label}
                   </Link>
@@ -108,30 +102,29 @@ export function MobileNav() {
         </nav>
 
         <div className="space-y-3 border-t border-neutral-200 p-5">
-          <Link
-            href="/quote"
-            className="focus-ring flex h-11 w-full items-center justify-center rounded-lg bg-brand-700 text-sm font-medium text-white hover:bg-brand-800"
-          >
-            Get a Quote
-          </Link>
-          <div className="flex gap-3">
-            <a
-              href={buildTelLink()}
-              className="focus-ring flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          {signedIn ? (
+            <Link
+              href="/admin/dashboard"
+              className="focus-ring flex h-11 w-full items-center justify-center rounded-lg bg-brand-700 text-sm font-semibold text-white hover:bg-brand-800"
             >
-              <Phone className="h-4 w-4" aria-hidden="true" />
-              Call
-            </a>
-            <a
-              href={buildWhatsAppLink()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="focus-ring flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-success-500 text-sm font-medium text-success-700 hover:bg-success-50"
-            >
-              <MessageCircle className="h-4 w-4" aria-hidden="true" />
-              WhatsApp
-            </a>
-          </div>
+              Go to dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                href={SIGN_UP_HREF}
+                className="focus-ring flex h-11 w-full items-center justify-center rounded-lg bg-brand-700 text-sm font-semibold text-white hover:bg-brand-800"
+              >
+                Get started
+              </Link>
+              <Link
+                href={SIGN_IN_HREF}
+                className="focus-ring flex h-11 w-full items-center justify-center rounded-lg border border-neutral-300 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+              >
+                Sign in
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </div>

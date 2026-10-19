@@ -7,6 +7,16 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/admin/consignments/*/pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
   },
+  // The old single-company marketing pages no longer exist; keep their links working.
+  async redirects() {
+    return [
+      { source: "/services", destination: "/features", permanent: true },
+      { source: "/fleet", destination: "/features", permanent: true },
+      { source: "/quote", destination: "/sign-up", permanent: true },
+      { source: "/track", destination: "/", permanent: true },
+      { source: "/payment", destination: "/", permanent: true },
+    ];
+  },
   images: {
     remotePatterns: [
       {

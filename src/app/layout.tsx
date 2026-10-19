@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { Providers } from "@/app/(app)/providers";
 import { cn } from "@/lib/utils";
+import { brand } from "@/lib/brand";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -15,11 +16,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Transport Co. | Reliable Freight & Logistics",
-    template: "%s | Transport Co.",
+    default: `${brand.name} | Transport management software`,
+    template: `%s | ${brand.name}`,
   },
-  description:
-    "Professional freight, fleet, and logistics services. Get quotes, track shipments, and manage bookings with Transport Co.",
+  description: brand.description,
 };
 
 export default function RootLayout({
