@@ -196,18 +196,20 @@ function validateSettings(value: unknown): { values?: CompanySettingsValues; err
   }
 
   const requiredFields: (keyof CompanySettingsValues)[] = [
-    "companyName", "mobile1", "mobile2", "email", "addressLine", "pinCode",
+    "companyName",
   ];
   for (const field of requiredFields) {
     if (!settings[field]) return { error: `${field} is required` };
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.email)) {
+  if (settings.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.email)) {
     return { error: "Enter a valid company email address" };
   }
-  for (const field of ["mobile1", "mobile2"] as const) {
-    if (!/^\+?[0-9\s()-]{7,20}$/.test(settings[field])) {
-      return { error: `${field} must be a valid phone number` };
+  if (settings.mobile1 || settings.mobile2) {
+    for (const field of ["mobile1", "mobile2"] as const) {
+      if (!/^\+?[0-9\s()-]{7,20}$/.test(settings[field])) {
+        return { error: `${field} must be a valid phone number` };
+      }
     }
   }
   if (
