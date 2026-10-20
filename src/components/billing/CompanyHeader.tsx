@@ -1,11 +1,10 @@
 "use client";
 
-import { siteConfig } from "@/lib/site-config";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 
 export function CompanyHeader() {
   const { settings } = useCompanySettings();
-  const companyName = settings.companyName || siteConfig.name;
+  const companyName = settings.companyName.trim() || "Your Company";
   const address = [
     settings.addressLine,
     settings.city,
@@ -13,6 +12,10 @@ export function CompanyHeader() {
     settings.pinCode,
     settings.country,
   ].filter(Boolean).join(", ");
+
+  const contact = [[settings.mobile1, settings.mobile2].filter(Boolean).join(" · "), settings.email]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="flex flex-col gap-4 border-b border-neutral-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
@@ -26,10 +29,8 @@ export function CompanyHeader() {
         </div>
         <div>
           <h1 className="text-h3 font-bold uppercase tracking-tight text-brand-800">{companyName}</h1>
-          <p className="text-body-sm text-neutral-500">{address || siteConfig.address}</p>
-          <p className="text-body-sm text-neutral-500">
-            {[settings.mobile1, settings.mobile2].filter(Boolean).join(" · ") || siteConfig.phone} · {settings.email || siteConfig.email}
-          </p>
+          {address && <p className="text-body-sm text-neutral-500">{address}</p>}
+          {contact && <p className="text-body-sm text-neutral-500">{contact}</p>}
         </div>
       </div>
 

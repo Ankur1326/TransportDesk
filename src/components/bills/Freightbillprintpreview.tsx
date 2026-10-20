@@ -6,7 +6,6 @@ import { amountInWords, BillItemValues, computeBillSummary, computeBillTotals, t
 import { PrintItemsTable } from "@/components/bills/PrintItemsTable";
 import formatDate from "@/lib/formateDate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
-import { siteConfig } from "@/lib/site-config";
 import { DEFAULT_CHARGE_DEFINITIONS, type ChargeDefinition } from "@/lib/charges";
 
 interface FreightBillPrintPreviewProps {
@@ -138,7 +137,7 @@ export function FreightBillPrintPreview({ onClose }: FreightBillPrintPreviewProp
 
                     <div className="grid grid-cols-2 border-t border-t-slate-400 border-x border-x-slate-900 text-sm">
                         <div className="space-y-1 p-3">
-                            <p><span className="inline-block w-32 font-bold">Company Name</span>{settings.companyName || siteConfig.name}</p>
+                            <p><span className="inline-block w-32 font-bold">Company Name</span>{settings.companyName.trim() || "Your Company"}</p>
                             {bank.accountHolderName && <p><span className="inline-block w-32 font-bold">Account Holder</span>{bank.accountHolderName}</p>}
                             {bank.bankName && <p><span className="inline-block w-32 font-bold">Bank Name</span>{bank.bankName}</p>}
                             {bank.accountNumber && <p><span className="inline-block w-32 font-bold">A/c No</span>{bank.accountNumber}</p>}
@@ -149,7 +148,7 @@ export function FreightBillPrintPreview({ onClose }: FreightBillPrintPreviewProp
                         <div className="flex flex-col items-end justify-between p-3 text-right">
                             {settings.upiQrCode && <img src={settings.upiQrCode} alt="UPI payment QR code" className="h-24 w-24 object-contain" />}
                             {settings.signature && <img src={settings.signature} alt="Authorized signature" className="max-h-16 max-w-40 object-contain" />}
-                            <strong>For, {settings.companyName || siteConfig.name}</strong>
+                            <strong>For, {settings.companyName.trim() || "Your Company"}</strong>
                         </div>
                     </div>
 
@@ -195,7 +194,7 @@ export function FreightBillPrintPreview({ onClose }: FreightBillPrintPreviewProp
                 </div>
 
                 <div className="flex items-end justify-end p-3 text-[12px] font-semibold">
-                    For, {settings.companyName || siteConfig.name}
+                    For, {settings.companyName.trim() || "Your Company"}
                 </div>
                 <div className="flex items-end justify-end px-12  pt-15 pb-52 text-sm">
                     {!settings.signature && "Signature"}

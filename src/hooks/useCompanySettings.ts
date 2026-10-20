@@ -10,6 +10,8 @@ import {
 export function useCompanySettings() {
   const [settings, setSettings] = useState<CompanySettingsValues>(DEFAULT_COMPANY_SETTINGS);
   const [isLoading, setLoading] = useState(true);
+  // True after the first fetch settles; unlike isLoading it never flips back on focus reloads.
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -43,7 +45,10 @@ export function useCompanySettings() {
           console.error("Unable to load company settings:", error);
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setHasLoaded(true);
+        }
       }
     }
 
@@ -66,5 +71,5 @@ export function useCompanySettings() {
     setReloadKey((current) => current + 1);
   }, []);
 
-  return { settings, isLoading, error, reload };
+  return { settings, isLoading, hasLoaded, error, reload };
 }

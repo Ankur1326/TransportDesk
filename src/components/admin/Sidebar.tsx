@@ -3,11 +3,10 @@
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, type CSSProperties } from 'react';
 import Image from 'next/image';
-import { FaAngleDown } from "@/components/icons";
+import { Building2, FaAngleDown } from "@/components/icons";
 import { NAVIGATION_CONFIG, NavigationConfig } from '@/lib/navigationConfig';
 import { cn } from '@/lib/utils';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
-import { siteConfig } from '@/lib/site-config';
 import ProfileMenu from '@/components/ProfileMenu';
 import ThemeSelector from '@/components/ThemeSelector';
 
@@ -36,9 +35,12 @@ export default function Sidebar({
 }: SidebarProps) {
     const router = useRouter();
     const currentRoute = usePathname();
-    const { settings } = useCompanySettings();
-    const companyName = settings.companyName || siteConfig.name;
-    const companyEmail = settings.email || siteConfig.email;
+    const { settings, hasLoaded, error } = useCompanySettings();
+    // Only this company's own details are ever shown here — never another company's defaults.
+    const companyName = settings.companyName.trim();
+    const companyEmail = settings.email.trim();
+    const isLoadingCompany = !hasLoaded && !error;
+    const needsCompanySetup = hasLoaded && !companyName;
 
     const [expansionOverride, setExpansionOverride] = useState<{
         pathname: string;
@@ -213,32 +215,74 @@ export default function Sidebar({
                 className="pointer-events-none absolute inset-0 -z-10"
                 style={AURORA}
             />
-            <div className="flex shrink-0 items-center gap-3 border-b border-neutral-200 px-4 py-4 dark:border-brand-800">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-brand-800">
-                    {settings.companyLogo ? (
-                        <Image
-                            src={settings.companyLogo}
-                            alt={`${companyName} logo`}
-                            width={44}
-                            height={44}
-                            unoptimized
-                            className="h-full w-full object-contain"
-                        />
-                    ) : (
-                        <span className="text-sm font-bold text-brand-800 dark:text-accent-300">
-                            {companyName.slice(0, 3).toUpperCase()}
+            {isLoadingCompany ? (
+                <div
+                    aria-hidden="true"
+                    className="flex shrink-0 animate-pulse items-center gap-3 border-b border-neutral-200 px-4 py-4 dark:border-brand-800"
+                >
+                    <div className="h-11 w-11 shrink-0 rounded-lg bg-neutral-200 dark:bg-brand-800" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                        <div className="h-3 w-3/4 bg-neutral-200 dark:bg-brand-800" />
+                        <div className="h-2.5 w-1/2 bg-neutral-200 dark:bg-brand-800" />
+                    </div>
+                </div>
+            ) : needsCompanySetup || error ? (
+                // No company details yet (new account) or they couldn't be loaded: prompt instead of showing placeholder data.
+                <button
+                    type="button"
+                    onClick={() => navigateTo('/admin/settings')}
+                    className="group flex w-full shrink-0 items-center gap-3 border-b border-neutral-200 px-4 py-4 text-left outline-none transition-colors hover:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-500/40 dark:border-brand-800 dark:hover:bg-brand-900/60"
+                >
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-neutral-300 bg-white text-neutral-400 group-hover:border-accent-500 group-hover:text-accent-600 dark:border-brand-700 dark:bg-transparent">
+                        <Building2 className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                        <span className="block truncate text-body-sm font-semibold text-brand-900 dark:text-white">
+                            {error ? 'Company details unavailable' : 'Add your company details'}
                         </span>
-                    )}
+                        <span className="block truncate text-caption text-neutral-500 dark:text-neutral-400">
+                            {error ? 'Open settings to check' : 'Name, email & logo · tap to set up'}
+                        </span>
+                    </span>
+                </button>
+            ) : (
+                <div className="flex shrink-0 items-center gap-3 border-b border-neutral-200 px-4 py-4 dark:border-brand-800">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-brand-800">
+                        {settings.companyLogo ? (
+                            <Image
+                                src={settings.companyLogo}
+                                alt={`${companyName} logo`}
+                                width={44}
+                                height={44}
+                                unoptimized
+                                className="h-full w-full object-contain"
+                            />
+                        ) : (
+                            <span className="text-sm font-bold text-brand-800 dark:text-accent-300">
+                                {companyName.slice(0, 3).toUpperCase()}
+                            </span>
+                        )}
+                    </div>
+                    <div className="min-w-0">
+                        <p className="truncate text-body-sm font-semibold text-brand-900 dark:text-white" title={companyName}>
+                            {companyName}
+                        </p>
+                        {companyEmail ? (
+                            <p className="truncate text-caption text-neutral-500 dark:text-neutral-400" title={companyEmail}>
+                                {companyEmail}
+                            </p>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => navigateTo('/admin/settings')}
+                                className="truncate text-caption font-medium text-accent-600 underline-offset-2 hover:underline dark:text-accent-300"
+                            >
+                                Add company email
+                            </button>
+                        )}
+                    </div>
                 </div>
-                <div className="min-w-0">
-                    <p className="truncate text-body-sm font-semibold text-brand-900 dark:text-white" title={companyName}>
-                        {companyName}
-                    </p>
-                    <p className="truncate text-caption text-neutral-500 dark:text-neutral-400" title={companyEmail}>
-                        {companyEmail}
-                    </p>
-                </div>
-            </div>
+            )}
 
             {/* Navigation */}
             <nav className="min-h-0 flex-1 space-y-0 overflow-y-auto overflow-x-hidden py-3">

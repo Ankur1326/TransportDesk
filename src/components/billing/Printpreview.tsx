@@ -6,7 +6,6 @@ import { ArrowLeft, Loader2, Printer, RefreshCw } from "@/components/icons";
 import { Button } from "@/components/Button"
 import { computeBillingTotals } from "@/lib/calculations/billing";
 import { amountToWords } from "@/lib/numberToWords";
-import { siteConfig } from "@/lib/site-config";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import type { CompanySettingsValues, LRFormat } from "@/lib/company-settings";
 import { LR_FORMAT_META } from "@/lib/lr-formats";
@@ -84,7 +83,7 @@ export function LorryCopy({ values, copyName, company, lrFormat }: {
 }) {
   const totals = computeBillingTotals(values.charges, values.tax);
   const segment = String(values.segment);
-  const companyName = company.companyName || siteConfig.name;
+  const companyName = company.companyName.trim() || "Your Company";
   const companyAddress = [
     company.addressLine,
     company.city,
@@ -123,9 +122,11 @@ export function LorryCopy({ values, copyName, company, lrFormat }: {
             <div className="lr-company-details">
               <div className="lr-company-name !tracking-tight">{companyName}</div>
               <div className="text-[13.4px]">
-                <div className="leading-tight tracking-tighter">
-                  <span className="font-semibold">{companyAddress || siteConfig.address}</span>
-                </div>
+                {companyAddress && (
+                  <div className="leading-tight tracking-tighter">
+                    <span className="font-semibold">{companyAddress}</span>
+                  </div>
+                )}
                 <div className="leading-tight tracking-tighter">
                   {companyPhones && <span className="font-semibold">Mob.: {companyPhones} </span>}
                   {company.email && <span className="font-semibold">Email: {company.email}</span>}
