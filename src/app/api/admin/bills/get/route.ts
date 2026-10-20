@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import dbConnect from "@/lib/db";
 import FreightBillModel from "@/models/Bill";
+import { requireCompany, companyFilter } from "@/lib/company-scope";
+import { escapeRegex } from "@/lib/escape-regex";
 
 /**
  * GET /api/admin/bills/get
@@ -12,6 +14,9 @@ import FreightBillModel from "@/models/Bill";
  *  - limit    page size (default 20, max 100)
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireCompany();
+  if (!auth.ok) return auth.response;
+
   await dbConnect();
 
   try {
@@ -21,16 +26,19 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit")) || 20));
 
-    const query: Record<string, unknown> = {};
+    const and: Record<string, unknown>[] = [companyFilter(auth.companyId)];
     if (search) {
-      const regex = new RegExp(search, "i");
-      query.$or = [
-        { billNo: regex },
-        { billStn: regex },
-        { "billedTo.name": regex },
-        { "items.cnsNo": regex },
-      ];
+      const regex = new RegExp(escapeRegex(search), "i");
+      and.push({
+        $or: [
+          { billNo: regex },
+          { billStn: regex },
+          { "billedTo.name": regex },
+          { "items.cnsNo": regex },
+        ],
+      });
     }
+    const query = { $and: and };
 
     const [bills, total] = await Promise.all([
       FreightBillModel.find(query)

@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { setLoading } from "./loadingSlice";
+import { getApiErrorInfo } from "@/lib/api/errors";
 
 // name, address, city, state, gstin, mobile
 interface Customer {
@@ -52,7 +53,7 @@ export const fetchCustomers = createAsyncThunk(
                 totalPages: response.data.data.totalPages,
             };
         } catch (error: any) {
-            return rejectWithValue(error.message || 'Failed to fetched Customers');
+            return rejectWithValue(getApiErrorInfo(error, "Couldn't load your customers."));
         } finally {
             dispatch(setLoading(false))
         }
@@ -133,7 +134,7 @@ const CustomersSlice = createSlice({
             })
             .addCase(fetchCustomers.rejected, (state, action) => {
                 state.status = 'failed';
-                state.error = action.error.message || 'Failed to fetch Customers';
+                state.error = (action.payload as { message?: string } | undefined)?.message || action.error.message || 'Failed to fetch Customers';
             })
             .addCase(createCustomer.fulfilled, (state, action: PayloadAction<Customer>) => {
                 state.Customers.push(action.payload);

@@ -7,7 +7,8 @@ import { ChevronLeft, ChevronRight, FileText, Search } from "@/components/icons"
 import { Button } from "@/components/Button";
 import { Input } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ErrorState } from "@/components/ui/ErrorState";
+import { ApiErrorState } from "@/components/ui/ApiErrorState";
+import { CompanySetupNotice } from "@/components/admin/CompanySetupNotice";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   deleteFreightBill,
@@ -15,6 +16,7 @@ import {
   type FreightBillRecord,
 } from "@/lib/bill/api";
 import { getApiErrorMessage } from "@/lib/api/consignments";
+import { getApiErrorInfo, type ApiErrorInfo } from "@/lib/api/errors";
 import { BillCard, BillCardSkeleton, type BillCardActions } from "@/components/bills/BillCard";
 import { BillPrintPreviewStandalone } from "@/components/bills/BillPrintPreviewStandalone";
 
@@ -28,7 +30,7 @@ export default function BillsPage() {
   const [items, setItems] = useState<FreightBillRecord[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 });
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiErrorInfo | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<FreightBillRecord | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -57,7 +59,7 @@ export default function BillsPage() {
       setItems(res.data);
       setPagination(res.pagination);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Couldn't load bills."));
+      setError(getApiErrorInfo(err, "Couldn't load your bills."));
     } finally {
       setIsLoading(false);
     }
@@ -131,6 +133,8 @@ export default function BillsPage() {
             </div>
           </div>
 
+          <CompanySetupNotice />
+
           {/* FILTERS */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="sm:max-w-xs sm:flex-1">
@@ -147,7 +151,7 @@ export default function BillsPage() {
           {isLoading ? (
             <div className="grid gap-3">{[0, 1, 2].map((i) => <BillCardSkeleton key={i} />)}</div>
           ) : error ? (
-            <ErrorState description={error} onRetry={fetchList} />
+            <ApiErrorState error={error} onRetry={fetchList} />
           ) : items.length === 0 ? (
             <EmptyState
               icon={<FileText className="h-6 w-6" aria-hidden="true" />}

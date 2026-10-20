@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
+import { CompanyProfileGate } from "@/components/admin/CompanyProfileGate";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormProvider, useForm, useFieldArray } from "react-hook-form";
 import toast from "react-hot-toast";
@@ -413,7 +414,9 @@ function FreightBillForm() {
 export default function FreightBillFormPage() {
     return (
         <Suspense fallback={<Loading fullPage label="Loading…" />}>
-            <FreightBillForm />
+            <CompanyProfileGate action="create a bill" editParam="id">
+                <FreightBillForm />
+            </CompanyProfileGate>
         </Suspense>
     )
 }

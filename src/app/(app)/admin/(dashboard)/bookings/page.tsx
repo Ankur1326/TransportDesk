@@ -9,7 +9,9 @@ import { ChevronLeft, ChevronRight, Truck } from "@/components/icons";
 import { Button } from "@/components/Button";
 import { Select } from "@/components/ui/Select";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ErrorState } from "@/components/ui/ErrorState";
+import { ApiErrorState } from "@/components/ui/ApiErrorState";
+import { CompanySetupNotice } from "@/components/admin/CompanySetupNotice";
+import { getApiErrorInfo, type ApiErrorInfo } from "@/lib/api/errors";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ConsignmentDetailsModal } from "@/components/billing/ConsignmentDetailsModal";
 import { PrintPreview } from "@/components/billing/Printpreview";
@@ -61,7 +63,7 @@ export default function BookingsPage() {
   const [pagination, setPagination] = useState({ page: 1, limit: PAGE_SIZES[0], total: 0, totalPages: 1 });
   const [isFetching, setIsFetching] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiErrorInfo | null>(null);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -118,7 +120,7 @@ export default function BookingsPage() {
       if (tabCounts) setCounts(tabCounts);
     } catch (err) {
       if (id !== requestId.current) return;
-      setError(getApiErrorMessage(err, "Couldn't load consignments."));
+      setError(getApiErrorInfo(err, "Couldn't load your bilties."));
     } finally {
       if (id === requestId.current) {
         setIsFetching(false);
@@ -382,6 +384,8 @@ export default function BookingsPage() {
             </div>
           </div>
 
+          <CompanySetupNotice className="mt-3" />
+
           <div className="mt-3"><StatusTabs value={statusTab} counts={counts} onChange={changeTab} /></div>
 
           <div className="mt-3">
@@ -395,7 +399,7 @@ export default function BookingsPage() {
                 {[0, 1, 2, 3].map((i) => <LrCardSkeleton key={i} />)}
               </div>
             ) : error && items.length === 0 ? (
-              <ErrorState description={error} onRetry={() => void fetchList()} />
+              <ApiErrorState error={error} onRetry={() => void fetchList()} />
             ) : items.length === 0 ? (
               <EmptyState
                 icon={<Truck className="h-6 w-6" aria-hidden="true" />}
@@ -406,7 +410,7 @@ export default function BookingsPage() {
               <>
                 {error && (
                   <p role="alert" className="mb-2 text-body-sm text-error-600">
-                    {error} Showing the last loaded results.
+                    {error.title}: {error.message} Showing the last loaded results.
                   </p>
                 )}
 

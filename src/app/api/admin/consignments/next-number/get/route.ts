@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { getAuthenticatedCompanyId } from "@/lib/company-auth";
 import dbConnect from "@/lib/db";
 import CompanySettings from "@/models/CompanySettings";
 import ConsignmentModel from "@/models/Consignment";
-import { companyFilter } from "@/lib/company-scope";
+import { companyFilter, requireCompany } from "@/lib/company-scope";
 
 /**
  * GET /api/consignments/next-number
@@ -19,10 +18,9 @@ import { companyFilter } from "@/lib/company-scope";
  */
 export async function GET() {
   try {
-    const companyId = await getAuthenticatedCompanyId();
-    if (!companyId) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireCompany();
+    if (!auth.ok) return auth.response;
+    const companyId = auth.companyId;
 
     await dbConnect();
     const companySettings = await CompanySettings.findOne({ ownerId: companyId })

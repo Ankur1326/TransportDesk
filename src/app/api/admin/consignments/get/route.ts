@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import ConsignmentModel from "@/models/Consignment";
 import "@/models/User"; // registers the model used by populate("createdBy")
-import { requireCompany } from "@/lib/company-scope";
+import { companyFilter, requireCompany } from "@/lib/company-scope";
 import { buildConsignmentQuery, sortSpec } from "@/lib/consignment-query";
 
 /**
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     // Optionally hide consignments that already appear on a freight bill.
     if (searchParams.get("excludeBilled") === "true") {
       const Bill = (await import("@/models/Bill")).default;
-      const billedIds = await Bill.distinct("items.consignmentId");
+      const billedIds = await Bill.distinct("items.consignmentId", companyFilter(auth.companyId));
       if (billedIds.length) (query.$and as unknown[]).push({ _id: { $nin: billedIds } });
     }
 

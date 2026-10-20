@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import dbConnect from "@/lib/db";
 import FreightBillModel from "@/models/Bill";
+import { requireCompany, companyFilter } from "@/lib/company-scope";
 
 /**
  * One-time seed so numbering continues from your last physical bill (101/26-27)
@@ -21,13 +22,16 @@ function currentFiscalYearLabel(date: Date = new Date()): string {
 }
 
 export async function GET() {
+  const auth = await requireCompany();
+  if (!auth.ok) return auth.response;
+
   await dbConnect();
 
   try {
     const label = currentFiscalYearLabel();
 
     // billNo format is "<seq>/<label>" — match bills already in this fiscal year.
-    const latest = await FreightBillModel.find({ billNo: new RegExp(`/${label}$`) })
+    const latest = await FreightBillModel.find({ billNo: new RegExp(`/${label}$`), ...companyFilter(auth.companyId) })
       .sort({ createdAt: -1 })
       .limit(1)
       .lean();

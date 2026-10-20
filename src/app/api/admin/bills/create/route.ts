@@ -3,14 +3,28 @@ import { ZodError } from "zod";
 
 import dbConnect from "@/lib/db";
 import FreightBillModel from "@/models/Bill";
+import { requireCompanyProfile } from "@/lib/company-scope";
+import { dropLegacyUniqueIndex } from "@/lib/legacy-indexes";
+import { allConsignmentsBelongToCompany } from "@/lib/bill/verify-consignments";
 import { freightBillFormSchema, computeItemTotal, computeBillTotals, computeBillSummary } from "@/lib/bill/validations";
 
 export async function POST(request: NextRequest) {
+  const auth = await requireCompanyProfile();
+  if (!auth.ok) return auth.response;
+
   await dbConnect();
+  await dropLegacyUniqueIndex(FreightBillModel, "billNo");
 
   try {
     const body = await request.json();
     const parsed = freightBillFormSchema.parse(body);
+
+    if (!(await allConsignmentsBelongToCompany(parsed.items.map((i) => i.consignmentId), auth.companyId))) {
+      return NextResponse.json(
+        { success: false, message: "One or more consignments were not found." },
+        { status: 400 }
+      );
+    }
 
     // Never trust client-computed totals — recompute from the line items server-side.
     const items = parsed.items.map((item) => ({
@@ -27,6 +41,9 @@ export async function POST(request: NextRequest) {
       items,
       totalAmount,
       payableAmount,
+      // Server-controlled — never taken from the request body.
+      companyId: auth.companyId,
+      createdBy: auth.userId,
     });
 
     return NextResponse.json(

@@ -1,25 +1,15 @@
-import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import dbConnect from "@/lib/db";
 import Customer from "@/models/Customer";
-import { getServerSession } from "next-auth";
+import { requireCompanyProfile, companyFilter } from "@/lib/company-scope";
+import { dropLegacyUniqueIndex } from "@/lib/legacy-indexes";
 // import { getSession } from "next-auth/react";
 
 export async function POST(request: Request) {
+    const auth = await requireCompanyProfile();
+    if (!auth.ok) return auth.response;
+
     await dbConnect();
-
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user) {
-        return Response.json(
-            {
-                success: false,
-                message: "Unauthorized. Please log in."
-            },
-            {
-                status: 401
-            }
-        );
-    }
+    await dropLegacyUniqueIndex(Customer, "name");
 
     try {
         const { name, address, city = "", state = "", pincode = "", gstin = "", mobile, email } = await request.json();
@@ -39,7 +29,7 @@ export async function POST(request: Request) {
         }
 
         // Check if the category already exists by name
-        const existingCustomer = await Customer.findOne({ name });
+        const existingCustomer = await Customer.findOne({ name, ...companyFilter(auth.companyId) });
         console.log("existingCustomer : ", existingCustomer);
 
         if (existingCustomer) {
@@ -53,7 +43,10 @@ export async function POST(request: Request) {
         }
 
         const newCustomer = new Customer({
-            name, address, city, state, pincode, gstin, mobile, email
+            name, address, city, state, pincode, gstin, mobile, email,
+            // Server-controlled — never taken from the request body.
+            companyId: auth.companyId,
+            createdBy: auth.userId,
         });
 
         // Save the new category to the database

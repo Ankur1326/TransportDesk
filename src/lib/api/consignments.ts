@@ -1,3 +1,4 @@
+import { getApiErrorInfo } from "@/lib/api/errors";
 import axios from "axios";
 import type { BillingFormValues } from "@/lib/validations/billing";
 import type { ChargeLine } from "@/lib/charges";
@@ -132,10 +133,7 @@ const BASE_URL = "/api/admin/consignments";
 
 /** Extracts a human-readable message from an axios error, falling back to a generic one. */
 export function getApiErrorMessage(error: unknown, fallback = "Something went wrong. Please try again."): string {
-  if (axios.isAxiosError(error)) {
-    return (error.response?.data as { message?: string } | undefined)?.message ?? fallback;
-  }
-  return fallback;
+  return getApiErrorInfo(error, fallback).message;
 }
 
 /** Fetch a paginated, filterable list of consignments. */

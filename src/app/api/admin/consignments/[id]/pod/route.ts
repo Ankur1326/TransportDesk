@@ -81,7 +81,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     if (form.get("markDelivered") !== "false" && (current === "Booked" || current === "On Route")) {
       $set.status = "Delivered";
       $set.deliveredAt = now;
-      update.$push = { statusHistory: { status: "Delivered", at: now, by: auth.companyId, note: "POD uploaded" } };
+      update.$push = { statusHistory: { status: "Delivered", at: now, by: auth.userId, note: "POD uploaded" } };
     }
 
     const doc = await ConsignmentModel.findOneAndUpdate(

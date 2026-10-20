@@ -1,8 +1,12 @@
 import dbConnect from "@/lib/db";
 import Customer from "@/models/Customer";
+import { requireCompany, companyFilter } from "@/lib/company-scope";
 // import { getSession } from "next-auth/react";
 
 export async function PUT(request: Request) {
+    const auth = await requireCompany();
+    if (!auth.ok) return auth.response;
+
     await dbConnect();
 
     // const session = await getSession({ request })
@@ -43,7 +47,7 @@ export async function PUT(request: Request) {
         }
 
         // Check if the new name is already taken
-        const existingCustomer: any = await Customer.findOne({ name });
+        const existingCustomer: any = await Customer.findOne({ name, ...companyFilter(auth.companyId) });
         if (existingCustomer && existingCustomer._id.toString() !== customerId) {
             return Response.json(
                 {
@@ -57,8 +61,8 @@ export async function PUT(request: Request) {
         }
 
         // Find the category by ID and update it
-        const updatedCustomer = await Customer.findByIdAndUpdate(
-            customerId,
+        const updatedCustomer = await Customer.findOneAndUpdate(
+            { _id: customerId, ...companyFilter(auth.companyId) },
             { name, address, city, state, pincode, gstin, mobile, email },
             { new: true, runValidators: true }
         );

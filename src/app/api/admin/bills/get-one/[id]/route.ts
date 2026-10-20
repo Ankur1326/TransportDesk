@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 import dbConnect from "@/lib/db";
 import FreightBillModel from "@/models/Bill";
+import { requireCompany, companyFilter } from "@/lib/company-scope";
 
 function isValidObjectId(id: string) {
   return mongoose.Types.ObjectId.isValid(id);
@@ -12,6 +13,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ [key: string]: string | string[] }> }
 ) {
+  const auth = await requireCompany();
+  if (!auth.ok) return auth.response;
+
   await dbConnect();
   const resolvedParams = await params;
   const id =
@@ -26,7 +30,7 @@ export async function GET(
   }
 
   try {
-    const bill = await FreightBillModel.findById(id).lean();
+    const bill = await FreightBillModel.findOne({ _id: id, ...companyFilter(auth.companyId) }).lean();
 
     if (!bill) {
       return NextResponse.json({ success: false, message: "Bill not found" }, { status: 404 });

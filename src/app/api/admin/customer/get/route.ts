@@ -1,9 +1,13 @@
 import dbConnect from "@/lib/db";
 import Customer from "@/models/Customer";
+import { requireCompany, companyFilter } from "@/lib/company-scope";
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export async function GET(request: Request) {
+  const auth = await requireCompany();
+  if (!auth.ok) return auth.response;
+
   await dbConnect();
 
   const { searchParams } = new URL(request.url);
@@ -24,16 +28,19 @@ export async function GET(request: Request) {
     if (name) filter.name = { $regex: escapeRegex(name), $options: "i" };
     if (state) filter.state = { $regex: escapeRegex(state), $options: "i" };
 
+    // Always limit to the signed-in company ($and so it can't clash with the search $or).
+    const scoped = { $and: [companyFilter(auth.companyId), filter] };
+
     const skip = (currentPage - 1) * itemsPerPage;
 
     const [customers, totalCustomers] = await Promise.all([
-      Customer.find(filter)
+      Customer.find(scoped)
         .sort({ name: 1 })       // stable, alphabetical dropdown
         .skip(skip)
         .limit(itemsPerPage)
         .lean()                  // plain objects, noticeably faster
         .exec(),
-      Customer.countDocuments(filter).exec(),
+      Customer.countDocuments(scoped).exec(),
     ]);
 
     return Response.json(

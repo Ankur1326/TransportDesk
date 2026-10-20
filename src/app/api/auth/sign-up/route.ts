@@ -1,5 +1,6 @@
 import dbConnect from "@/lib/db";
 import UserModel from "@/models/User";
+import { ensureUserCompany } from "@/lib/company-provision";
 import {
   isStrongPassword,
   isValidEmail,
@@ -21,7 +22,6 @@ export async function POST(request: Request) {
   const email = normalizeEmail(body.email);
   const password = typeof body.password === "string" ? body.password : "";
   const fullName = typeof body.fullName === "string" ? body.fullName.trim().slice(0, 80) : "";
-  console.log(email, password, fullName)
   if (!isValidEmail(email)) return fail("Enter a valid email address", 400, "email");
   if (!isStrongPassword(password)) {
     return fail("Password must be 8+ characters with upper and lower case letters and a number", 400, "password");
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       return fail("An account with this email already exists. Try signing in instead.", 409, "email");
     }
 
-    await UserModel.create({
+    const user = await UserModel.create({
       email,
       password, // hashed by the model's pre-save hook
       fullName,
@@ -45,6 +45,9 @@ export async function POST(request: Request) {
       isVerified: true,
       isApproved: true, // self-serve SaaS: new accounts can sign in immediately
     });
+
+    // Each new sign-up gets its own company; all of its data is scoped by it.
+    await ensureUserCompany(user._id.toString(), { fresh: true, companyName: fullName });
 
     return Response.json(
       {

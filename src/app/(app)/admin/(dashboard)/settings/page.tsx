@@ -389,15 +389,15 @@ export default function SettingsPage() {
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     <Input label="Your Company Name" required value={settings.companyName} maxLength={160} onChange={(e) => updateText("companyName", e.target.value)} />
                     <Input label="Company GST No." value={settings.gstNumber} maxLength={15} autoCapitalize="characters" placeholder="15-character GSTIN" onChange={(e) => updateText("gstNumber", e.target.value.toUpperCase())} />
-                    <Input label="1st Mobile Number" required type="tel" value={settings.mobile1} maxLength={30} onChange={(e) => updateText("mobile1", e.target.value)} />
-                    <Input label="2nd Mobile Number" required type="tel" value={settings.mobile2} maxLength={30} onChange={(e) => updateText("mobile2", e.target.value)} />
-                    <Input label="Company Email Id" required type="email" value={settings.email} maxLength={254} onChange={(e) => updateText("email", e.target.value)} />
+                    <Input label="1st Mobile Number" type="tel" value={settings.mobile1} maxLength={30} onChange={(e) => updateText("mobile1", e.target.value)} />
+                    <Input label="2nd Mobile Number" type="tel" value={settings.mobile2} maxLength={30} onChange={(e) => updateText("mobile2", e.target.value)} />
+                    <Input label="Company Email Id" type="email" value={settings.email} maxLength={254} onChange={(e) => updateText("email", e.target.value)} />
                     <Input label="Company Website" type="url" value={settings.website} maxLength={2048} placeholder="https://example.com" onChange={(e) => updateText("website", e.target.value)} />
-                    <Input label="Address Line" required value={settings.addressLine} maxLength={300} onChange={(e) => updateText("addressLine", e.target.value)} />
+                    <Input label="Address Line" value={settings.addressLine} maxLength={300} onChange={(e) => updateText("addressLine", e.target.value)} />
                     <Input label="Country" value={settings.country} maxLength={100} onChange={(e) => updateText("country", e.target.value)} />
                     <Input label="State" value={settings.state} maxLength={100} onChange={(e) => updateText("state", e.target.value)} />
                     <Input label="City" value={settings.city} maxLength={100} onChange={(e) => updateText("city", e.target.value)} />
-                    <Input label="Pin / Zip Code" required value={settings.pinCode} maxLength={20} onChange={(e) => updateText("pinCode", e.target.value)} />
+                    <Input label="Pin / Zip Code" value={settings.pinCode} maxLength={20} onChange={(e) => updateText("pinCode", e.target.value)} />
                   </div>
 
                   <div className="space-y-2">
@@ -621,7 +621,7 @@ export default function SettingsPage() {
                       className={`${inputClassName} h-10`}
                       type="number"
                       min={1}
-                      max={999999999999}
+                      // max={999999999999}
                       step={1}
                       value={settings.consignmentStartNumber}
                       required

@@ -17,6 +17,11 @@ import { Button } from "@/components/Button";
 // import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import StateAutocomplete from "@/components/StateAutocomplete";
+import { ApiErrorState } from "@/components/ui/ApiErrorState";
+import { CompanySetupNotice } from "@/components/admin/CompanySetupNotice";
+import type { ApiErrorInfo } from "@/lib/api/errors";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { CompanyProfileRequiredDialog } from "@/components/admin/CompanyProfileRequiredDialog";
 
 export default function CustomerManagement({ params }: { params: Promise<{ role: string }> }) {
     // Check if user can delete based on role
@@ -38,6 +43,9 @@ export default function CustomerManagement({ params }: { params: Promise<{ role:
     const [isModalVisible, setModalVisible] = useState<boolean>(false);
     const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
     const [loadingPage, setLoadingPage] = useState(true);
+    const [loadError, setLoadError] = useState<ApiErrorInfo | null>(null);
+    const { settings: companySettings, hasLoaded: companyLoaded, error: companyError } = useCompanySettings();
+    const [showCompanyRequired, setShowCompanyRequired] = useState(false);
     const [content, setContent] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -56,6 +64,7 @@ export default function CustomerManagement({ params }: { params: Promise<{ role:
         const fetchData = async () => {
             if (!pagesCache[currentPage]) {
                 setLoadingPage(true);
+                setLoadError(null);
                 const response: any = await dispatch(fetchCustomers({ ...searchQuery, currentPage, itemsPerPage }));
                 if (typeof response.payload !== 'string' && response.payload?.customers) {
                     setPagesCache((prevCache) => ({
@@ -64,6 +73,7 @@ export default function CustomerManagement({ params }: { params: Promise<{ role:
                     }));
                 } else {
                     console.log("Unexpected response format: ", response.payload);
+                    if (response.payload?.kind) setLoadError(response.payload as ApiErrorInfo);
                 }
                 setLoadingPage(false);
             }
@@ -130,6 +140,11 @@ export default function CustomerManagement({ params }: { params: Promise<{ role:
     };
 
     const handleCreateNewCustomer = () => {
+        // No company name yet -> explain instead of opening the form (the API refuses too).
+        if (companyLoaded && !companyError && !companySettings.companyName.trim()) {
+            setShowCompanyRequired(true);
+            return;
+        }
         setName("");
         setAddress("")
         setCity("")
@@ -260,6 +275,21 @@ export default function CustomerManagement({ params }: { params: Promise<{ role:
                 </div>
 
             </div>
+
+            <CompanyProfileRequiredDialog
+                open={showCompanyRequired}
+                action="add customers"
+                onClose={() => setShowCompanyRequired(false)}
+            />
+            <CompanySetupNotice className="mb-4" />
+
+            {loadError && customers.length === 0 && !loadingPage && (
+                <ApiErrorState
+                    error={loadError}
+                    className="mb-4"
+                    onRetry={() => { setLoadError(null); setPagesCache({}); }}
+                />
+            )}
 
             {/* Categories Table */}
             <Table

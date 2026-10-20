@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
+import { CompanyProfileGate } from "@/components/admin/CompanyProfileGate";
 import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormProvider, useForm } from "react-hook-form";
@@ -454,7 +455,9 @@ function TransportBillingForm() {
 export default function TransportBillingFormPage() {
   return (
     <Suspense fallback={<Loading fullPage label="Loading…" />}>
-      <TransportBillingForm />
+      <CompanyProfileGate action="create a bilty" editParam="id">
+        <TransportBillingForm />
+      </CompanyProfileGate>
     </Suspense>
   );
 }

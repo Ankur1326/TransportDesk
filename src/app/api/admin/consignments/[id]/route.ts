@@ -107,7 +107,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       statusHistory: {
         status: patch.status,
         at: now,
-        by: auth.companyId,
+        by: auth.userId,
         note: patch.status === "Cancelled" ? (patch.cancelReason ?? "") : "",
       },
     };
@@ -151,7 +151,7 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
     if (!lr) return fail("Consignment not found", 404);
 
     // An LR that is on a freight bill must be removed from the bill first.
-    const onBill = await Bill.exists({ "items.consignmentId": new mongoose.Types.ObjectId(id) });
+    const onBill = await Bill.exists({ "items.consignmentId": new mongoose.Types.ObjectId(id), ...companyFilter(auth.companyId) });
     if (onBill) {
       return fail(`LR ${lr.consignmentNumber} is on a freight bill. Remove it from the bill before deleting.`, 409);
     }

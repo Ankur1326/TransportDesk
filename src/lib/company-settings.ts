@@ -79,3 +79,17 @@ export interface CompanySettingsResponse {
   message?: string;
   data?: CompanySettingsValues;
 }
+
+
+/** Fields the company-settings form requires before it can be saved. */
+const REQUIRED_PROFILE_FIELDS: { key: keyof CompanySettingsValues; label: string }[] = [
+  { key: "companyName", label: "company name" },
+];
+
+/** Human-readable names of the required company details that are still empty. */
+export function getMissingCompanyFields(settings: CompanySettingsValues): string[] {
+  return REQUIRED_PROFILE_FIELDS.filter(({ key }) => {
+    const value = settings[key];
+    return typeof value !== "string" || !value.trim();
+  }).map(({ label }) => label);
+}

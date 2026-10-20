@@ -1,36 +1,13 @@
-import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import dbConnect from "@/lib/db";
 import Customer from "@/models/Customer";
-import { getServerSession } from "next-auth";
+import { requireCompany, companyFilter } from "@/lib/company-scope";
 // import { getSession } from "next-auth/react";
 
 export async function DELETE(request: Request) {
+    const auth = await requireCompany();
+    if (!auth.ok) return auth.response;
+
     await dbConnect();
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user) {
-        return Response.json(
-            {
-                success: false,
-                message: "Unauthorized. Please log in."
-            },
-            {
-                status: 401
-            }
-        );
-    }
-
-    if (session.user?.role !== "transporter") {
-        return Response.json(
-            {
-                success: false,
-                message: "Forbidden. You do not have permission to perform this action"
-            },
-            {
-                status: 403
-            }
-        );
-    }
 
     try {
         const data = await request.json();
@@ -49,7 +26,7 @@ export async function DELETE(request: Request) {
             );
         }
 
-        const result = await Customer.deleteOne({ _id: customerId });
+        const result = await Customer.deleteOne({ _id: customerId, ...companyFilter(auth.companyId) });
 
         if (result.deletedCount === 0) {
             return Response.json(

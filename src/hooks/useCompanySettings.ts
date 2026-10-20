@@ -25,7 +25,7 @@ export function useCompanySettings() {
         const response = await fetch("/api/admin/settings", { cache: "no-store" });
         const result = (await response.json()) as CompanySettingsResponse;
         if (!response.ok || !result.success || !result.data) {
-          throw new Error(result.message || "Unable to load company settings");
+          throw new Error("Unable to load company settings");
         }
         if (!cancelled) {
           setSettings({

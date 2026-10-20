@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
 import { normalizeEmail } from "@/lib/auth-config";
+import { ensureUserCompany } from "@/lib/company-provision";
 
 /** Compared against when the email is unknown so response time doesn't reveal which emails exist. */
 const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", 10);
@@ -16,6 +17,7 @@ interface LeanUser {
     _id: { toString(): string };
     isVerified?: boolean;
     isApproved?: boolean;
+    companyId?: string;
     fullName?: string;
 }
 
@@ -98,6 +100,8 @@ export const authOptions: NextAuthOptions = {
                         isVerified: true,
                         isApproved: true,
                     });
+                    // Every new account gets its own company (tenant).
+                    await ensureUserCompany(dbUser._id.toString(), { fresh: true });
                 }
 
                 if (!dbUser.isApproved) return "/sign-in?error=AccountNotApproved";
@@ -139,8 +143,14 @@ export const authOptions: NextAuthOptions = {
             // without waiting for the JWT to expire.
             try {
                 await dbConnect();
-                const current = (await User.findById(token._id).select("isApproved").lean()) as LeanUser | null;
+                const current = (await User.findById(token._id).select("isApproved companyId").lean()) as LeanUser | null;
                 session.user.isApproved = !!current?.isApproved;
+
+                // companyId is the tenant. Accounts created before companies
+                // existed are linked to one here, on first use.
+                if (current?.isApproved) {
+                    session.user.companyId = current.companyId || (await ensureUserCompany(token._id));
+                }
             } catch (error) {
                 console.error("Error validating session:", error);
             }

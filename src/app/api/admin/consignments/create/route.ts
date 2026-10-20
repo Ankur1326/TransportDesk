@@ -5,7 +5,7 @@ import dbConnect from "@/lib/db";
 import ConsignmentModel from "@/models/Consignment";
 import { billingFormSchema } from "@/lib/validations/billing";
 import { syncLegacyChargeFields } from "@/lib/charges";
-import { companyFilter, requireCompany } from "@/lib/company-scope";
+import { companyFilter, requireCompanyProfile } from "@/lib/company-scope";
 
 /**
  * POST /api/admin/consignments/create
@@ -15,7 +15,7 @@ import { companyFilter, requireCompany } from "@/lib/company-scope";
  * Fails with 409 if that company already has the same consignment number.
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireCompany();
+  const auth = await requireCompanyProfile();
   if (!auth.ok) return auth.response;
 
   await dbConnect();
@@ -44,9 +44,9 @@ export async function POST(request: NextRequest) {
       ...parsed,
       // Server-controlled fields — never taken from the request body.
       companyId: auth.companyId,
-      createdBy: auth.companyId,
+      createdBy: auth.userId,
       status: "Booked",
-      statusHistory: [{ status: "Booked", at: now, by: auth.companyId, note: "" }],
+      statusHistory: [{ status: "Booked", at: now, by: auth.userId, note: "" }],
     });
 
     return NextResponse.json(

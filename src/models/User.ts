@@ -1,4 +1,5 @@
 import mongoose, { model, Schema, Document } from "mongoose";
+import { dropStaleModel } from "@/lib/model-guard";
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import type { AppearanceTheme } from "@/lib/appearance-theme";
@@ -18,6 +19,8 @@ interface IUser extends Document {
     // resetPasswordToken?: string;
     // resetPasswordExpires?: Date;
     isApproved: boolean;
+    /** Tenant this user belongs to (string form of Company._id). All business data is scoped by it. */
+    companyId?: string;
     fullName?: string; // Full name of the user
     mobileNum?: string; // Mobile number of the user
     address?: string; // Address of the user
@@ -76,6 +79,11 @@ const userSchema = new Schema<IUser>({
     isApproved: { // this field is toggle by admins
         type: Boolean,
         default: false,
+    },
+    companyId: {
+        type: String,
+        index: true,
+        default: undefined,
     },
     fullName: {
         type: String,
@@ -160,6 +168,8 @@ userSchema.methods.generateRefreshToken = function (): string {
 userSchema.methods.comparePassword = async function (password: string): Promise<boolean> {
     return await bcrypt.compare(password, this.password);
 };
+
+dropStaleModel("User", "companyId");
 
 const UserModel = (mongoose?.models?.User as mongoose.Model<IUser>) || model<IUser>('User', userSchema)
 export default UserModel

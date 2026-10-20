@@ -1,4 +1,5 @@
 import mongoose, { model, Schema, Document, Model } from "mongoose";
+import { dropStaleModel } from "@/lib/model-guard";
 import { BILLING_PARTIES } from "@/lib/validations/billing";
 import type { ChargeLine } from "@/lib/charges";
 
@@ -67,6 +68,7 @@ export interface IFreightBill extends Document {
   /** Amount still to collect after advance (invoice amount - advance). */
   payableAmount?: number;
 
+  companyId: string;
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -154,9 +156,7 @@ const freightBillSchema = new Schema<IFreightBill>(
     billNo: {
       type: String,
       required: [true, "Bill number is required"],
-      unique: true,
       trim: true,
-      index: true,
     },
     billDate: { type: Date, required: true },
 
@@ -179,14 +179,20 @@ const freightBillSchema = new Schema<IFreightBill>(
     adjustments: { type: billAdjustmentsSchema, default: undefined },
     payableAmount: { type: Number, default: 0, min: 0 },
 
+    companyId: { type: String, required: [true, "companyId is required"], index: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );
 
+// Bill numbers are unique per company, not globally.
+freightBillSchema.index({ companyId: 1, billNo: 1 }, { unique: true });
+freightBillSchema.index({ companyId: 1, createdAt: -1 });
 freightBillSchema.index({ createdAt: -1 });
 freightBillSchema.index({ "items.consignmentId": 1 });
 freightBillSchema.index({ "billedTo.name": 1 });
+
+dropStaleModel("FreightBill", "companyId");
 
 const FreightBillModel: Model<IFreightBill> =
   (mongoose?.models?.FreightBill as Model<IFreightBill>) || model<IFreightBill>("FreightBill", freightBillSchema);
