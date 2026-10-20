@@ -3,6 +3,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { Building2, Check, CreditCard, FileText, Hash, ImagePlus, Loader2, Palette, Save, Trash2 } from "@/components/icons";
 import { Button } from "@/components/Button";
+import { Input } from "@/components/ui/Input";
 import { useAppearanceTheme } from "@/components/AppearanceProvider";
 import {
   APPEARANCE_PRESETS,
@@ -80,8 +81,9 @@ function Field({
   );
 }
 
+// Flat, square style shared with <Input> — used by the select / textarea fields that Input doesn't cover.
 const inputClassName =
-  "h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100";
+  "w-full rounded-none border-0 border-b border-neutral-300 bg-neutral-100 px-3 text-[13px] font-medium text-neutral-900 outline-none transition-colors hover:bg-neutral-200/60 focus:border-brand-600 focus:bg-white focus:shadow-[inset_0_-1px_0_var(--color-brand-600)]";
 
 async function readImageFile(file: File): Promise<string> {
   if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
@@ -385,39 +387,17 @@ export default function SettingsPage() {
               {activeTab === "company" && (
                 <div className="space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <Field label="Your Company Name" required>
-                      <input className={inputClassName} value={settings.companyName} maxLength={160} required onChange={(e) => updateText("companyName", e.target.value)} />
-                    </Field>
-                    <Field label="Company GST No.">
-                      <input className={inputClassName} value={settings.gstNumber} maxLength={15} autoCapitalize="characters" placeholder="15-character GSTIN" onChange={(e) => updateText("gstNumber", e.target.value.toUpperCase())} />
-                    </Field>
-                    <Field label="1st Mobile Number" required>
-                      <input className={inputClassName} type="tel" value={settings.mobile1} maxLength={30} required onChange={(e) => updateText("mobile1", e.target.value)} />
-                    </Field>
-                    <Field label="2nd Mobile Number" required>
-                      <input className={inputClassName} type="tel" value={settings.mobile2} maxLength={30} required onChange={(e) => updateText("mobile2", e.target.value)} />
-                    </Field>
-                    <Field label="Company Email Id" required>
-                      <input className={inputClassName} type="email" value={settings.email} maxLength={254} required onChange={(e) => updateText("email", e.target.value)} />
-                    </Field>
-                    <Field label="Company Website">
-                      <input className={inputClassName} type="url" value={settings.website} maxLength={2048} placeholder="https://example.com" onChange={(e) => updateText("website", e.target.value)} />
-                    </Field>
-                    <Field label="Address Line" required>
-                      <input className={inputClassName} value={settings.addressLine} maxLength={300} required onChange={(e) => updateText("addressLine", e.target.value)} />
-                    </Field>
-                    <Field label="Country">
-                      <input className={inputClassName} value={settings.country} maxLength={100} onChange={(e) => updateText("country", e.target.value)} />
-                    </Field>
-                    <Field label="State">
-                      <input className={inputClassName} value={settings.state} maxLength={100} onChange={(e) => updateText("state", e.target.value)} />
-                    </Field>
-                    <Field label="City">
-                      <input className={inputClassName} value={settings.city} maxLength={100} onChange={(e) => updateText("city", e.target.value)} />
-                    </Field>
-                    <Field label="Pin / Zip Code" required>
-                      <input className={inputClassName} value={settings.pinCode} maxLength={20} required onChange={(e) => updateText("pinCode", e.target.value)} />
-                    </Field>
+                    <Input label="Your Company Name" required value={settings.companyName} maxLength={160} onChange={(e) => updateText("companyName", e.target.value)} />
+                    <Input label="Company GST No." value={settings.gstNumber} maxLength={15} autoCapitalize="characters" placeholder="15-character GSTIN" onChange={(e) => updateText("gstNumber", e.target.value.toUpperCase())} />
+                    <Input label="1st Mobile Number" required type="tel" value={settings.mobile1} maxLength={30} onChange={(e) => updateText("mobile1", e.target.value)} />
+                    <Input label="2nd Mobile Number" required type="tel" value={settings.mobile2} maxLength={30} onChange={(e) => updateText("mobile2", e.target.value)} />
+                    <Input label="Company Email Id" required type="email" value={settings.email} maxLength={254} onChange={(e) => updateText("email", e.target.value)} />
+                    <Input label="Company Website" type="url" value={settings.website} maxLength={2048} placeholder="https://example.com" onChange={(e) => updateText("website", e.target.value)} />
+                    <Input label="Address Line" required value={settings.addressLine} maxLength={300} onChange={(e) => updateText("addressLine", e.target.value)} />
+                    <Input label="Country" value={settings.country} maxLength={100} onChange={(e) => updateText("country", e.target.value)} />
+                    <Input label="State" value={settings.state} maxLength={100} onChange={(e) => updateText("state", e.target.value)} />
+                    <Input label="City" value={settings.city} maxLength={100} onChange={(e) => updateText("city", e.target.value)} />
+                    <Input label="Pin / Zip Code" required value={settings.pinCode} maxLength={20} onChange={(e) => updateText("pinCode", e.target.value)} />
                   </div>
 
                   <div className="space-y-2">
@@ -445,24 +425,14 @@ export default function SettingsPage() {
               {activeTab === "payments" && (
                 <div className="space-y-3">
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <Field label="Account Holder Name">
-                      <input className={inputClassName} value={settings.accountHolderName} maxLength={160} onChange={(e) => updateText("accountHolderName", e.target.value)} />
-                    </Field>
-                    <Field label="Name of Bank">
-                      <input className={inputClassName} value={settings.bankName} maxLength={160} onChange={(e) => updateText("bankName", e.target.value)} />
-                    </Field>
-                    <Field label="Account Number">
-                      <input className={inputClassName} value={settings.accountNumber} maxLength={34} autoComplete="off" onChange={(e) => updateText("accountNumber", e.target.value)} />
-                    </Field>
-                    <Field label="IFSC Code">
-                      <input className={inputClassName} value={settings.ifscCode} maxLength={11} autoCapitalize="characters" onChange={(e) => updateText("ifscCode", e.target.value.toUpperCase())} />
-                    </Field>
-                    <Field label="Bank Branch">
-                      <input className={inputClassName} value={settings.bankBranch} maxLength={160} onChange={(e) => updateText("bankBranch", e.target.value)} />
-                    </Field>
+                    <Input label="Account Holder Name" value={settings.accountHolderName} maxLength={160} onChange={(e) => updateText("accountHolderName", e.target.value)} />
+                    <Input label="Name of Bank" value={settings.bankName} maxLength={160} onChange={(e) => updateText("bankName", e.target.value)} />
+                    <Input label="Account Number" value={settings.accountNumber} maxLength={34} autoComplete="off" onChange={(e) => updateText("accountNumber", e.target.value)} />
+                    <Input label="IFSC Code" value={settings.ifscCode} maxLength={11} autoCapitalize="characters" onChange={(e) => updateText("ifscCode", e.target.value.toUpperCase())} />
+                    <Input label="Bank Branch" value={settings.bankBranch} maxLength={160} onChange={(e) => updateText("bankBranch", e.target.value)} />
                     <Field label="Account Type">
                       <select
-                        className={inputClassName}
+                        className={`${inputClassName} h-10`}
                         value={settings.accountType}
                         onChange={(e) => setSettings((current) => ({ ...current, accountType: e.target.value as CompanySettingsValues["accountType"] }))}
                       >
@@ -472,13 +442,9 @@ export default function SettingsPage() {
                       </select>
                     </Field>
                     {settings.accountType === "Others" && (
-                      <Field label="Specify Account Type">
-                        <input className={inputClassName} value={settings.otherAccountType} maxLength={80} onChange={(e) => updateText("otherAccountType", e.target.value)} />
-                      </Field>
+                      <Input label="Specify Account Type" value={settings.otherAccountType} maxLength={80} onChange={(e) => updateText("otherAccountType", e.target.value)} />
                     )}
-                    <Field label="UPI Id">
-                      <input className={inputClassName} value={settings.upiId} maxLength={100} placeholder="company@bank" onChange={(e) => updateText("upiId", e.target.value)} />
-                    </Field>
+                    <Input label="UPI Id" value={settings.upiId} maxLength={100} placeholder="company@bank" onChange={(e) => updateText("upiId", e.target.value)} />
                   </div>
                   <ImageSetting
                     title="UPI QR Code"
@@ -524,10 +490,9 @@ export default function SettingsPage() {
                         key={charge.id}
                         className="grid grid-cols-2 items-end gap-x-3 gap-y-2 rounded-lg border border-slate-200 px-3 py-2 sm:grid-cols-[minmax(0,1.5fr)_minmax(8rem,0.7fr)_auto_auto_auto]"
                       >
-                        <label className="min-w-0 space-y-1">
-                          <span className="block text-xs font-medium text-slate-600">Charge name</span>
-                          <input
-                            className={`${inputClassName} h-8`}
+                        <Input
+                            size="compact"
+                            label="Charge name"
                             maxLength={60}
                             value={charge.name}
                             onChange={(event) => {
@@ -541,11 +506,9 @@ export default function SettingsPage() {
                               setSavedMessage("");
                             }}
                           />
-                        </label>
-                        <label className="min-w-0 space-y-1">
-                          <span className="block text-xs font-medium text-slate-600">Default amount (₹)</span>
-                          <input
-                            className={`${inputClassName} h-8`}
+                        <Input
+                            size="compact"
+                            label="Default amount (₹)"
                             type="number"
                             min={0}
                             max={1000000000}
@@ -564,7 +527,6 @@ export default function SettingsPage() {
                               setSavedMessage("");
                             }}
                           />
-                        </label>
                         <label className="col-span-1 flex min-h-9 items-center gap-1.5 text-xs text-slate-700">
                           <input
                             type="checkbox"
@@ -656,7 +618,7 @@ export default function SettingsPage() {
                     required
                   >
                     <input
-                      className={inputClassName}
+                      className={`${inputClassName} h-10`}
                       type="number"
                       min={1}
                       max={999999999999}
