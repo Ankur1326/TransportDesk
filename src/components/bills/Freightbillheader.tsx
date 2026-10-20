@@ -1,4 +1,4 @@
-import type { CompanySettingsValues } from "@/lib/company-settings";
+import { getCompanyDocumentInfo, type CompanySettingsValues } from "@/lib/company-settings";
 
 export function FreightBillHeader({ company }: { company: CompanySettingsValues }) {
   const companyAddress = [
@@ -8,7 +8,8 @@ export function FreightBillHeader({ company }: { company: CompanySettingsValues 
     company.pinCode,
     company.country,
   ].filter(Boolean).join(", ");
-  const phones = [company.mobile1, company.mobile2].filter(Boolean).join(", ");
+  const info = getCompanyDocumentInfo(company);
+  const phones = info.phones(", ");
 
   return (
     <div className="">
@@ -17,9 +18,9 @@ export function FreightBillHeader({ company }: { company: CompanySettingsValues 
       </p>
 
       <div className="mt-1 flex items-center justify-center gap-4">
-        {company.companyLogo && (
+        {info.logo && (
           <img
-            src={company.companyLogo}
+            src={info.logo}
             alt={`${company.companyName || "Company"} logo`}
             className="h-[72px] w-[72px] shrink-0 object-contain"
           />
@@ -33,14 +34,19 @@ export function FreightBillHeader({ company }: { company: CompanySettingsValues 
         {companyAddress}
       </p>
       <p className="text-center text-sm text-slate-700">
-        {company.email && <>E-Mail - <span className="underline">{company.email}</span></>}
-        {company.email && phones && "   "}
+        {info.email && <>E-Mail - <span className="underline">{info.email}</span></>}
+        {info.email && phones && "   "}
         {phones && <>Mob. {phones}</>}
       </p>
 
-      {company.gstNumber && (
-        <div className="mt-2 flex justify-end text-sm font-semibold text-slate-800">
-          <span>GSTIN: {company.gstNumber}</span>
+      {(info.identifiers.length > 0 || info.website) && (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-6 text-sm font-semibold text-slate-800">
+          <span className="font-normal text-slate-700">{info.website}</span>
+          <span className="flex flex-wrap justify-end gap-x-5">
+            {info.identifiers.map((item) => (
+              <span key={item.key}>{item.label}: {item.value}</span>
+            ))}
+          </span>
         </div>
       )}
 

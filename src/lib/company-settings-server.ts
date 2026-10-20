@@ -1,4 +1,4 @@
-import { DEFAULT_COMPANY_SETTINGS, type CompanySettingsValues } from "@/lib/company-settings";
+import { DEFAULT_COMPANY_SETTINGS, DEFAULT_FIELD_VISIBILITY, type CompanySettingsValues } from "@/lib/company-settings";
 import dbConnect from "@/lib/db";
 import CompanySettings from "@/models/CompanySettings";
 
@@ -15,6 +15,7 @@ export async function loadCompanySettings(ownerId: string): Promise<CompanySetti
   return {
     ...DEFAULT_COMPANY_SETTINGS,
     ...settings,
+    fieldVisibility: { ...DEFAULT_FIELD_VISIBILITY, ...settings?.fieldVisibility },
     lrFormatBackgrounds: {
       ...DEFAULT_COMPANY_SETTINGS.lrFormatBackgrounds,
       ...settings?.lrFormatBackgrounds,

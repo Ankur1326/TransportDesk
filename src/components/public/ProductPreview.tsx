@@ -2,10 +2,10 @@ import { Check, FileText, Printer, Truck } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 const rows = [
-  { lr: "2051", route: "Jaipur → Ahmedabad", status: "On Route", tone: "bg-info-50 text-info-700" },
-  { lr: "2050", route: "Delhi → Jaipur", status: "Delivered", tone: "bg-success-50 text-success-700" },
-  { lr: "2049", route: "Surat → Indore", status: "Booked", tone: "bg-warning-50 text-warning-700" },
-  { lr: "2048", route: "Jodhpur → Pune", status: "Delivered", tone: "bg-success-50 text-success-700" },
+  { lr: "4", route: "Jaipur → Ahmedabad", status: "On Route", tone: "bg-info-50 text-info-700" },
+  { lr: "3", route: "Delhi → Jaipur", status: "Delivered", tone: "bg-success-50 text-success-700" },
+  { lr: "2", route: "Surat → Indore", status: "Booked", tone: "bg-warning-50 text-warning-700" },
+  { lr: "1", route: "Jodhpur → Pune", status: "Delivered", tone: "bg-success-50 text-success-700" },
 ];
 
 /**

@@ -6,6 +6,7 @@ import { amountInWords, BillItemValues, computeBillSummary, computeBillTotals, t
 import { PrintItemsTable } from "@/components/bills/PrintItemsTable";
 import formatDate from "@/lib/formateDate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { getCompanyDocumentInfo } from "@/lib/company-settings";
 import { DEFAULT_CHARGE_DEFINITIONS, type ChargeDefinition } from "@/lib/charges";
 
 interface FreightBillPrintPreviewProps {
@@ -16,6 +17,7 @@ export function FreightBillPrintPreview({ onClose }: FreightBillPrintPreviewProp
     const { control } = useFormContext<FreightBillFormValues>();
     const values = useWatch({ control });
     const { settings } = useCompanySettings();
+    const companyInfo = getCompanyDocumentInfo(settings);
     const items = values.items ?? [];
     const totals = computeBillTotals(items as never);
     const summary = computeBillSummary(totals.totalCharges, values.adjustments);
@@ -147,7 +149,7 @@ export function FreightBillPrintPreview({ onClose }: FreightBillPrintPreviewProp
                         </div>
                         <div className="flex flex-col items-end justify-between p-3 text-right">
                             {settings.upiQrCode && <img src={settings.upiQrCode} alt="UPI payment QR code" className="h-24 w-24 object-contain" />}
-                            {settings.signature && <img src={settings.signature} alt="Authorized signature" className="max-h-16 max-w-40 object-contain" />}
+                            {companyInfo.signature && <img src={companyInfo.signature} alt="Authorized signature" className="max-h-16 max-w-40 object-contain" />}
                             <strong>For, {settings.companyName.trim() || "Your Company"}</strong>
                         </div>
                     </div>
@@ -197,7 +199,7 @@ export function FreightBillPrintPreview({ onClose }: FreightBillPrintPreviewProp
                     For, {settings.companyName.trim() || "Your Company"}
                 </div>
                 <div className="flex items-end justify-end px-12  pt-15 pb-52 text-sm">
-                    {!settings.signature && "Signature"}
+                    {!companyInfo.signature && "Signature"}
                 </div>
             </div>
         </div>

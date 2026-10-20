@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 
 import { getAuthenticatedCompanyId } from "@/lib/company-auth";
 import {
+  COMPANY_FIELD_VISIBILITY_KEYS,
   DEFAULT_COMPANY_SETTINGS,
+  DEFAULT_FIELD_VISIBILITY,
   LR_FORMATS,
   type LRFormat,
   type CompanySettingsValues,
@@ -24,6 +26,8 @@ const TEXT_LIMITS: Partial<Record<keyof CompanySettingsValues, number>> = {
   city: 100,
   pinCode: 20,
   gstNumber: 15,
+  panNumber: 10,
+  registrationNumber: 40,
   accountHolderName: 160,
   bankName: 160,
   accountNumber: 34,
@@ -130,7 +134,7 @@ function validateSettings(value: unknown): { values?: CompanySettingsValues; err
   }
 
   const body = value as Record<string, unknown>;
-  const settings = { ...DEFAULT_COMPANY_SETTINGS };
+  const settings = { ...DEFAULT_COMPANY_SETTINGS, fieldVisibility: { ...DEFAULT_FIELD_VISIBILITY } };
 
   for (const key of Object.keys(settings) as (keyof CompanySettingsValues)[]) {
     const fieldValue = body[key];
@@ -140,6 +144,20 @@ function validateSettings(value: unknown): { values?: CompanySettingsValues; err
         return { error: "Select a valid LR format" };
       }
       settings.lrFormat = fieldValue;
+      continue;
+    }
+    if (key === "fieldVisibility") {
+      if (!fieldValue || typeof fieldValue !== "object" || Array.isArray(fieldValue)) {
+        return { error: "Document visibility must be submitted as an object" };
+      }
+      const visibility = fieldValue as Record<string, unknown>;
+      for (const visibilityKey of COMPANY_FIELD_VISIBILITY_KEYS) {
+        const flag = visibility[visibilityKey];
+        if (flag !== undefined && typeof flag !== "boolean") {
+          return { error: `Visibility for ${visibilityKey} must be on or off` };
+        }
+        if (typeof flag === "boolean") settings.fieldVisibility[visibilityKey] = flag;
+      }
       continue;
     }
     if (key === "lrFormatBackgrounds") {
@@ -205,11 +223,9 @@ function validateSettings(value: unknown): { values?: CompanySettingsValues; err
   if (settings.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.email)) {
     return { error: "Enter a valid company email address" };
   }
-  if (settings.mobile1 || settings.mobile2) {
-    for (const field of ["mobile1", "mobile2"] as const) {
-      if (!/^\+?[0-9\s()-]{7,20}$/.test(settings[field])) {
-        return { error: `${field} must be a valid phone number` };
-      }
+  for (const [field, label] of [["mobile1", "Phone"], ["mobile2", "Alternate phone"]] as const) {
+    if (settings[field] && !/^\+?[0-9\s()-]{7,20}$/.test(settings[field])) {
+      return { error: `${label} must be a valid phone number` };
     }
   }
   if (
@@ -223,6 +239,9 @@ function validateSettings(value: unknown): { values?: CompanySettingsValues; err
     !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(settings.gstNumber.toUpperCase())
   ) {
     return { error: "GST number must contain 15 valid GSTIN characters" };
+  }
+  if (settings.panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(settings.panNumber.toUpperCase())) {
+    return { error: "PAN must be 10 characters in the format ABCDE1234F" };
   }
   if (!["Current", "Saving", "Others"].includes(settings.accountType)) {
     return { error: "Select a valid account type" };
@@ -249,6 +268,7 @@ function validateSettings(value: unknown): { values?: CompanySettingsValues; err
   }
 
   settings.gstNumber = settings.gstNumber.toUpperCase();
+  settings.panNumber = settings.panNumber.toUpperCase();
   settings.ifscCode = settings.ifscCode.toUpperCase();
   settings.email = settings.email.toLowerCase();
   return { values: settings };

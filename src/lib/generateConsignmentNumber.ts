@@ -5,7 +5,7 @@ import axios from "axios";
  *
  * The source of truth is the database: GET /api/consignments/next-number
  * looks at the highest consignment number already saved and returns one
- * more than that, starting from 2051 for the very first consignment.
+ * more than that, starting from 1 for the very first consignment.
  * That keeps numbering correct and sequential across every browser,
  * device, and user — not just the current tab.
  *
@@ -15,7 +15,7 @@ import axios from "axios";
  * and the local cache is updated to match.
  */
 const CONSIGNMENT_SEQUENCE_KEY = "uts:consignment-sequence:v1";
-const START_NUMBER = 2051;
+const START_NUMBER = 1;
 
 function readLastUsedNumber(): number {
   if (typeof window === "undefined") return START_NUMBER;

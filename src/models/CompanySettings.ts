@@ -1,5 +1,5 @@
 import mongoose, { model, Schema, type Document, type Model } from "mongoose";
-import { DEFAULT_COMPANY_SETTINGS, LR_FORMATS, type CompanySettingsValues } from "@/lib/company-settings";
+import { COMPANY_FIELD_VISIBILITY_KEYS, DEFAULT_COMPANY_SETTINGS, DEFAULT_FIELD_VISIBILITY, LR_FORMATS, type CompanySettingsValues } from "@/lib/company-settings";
 import type { ChargeDefinition } from "@/lib/charges";
 
 export interface ICompanySettings extends CompanySettingsValues, Document {
@@ -22,6 +22,15 @@ const companySettingsSchema = new Schema<ICompanySettings>(
     city: { type: String, default: "", trim: true, maxlength: 100 },
     pinCode: { type: String, default: "", trim: true, maxlength: 20 },
     gstNumber: { type: String, default: "", trim: true, uppercase: true, maxlength: 15 },
+    panNumber: { type: String, default: "", trim: true, uppercase: true, maxlength: 10 },
+    registrationNumber: { type: String, default: "", trim: true, maxlength: 40 },
+    fieldVisibility: {
+      type: new Schema(
+        Object.fromEntries(COMPANY_FIELD_VISIBILITY_KEYS.map((key) => [key, { type: Boolean, default: true }])),
+        { _id: false }
+      ),
+      default: () => ({ ...DEFAULT_FIELD_VISIBILITY }),
+    },
     accountHolderName: { type: String, default: "", trim: true, maxlength: 160 },
     bankName: { type: String, default: "", trim: true, maxlength: 160 },
     accountNumber: { type: String, default: "", trim: true, maxlength: 34 },
@@ -33,7 +42,7 @@ const companySettingsSchema = new Schema<ICompanySettings>(
     companyLogo: { type: String, default: "", maxlength: 350000 },
     signature: { type: String, default: "", maxlength: 350000 },
     upiQrCode: { type: String, default: "", maxlength: 350000 },
-    consignmentStartNumber: { type: Number, default: 2051, min: 1, max: 999999999999 },
+    consignmentStartNumber: { type: Number, default: 1, min: 1, max: 999999999999 },
     invoiceTerms: { type: String, default: "", maxlength: 10000 },
     quotationTerms: { type: String, default: "", maxlength: 10000 },
     lrTerms: { type: String, default: "", maxlength: 10000 },

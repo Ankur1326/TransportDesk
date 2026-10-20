@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   DEFAULT_COMPANY_SETTINGS,
+  normalizeCompanySettings,
   type CompanySettingsResponse,
   type CompanySettingsValues,
 } from "@/lib/company-settings";
@@ -28,15 +29,7 @@ export function useCompanySettings() {
           throw new Error("Unable to load company settings");
         }
         if (!cancelled) {
-          setSettings({
-            ...DEFAULT_COMPANY_SETTINGS,
-            ...result.data,
-            lrFormatBackgrounds: {
-              ...DEFAULT_COMPANY_SETTINGS.lrFormatBackgrounds,
-              ...result.data.lrFormatBackgrounds,
-            },
-            chargeDefinitions: result.data.chargeDefinitions ?? DEFAULT_COMPANY_SETTINGS.chargeDefinitions,
-          });
+          setSettings(normalizeCompanySettings(result.data));
         }
       } catch (error) {
         if (!cancelled) {

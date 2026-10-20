@@ -8,9 +8,30 @@ export interface LRFormatBackground {
   backgroundImage: string;
 }
 
+/** Company details the user can individually show or hide on printed documents. */
+export const COMPANY_FIELD_VISIBILITY_KEYS = [
+  "companyLogo",
+  "signature",
+  "mobile1",
+  "mobile2",
+  "email",
+  "website",
+  "gstNumber",
+  "panNumber",
+  "registrationNumber",
+] as const;
+export type CompanyFieldVisibilityKey = (typeof COMPANY_FIELD_VISIBILITY_KEYS)[number];
+export type CompanyFieldVisibility = Record<CompanyFieldVisibilityKey, boolean>;
+
+export const DEFAULT_FIELD_VISIBILITY: CompanyFieldVisibility = Object.fromEntries(
+  COMPANY_FIELD_VISIBILITY_KEYS.map((key) => [key, true])
+) as CompanyFieldVisibility;
+
 export interface CompanySettingsValues {
   companyName: string;
+  /** Shown as "Phone" in the UI. */
   mobile1: string;
+  /** Shown as "Alternate Phone" in the UI. */
   mobile2: string;
   email: string;
   website: string;
@@ -20,6 +41,9 @@ export interface CompanySettingsValues {
   city: string;
   pinCode: string;
   gstNumber: string;
+  panNumber: string;
+  registrationNumber: string;
+  fieldVisibility: CompanyFieldVisibility;
   accountHolderName: string;
   bankName: string;
   accountNumber: string;
@@ -52,6 +76,9 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettingsValues = {
   city: "",
   pinCode: "",
   gstNumber: "",
+  panNumber: "",
+  registrationNumber: "",
+  fieldVisibility: { ...DEFAULT_FIELD_VISIBILITY },
   accountHolderName: "",
   bankName: "",
   accountNumber: "",
@@ -63,7 +90,7 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettingsValues = {
   companyLogo: "",
   signature: "",
   upiQrCode: "",
-  consignmentStartNumber: 2051,
+  consignmentStartNumber: 1,
   invoiceTerms: "",
   quotationTerms: "",
   lrTerms: "",
@@ -92,4 +119,63 @@ export function getMissingCompanyFields(settings: CompanySettingsValues): string
     const value = settings[key];
     return typeof value !== "string" || !value.trim();
   }).map(({ label }) => label);
+}
+
+
+/** Saved settings merged over defaults, including nested objects older records may lack. */
+export function normalizeCompanySettings(data: Partial<CompanySettingsValues>): CompanySettingsValues {
+  return {
+    ...DEFAULT_COMPANY_SETTINGS,
+    ...data,
+    fieldVisibility: { ...DEFAULT_FIELD_VISIBILITY, ...data.fieldVisibility },
+    lrFormatBackgrounds: {
+      ...DEFAULT_COMPANY_SETTINGS.lrFormatBackgrounds,
+      ...data.lrFormatBackgrounds,
+    },
+    chargeDefinitions: data.chargeDefinitions ?? DEFAULT_COMPANY_SETTINGS.chargeDefinitions,
+  };
+}
+
+export interface CompanyDocumentInfo {
+  logo: string;
+  signature: string;
+  phone: string;
+  alternatePhone: string;
+  /** Visible phone numbers joined with the given separator. */
+  phones: (separator?: string) => string;
+  email: string;
+  website: string;
+  /** GSTIN / PAN / Registration number, only those that are filled in and switched on. */
+  identifiers: { key: "gstNumber" | "panNumber" | "registrationNumber"; label: string; value: string }[];
+}
+
+/**
+ * What a printed document may show for this company. Every document header
+ * goes through here so the show/hide toggles are honoured everywhere.
+ */
+export function getCompanyDocumentInfo(company: CompanySettingsValues): CompanyDocumentInfo {
+  const visibility = { ...DEFAULT_FIELD_VISIBILITY, ...company.fieldVisibility };
+  const pick = (key: CompanyFieldVisibilityKey) => (visibility[key] ? String(company[key as keyof CompanySettingsValues] ?? "").trim() : "");
+  const phone = pick("mobile1");
+  const alternatePhone = pick("mobile2");
+  const identifiers = (
+    [
+      { key: "gstNumber", label: "GSTIN" },
+      { key: "panNumber", label: "PAN" },
+      { key: "registrationNumber", label: "Reg. No." },
+    ] as const
+  )
+    .map((item) => ({ ...item, value: pick(item.key) }))
+    .filter((item) => item.value);
+
+  return {
+    logo: pick("companyLogo"),
+    signature: pick("signature"),
+    phone,
+    alternatePhone,
+    phones: (separator = ", ") => [phone, alternatePhone].filter(Boolean).join(separator),
+    email: pick("email"),
+    website: pick("website"),
+    identifiers,
+  };
 }

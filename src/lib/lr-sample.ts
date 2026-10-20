@@ -3,10 +3,10 @@ import type { CompanySettingsValues } from "@/lib/company-settings";
 
 /** Realistic consignment used to preview LR formats in Settings. Never saved. */
 export function buildSampleLr(): BillingFormValues {
-  const base = buildDefaultValues("2051");
+  const base = buildDefaultValues("1");
   return {
     ...base,
-    consignmentNumber: "2051",
+    consignmentNumber: "1",
     bookingDate: "2026-10-15",
     cnsDate: "2026-10-15",
     eWayBillNumber: "281000123456",
@@ -58,5 +58,7 @@ export function withSampleCompany(company: CompanySettingsValues): CompanySettin
     mobile1: company.mobile1 || "98765 43210",
     email: company.email || "info@yourcompany.in",
     gstNumber: company.gstNumber || "08ABCDE1234F1Z5",
+    panNumber: company.panNumber || "ABCDE1234F",
+    registrationNumber: company.registrationNumber || "U60231RJ2020PTC012345",
   };
 }

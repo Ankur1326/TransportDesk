@@ -7,7 +7,7 @@ import { Button } from "@/components/Button"
 import { computeBillingTotals } from "@/lib/calculations/billing";
 import { amountToWords } from "@/lib/numberToWords";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
-import type { CompanySettingsValues, LRFormat } from "@/lib/company-settings";
+import { getCompanyDocumentInfo, type CompanySettingsValues, type LRFormat } from "@/lib/company-settings";
 import { LR_FORMAT_META } from "@/lib/lr-formats";
 import type { BillingFormValues } from "@/lib/validations/billing";
 
@@ -91,7 +91,8 @@ export function LorryCopy({ values, copyName, company, lrFormat }: {
     company.pinCode,
     company.country,
   ].filter(Boolean).join(", ");
-  const companyPhones = [company.mobile1, company.mobile2].filter(Boolean).join(" / ");
+  const companyInfo = getCompanyDocumentInfo(company);
+  const companyPhones = companyInfo.phones(" / ");
   const background = company.lrFormatBackgrounds[lrFormat];
   return (
     <div
@@ -113,8 +114,8 @@ export function LorryCopy({ values, copyName, company, lrFormat }: {
         <div className="lr-company-section">
           <div className="lr-company-top">
             <div className="lr-logo">
-              {company.companyLogo ? (
-                <img src={company.companyLogo} alt={`${companyName} logo`} className="h-[60px] w-[60px] object-contain" />
+              {companyInfo.logo ? (
+                <img src={companyInfo.logo} alt={`${companyName} logo`} className="h-[60px] w-[60px] object-contain" />
               ) : (
                 <span className="text-center text-[10px] font-bold">{companyName.slice(0, 3).toUpperCase()}</span>
               )}
@@ -129,18 +130,20 @@ export function LorryCopy({ values, copyName, company, lrFormat }: {
                 )}
                 <div className="leading-tight tracking-tighter">
                   {companyPhones && <span className="font-semibold">Mob.: {companyPhones} </span>}
-                  {company.email && <span className="font-semibold">Email: {company.email}</span>}
-                  {company.website && <span className="font-semibold"> · {company.website}</span>}
+                  {companyInfo.email && <span className="font-semibold">Email: {companyInfo.email}</span>}
+                  {companyInfo.website && <span className="font-semibold"> · {companyInfo.website}</span>}
                 </div>
               </div>
             </div>
           </div>
-          {company.gstNumber && (
-            <div className="lr-registration flex justify-end px-6 w-full">
-              <div className="flex flex-col">
-                <span>GSTIN</span>
-                <span>{company.gstNumber}</span>
-              </div>
+          {companyInfo.identifiers.length > 0 && (
+            <div className="lr-registration flex w-full flex-wrap justify-end gap-x-5 px-6">
+              {companyInfo.identifiers.map((item) => (
+                <div key={item.key} className="flex flex-col">
+                  <span>{item.label}</span>
+                  <span>{item.value}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -457,7 +460,7 @@ export function LorryCopy({ values, copyName, company, lrFormat }: {
               {company.lrTerms || "Amount of GST is provisional; actual amount shall be as per received money. Freight is payable by the consignor or consignee at the time of delivery."}
             </div>
             <div className="lr-authorized-space">
-              {company.signature && <img src={company.signature} alt="Authorized signature" className="ml-auto max-h-14 max-w-36 object-contain" />}
+              {companyInfo.signature && <img src={companyInfo.signature} alt="Authorized signature" className="ml-auto max-h-14 max-w-36 object-contain" />}
             </div>
             <strong>For {companyName}</strong>
             {/* <div className="lr-authorized-line" /> */}

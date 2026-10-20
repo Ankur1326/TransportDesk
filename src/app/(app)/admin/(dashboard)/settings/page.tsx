@@ -14,12 +14,15 @@ import {
 } from "@/lib/appearance-theme";
 import {
   DEFAULT_COMPANY_SETTINGS,
+  normalizeCompanySettings,
+  type CompanyFieldVisibilityKey,
   type CompanySettingsResponse,
   type LRFormat,
   type CompanySettingsValues,
 } from "@/lib/company-settings";
 import type { ChargeDefinition } from "@/lib/charges";
 import { LrFormatGallery } from "@/components/settings/LrFormatGallery";
+import { CompanyAccountTab } from "@/components/settings/CompanyAccountTab";
 
 const TABS = [
   { id: "company", label: "Company Account", icon: Building2 },
@@ -30,7 +33,7 @@ const TABS = [
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
-type TextSettingKey = Exclude<keyof CompanySettingsValues, "consignmentStartNumber" | "accountType" | "lrFormat" | "lrFormatBackgrounds" | "chargeDefinitions">;
+type TextSettingKey = Exclude<keyof CompanySettingsValues, "consignmentStartNumber" | "accountType" | "lrFormat" | "lrFormatBackgrounds" | "chargeDefinitions" | "fieldVisibility">;
 type ImageSettingKey = "companyLogo" | "signature" | "upiQrCode";
 type AppearanceTabId = TabId | "appearance";
 
@@ -179,15 +182,7 @@ export default function SettingsPage() {
           throw new Error(result.message || "Unable to load company settings");
         }
         if (!cancelled) {
-          setSettings({
-            ...DEFAULT_COMPANY_SETTINGS,
-            ...result.data,
-            lrFormatBackgrounds: {
-              ...DEFAULT_COMPANY_SETTINGS.lrFormatBackgrounds,
-              ...result.data.lrFormatBackgrounds,
-            },
-            chargeDefinitions: result.data.chargeDefinitions ?? DEFAULT_COMPANY_SETTINGS.chargeDefinitions,
-          });
+          setSettings(normalizeCompanySettings(result.data));
         }
       } catch (error) {
         if (!cancelled) {
@@ -206,6 +201,14 @@ export default function SettingsPage() {
 
   function updateText(field: TextSettingKey, value: string) {
     setSettings((current) => ({ ...current, [field]: value }));
+    setSavedMessage("");
+  }
+
+  function updateVisibility(field: CompanyFieldVisibilityKey, visible: boolean) {
+    setSettings((current) => ({
+      ...current,
+      fieldVisibility: { ...current.fieldVisibility, [field]: visible },
+    }));
     setSavedMessage("");
   }
 
@@ -271,15 +274,7 @@ export default function SettingsPage() {
       if (!response.ok || !result.success || !result.data) {
         throw new Error(result.message || "Unable to save company settings");
       }
-      setSettings({
-        ...DEFAULT_COMPANY_SETTINGS,
-        ...result.data,
-        lrFormatBackgrounds: {
-          ...DEFAULT_COMPANY_SETTINGS.lrFormatBackgrounds,
-          ...result.data.lrFormatBackgrounds,
-        },
-        chargeDefinitions: result.data.chargeDefinitions ?? DEFAULT_COMPANY_SETTINGS.chargeDefinitions,
-      });
+      setSettings(normalizeCompanySettings(result.data));
       setSavedMessage("Settings saved successfully.");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to save company settings");
@@ -385,41 +380,12 @@ export default function SettingsPage() {
           ) : (
             <>
               {activeTab === "company" && (
-                <div className="space-y-4">
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <Input label="Your Company Name" required value={settings.companyName} maxLength={160} onChange={(e) => updateText("companyName", e.target.value)} />
-                    <Input label="Company GST No." value={settings.gstNumber} maxLength={15} autoCapitalize="characters" placeholder="15-character GSTIN" onChange={(e) => updateText("gstNumber", e.target.value.toUpperCase())} />
-                    <Input label="1st Mobile Number" type="tel" value={settings.mobile1} maxLength={30} onChange={(e) => updateText("mobile1", e.target.value)} />
-                    <Input label="2nd Mobile Number" type="tel" value={settings.mobile2} maxLength={30} onChange={(e) => updateText("mobile2", e.target.value)} />
-                    <Input label="Company Email Id" type="email" value={settings.email} maxLength={254} onChange={(e) => updateText("email", e.target.value)} />
-                    <Input label="Company Website" type="url" value={settings.website} maxLength={2048} placeholder="https://example.com" onChange={(e) => updateText("website", e.target.value)} />
-                    <Input label="Address Line" value={settings.addressLine} maxLength={300} onChange={(e) => updateText("addressLine", e.target.value)} />
-                    <Input label="Country" value={settings.country} maxLength={100} onChange={(e) => updateText("country", e.target.value)} />
-                    <Input label="State" value={settings.state} maxLength={100} onChange={(e) => updateText("state", e.target.value)} />
-                    <Input label="City" value={settings.city} maxLength={100} onChange={(e) => updateText("city", e.target.value)} />
-                    <Input label="Pin / Zip Code" value={settings.pinCode} maxLength={20} onChange={(e) => updateText("pinCode", e.target.value)} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <div>
-                      <h4 className="font-semibold text-slate-900">Company identity</h4>
-                    </div>
-                    <ImageSetting
-                      title="Company Logo"
-                      description="Shown in the company header and printed documents."
-                      value={settings.companyLogo}
-                      onChange={(event) => void handleImageChange("companyLogo", event)}
-                      onRemove={() => updateText("companyLogo", "")}
-                    />
-                    <ImageSetting
-                      title="Authorized Signature"
-                      description="Shown on invoice and LR printouts."
-                      value={settings.signature}
-                      onChange={(event) => void handleImageChange("signature", event)}
-                      onRemove={() => updateText("signature", "")}
-                    />
-                  </div>
-                </div>
+                <CompanyAccountTab
+                  settings={settings}
+                  onText={updateText}
+                  onVisibility={updateVisibility}
+                  onImage={(field, event) => void handleImageChange(field, event)}
+                />
               )}
 
               {activeTab === "payments" && (
@@ -758,7 +724,7 @@ export default function SettingsPage() {
                   <p className="text-xs text-slate-500">
                     Appearance is saved to your user account and applies throughout the app. Dark mode keeps its dark surfaces and adapts the selected theme accents.
                   </p>
-y                </div>
+                </div>
               )}
             </>
           )}

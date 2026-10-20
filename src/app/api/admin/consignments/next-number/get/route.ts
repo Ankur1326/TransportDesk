@@ -10,7 +10,7 @@ import { companyFilter, requireCompany } from "@/lib/company-scope";
  *
  * Looks at every consignment already saved, finds the highest purely-numeric
  * consignment number, and returns one more than that. If nothing exists yet
- * (or nothing meets the starting number), returns 2051.
+ * (or nothing meets the starting number), returns 1.
  *
  * This is the single source of truth for numbering — every "new consignment"
  * screen should ask this endpoint rather than guessing locally, so numbers
@@ -26,7 +26,7 @@ export async function GET() {
     const companySettings = await CompanySettings.findOne({ ownerId: companyId })
       .select("consignmentStartNumber")
       .lean();
-    const startNumber = companySettings?.consignmentStartNumber ?? 2051;
+    const startNumber = companySettings?.consignmentStartNumber ?? 1;
 
     const result = await ConsignmentModel.aggregate<{ maxNumber: number | null }>([
       // Only consider consignment numbers that are plain digits — anything
