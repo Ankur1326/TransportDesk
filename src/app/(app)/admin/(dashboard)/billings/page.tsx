@@ -118,7 +118,7 @@ export default function BillsPage() {
   const hasActiveFilters = Boolean(debouncedSearch);
 
   return (
-    <div className="">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       {printTarget ? (
         <BillPrintPreviewStandalone bill={printTarget} onClose={() => setPrintTarget(null)} />
       ) : (
