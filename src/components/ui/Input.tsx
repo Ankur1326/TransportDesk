@@ -73,7 +73,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               "mb-1 block text-[11px] font-semibold uppercase tracking-[0.05em] text-neutral-600",
               "transition-colors group-focus-within:text-brand-700",
               error && "text-error-600 group-focus-within:text-error-600",
-              isCompact && "mb-0.5 text-[9.5px] tracking-[0.03em]"
+              isCompact && "mb-0.5 text-[10px] tracking-[0.03em]"
             )}
           >
             {label}

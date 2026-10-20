@@ -628,3 +628,18 @@ html[data-app-theme] [class~="text-white"].app-theme-text {
 @media (prefers-reduced-motion: reduce) {
   .pub-fade-up { animation: none !important; }
 }
+
+/* 404 illustration: the road marking slowly drives past. Disabled for reduced motion. */
+@keyframes nf-road-dash {
+  to {
+    stroke-dashoffset: -52;
+  }
+}
+.nf-road {
+  animation: nf-road-dash 2.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nf-road {
+    animation: none;
+  }
+}
