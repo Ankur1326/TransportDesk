@@ -16,6 +16,7 @@ import CompanySettings, { removeLegacyCompanyIdIndex } from "@/models/CompanySet
 
 const TEXT_LIMITS: Partial<Record<keyof CompanySettingsValues, number>> = {
   companyName: 160,
+  tagline: 120,
   mobile1: 30,
   mobile2: 30,
   email: 254,
@@ -27,6 +28,10 @@ const TEXT_LIMITS: Partial<Record<keyof CompanySettingsValues, number>> = {
   pinCode: 20,
   gstNumber: 15,
   panNumber: 10,
+  tanNumber: 10,
+  cinNumber: 21,
+  udyamNumber: 19,
+  uinNumber: 20,
   registrationNumber: 40,
   accountHolderName: 160,
   bankName: 160,
@@ -243,6 +248,18 @@ function validateSettings(value: unknown): { values?: CompanySettingsValues; err
   if (settings.panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(settings.panNumber.toUpperCase())) {
     return { error: "PAN must be 10 characters in the format ABCDE1234F" };
   }
+  if (settings.tanNumber && !/^[A-Z]{4}[0-9]{5}[A-Z]$/.test(settings.tanNumber.toUpperCase())) {
+    return { error: "TAN must be 10 characters in the format ABCD12345E" };
+  }
+  if (settings.cinNumber && !/^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/.test(settings.cinNumber.toUpperCase())) {
+    return { error: "CIN must be 21 characters, e.g. U12345RJ2020PTC123456" };
+  }
+  if (settings.udyamNumber && !/^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$/.test(settings.udyamNumber.toUpperCase())) {
+    return { error: "Udyam number must look like UDYAM-RJ-00-0000000" };
+  }
+  if (settings.uinNumber && !/^[A-Z0-9-]{6,20}$/.test(settings.uinNumber.toUpperCase())) {
+    return { error: "UIN may contain only letters, numbers and hyphens (6-20 characters)" };
+  }
   if (!["Current", "Saving", "Others"].includes(settings.accountType)) {
     return { error: "Select a valid account type" };
   }
@@ -269,6 +286,10 @@ function validateSettings(value: unknown): { values?: CompanySettingsValues; err
 
   settings.gstNumber = settings.gstNumber.toUpperCase();
   settings.panNumber = settings.panNumber.toUpperCase();
+  settings.tanNumber = settings.tanNumber.toUpperCase();
+  settings.cinNumber = settings.cinNumber.toUpperCase();
+  settings.udyamNumber = settings.udyamNumber.toUpperCase();
+  settings.uinNumber = settings.uinNumber.toUpperCase();
   settings.ifscCode = settings.ifscCode.toUpperCase();
   settings.email = settings.email.toLowerCase();
   return { values: settings };

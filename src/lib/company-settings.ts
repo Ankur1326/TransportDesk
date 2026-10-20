@@ -16,8 +16,13 @@ export const COMPANY_FIELD_VISIBILITY_KEYS = [
   "mobile2",
   "email",
   "website",
+  "tagline",
   "gstNumber",
   "panNumber",
+  "tanNumber",
+  "cinNumber",
+  "udyamNumber",
+  "uinNumber",
   "registrationNumber",
 ] as const;
 export type CompanyFieldVisibilityKey = (typeof COMPANY_FIELD_VISIBILITY_KEYS)[number];
@@ -27,8 +32,21 @@ export const DEFAULT_FIELD_VISIBILITY: CompanyFieldVisibility = Object.fromEntri
   COMPANY_FIELD_VISIBILITY_KEYS.map((key) => [key, true])
 ) as CompanyFieldVisibility;
 
+/** Registration identifiers printed in the document header, in print order. */
+export const REGISTRATION_ID_FIELDS = [
+  { key: "gstNumber", label: "GSTIN" },
+  { key: "panNumber", label: "PAN" },
+  { key: "tanNumber", label: "TAN" },
+  { key: "cinNumber", label: "CIN" },
+  { key: "udyamNumber", label: "Udyam" },
+  { key: "uinNumber", label: "UIN" },
+  { key: "registrationNumber", label: "Reg. No." },
+] as const;
+export type RegistrationIdKey = (typeof REGISTRATION_ID_FIELDS)[number]["key"];
+
 export interface CompanySettingsValues {
   companyName: string;
+  tagline: string;
   /** Shown as "Phone" in the UI. */
   mobile1: string;
   /** Shown as "Alternate Phone" in the UI. */
@@ -42,6 +60,10 @@ export interface CompanySettingsValues {
   pinCode: string;
   gstNumber: string;
   panNumber: string;
+  tanNumber: string;
+  cinNumber: string;
+  udyamNumber: string;
+  uinNumber: string;
   registrationNumber: string;
   fieldVisibility: CompanyFieldVisibility;
   accountHolderName: string;
@@ -66,6 +88,7 @@ export interface CompanySettingsValues {
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettingsValues = {
   companyName: "",
+  tagline: "",
   mobile1: "",
   mobile2: "",
   email: "",
@@ -77,6 +100,10 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettingsValues = {
   pinCode: "",
   gstNumber: "",
   panNumber: "",
+  tanNumber: "",
+  cinNumber: "",
+  udyamNumber: "",
+  uinNumber: "",
   registrationNumber: "",
   fieldVisibility: { ...DEFAULT_FIELD_VISIBILITY },
   accountHolderName: "",
@@ -145,8 +172,9 @@ export interface CompanyDocumentInfo {
   phones: (separator?: string) => string;
   email: string;
   website: string;
-  /** GSTIN / PAN / Registration number, only those that are filled in and switched on. */
-  identifiers: { key: "gstNumber" | "panNumber" | "registrationNumber"; label: string; value: string }[];
+  tagline: string;
+  /** Registration identifiers that are filled in and switched on, in print order. */
+  identifiers: { key: RegistrationIdKey; label: string; value: string }[];
 }
 
 /**
@@ -158,13 +186,7 @@ export function getCompanyDocumentInfo(company: CompanySettingsValues): CompanyD
   const pick = (key: CompanyFieldVisibilityKey) => (visibility[key] ? String(company[key as keyof CompanySettingsValues] ?? "").trim() : "");
   const phone = pick("mobile1");
   const alternatePhone = pick("mobile2");
-  const identifiers = (
-    [
-      { key: "gstNumber", label: "GSTIN" },
-      { key: "panNumber", label: "PAN" },
-      { key: "registrationNumber", label: "Reg. No." },
-    ] as const
-  )
+  const identifiers = REGISTRATION_ID_FIELDS
     .map((item) => ({ ...item, value: pick(item.key) }))
     .filter((item) => item.value);
 
@@ -176,6 +198,7 @@ export function getCompanyDocumentInfo(company: CompanySettingsValues): CompanyD
     phones: (separator = ", ") => [phone, alternatePhone].filter(Boolean).join(separator),
     email: pick("email"),
     website: pick("website"),
+    tagline: pick("tagline"),
     identifiers,
   };
 }

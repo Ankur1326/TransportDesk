@@ -51,6 +51,7 @@ export function withSampleCompany(company: CompanySettingsValues): CompanySettin
   return {
     ...company,
     companyName: company.companyName || "Your Transport Company",
+    tagline: company.tagline || "Reliable freight, on time",
     addressLine: company.addressLine || "12, Transport Nagar",
     city: company.city || "Bikaner",
     state: company.state || "Rajasthan",
@@ -59,6 +60,10 @@ export function withSampleCompany(company: CompanySettingsValues): CompanySettin
     email: company.email || "info@yourcompany.in",
     gstNumber: company.gstNumber || "08ABCDE1234F1Z5",
     panNumber: company.panNumber || "ABCDE1234F",
+    tanNumber: company.tanNumber || "JPRA12345B",
+    cinNumber: company.cinNumber || "U60231RJ2020PTC012345",
+    udyamNumber: company.udyamNumber || "UDYAM-RJ-00-1234567",
+    uinNumber: company.uinNumber || "UIN-1234567",
     registrationNumber: company.registrationNumber || "U60231RJ2020PTC012345",
   };
 }

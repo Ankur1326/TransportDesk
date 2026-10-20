@@ -24,12 +24,17 @@ import {
 
 type TextKey =
   | "companyName"
+  | "tagline"
   | "mobile1"
   | "mobile2"
   | "email"
   | "website"
   | "gstNumber"
   | "panNumber"
+  | "tanNumber"
+  | "cinNumber"
+  | "udyamNumber"
+  | "uinNumber"
   | "registrationNumber"
   | "addressLine"
   | "country"
@@ -159,6 +164,7 @@ function DocumentHeaderPreview({ settings }: { settings: CompanySettingsValues }
           {info.logo && <img src={info.logo} alt="" className="h-10 w-10 object-contain" />}
           <p className="text-sm font-bold uppercase tracking-wide text-[#EF6711]">{name}</p>
         </div>
+        {info.tagline && <p className="text-[11px] italic text-slate-600">{info.tagline}</p>}
         {address && <p className="mt-1 text-[11px] font-semibold text-slate-700">{address}</p>}
         {contact && <p className="text-[11px] text-slate-600">{contact}</p>}
         {info.identifiers.length > 0 && (
@@ -239,6 +245,16 @@ export function CompanyAccountTab({ settings, onText, onVisibility, onImage }: C
             <div className="sm:col-span-2">
               <Input label="Company Name" required value={settings.companyName} maxLength={160} onChange={(e) => onText("companyName", e.target.value)} />
             </div>
+            <div className="sm:col-span-2">
+              <Input
+                label="Tagline"
+                endAdornment={toggled("tagline", "Tagline")}
+                value={settings.tagline}
+                maxLength={120}
+                placeholder="e.g. Reliable freight, on time"
+                onChange={(e) => onText("tagline", e.target.value)}
+              />
+            </div>
             <Input
               label="Phone"
               type="tel"
@@ -281,17 +297,18 @@ export function CompanyAccountTab({ settings, onText, onVisibility, onImage }: C
 
         <SectionCard
           icon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />}
-          title="Registration & tax"
+          title="Registration details"
           description="Statutory identifiers printed in the document header."
         >
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <Input
-              label="Registration No."
-              endAdornment={toggled("registrationNumber", "Registration number")}
-              value={settings.registrationNumber}
-              maxLength={40}
-              placeholder="CIN / LLPIN / Udyam"
-              onChange={(e) => onText("registrationNumber", e.target.value)}
+              label="GSTIN"
+              endAdornment={toggled("gstNumber", "GSTIN")}
+              value={settings.gstNumber}
+              maxLength={15}
+              autoCapitalize="characters"
+              placeholder="15-character GSTIN"
+              onChange={(e) => onText("gstNumber", e.target.value.toUpperCase())}
             />
             <Input
               label="PAN No."
@@ -303,13 +320,46 @@ export function CompanyAccountTab({ settings, onText, onVisibility, onImage }: C
               onChange={(e) => onText("panNumber", e.target.value.toUpperCase())}
             />
             <Input
-              label="GSTIN"
-              endAdornment={toggled("gstNumber", "GSTIN")}
-              value={settings.gstNumber}
-              maxLength={15}
+              label="TAN No."
+              endAdornment={toggled("tanNumber", "TAN")}
+              value={settings.tanNumber}
+              maxLength={10}
               autoCapitalize="characters"
-              placeholder="15-character GSTIN"
-              onChange={(e) => onText("gstNumber", e.target.value.toUpperCase())}
+              placeholder="ABCD12345E"
+              onChange={(e) => onText("tanNumber", e.target.value.toUpperCase())}
+            />
+            <Input
+              label="CIN No."
+              endAdornment={toggled("cinNumber", "CIN")}
+              value={settings.cinNumber}
+              maxLength={21}
+              autoCapitalize="characters"
+              placeholder="21-character CIN"
+              onChange={(e) => onText("cinNumber", e.target.value.toUpperCase())}
+            />
+            <Input
+              label="Udyam Registration No."
+              endAdornment={toggled("udyamNumber", "Udyam number")}
+              value={settings.udyamNumber}
+              maxLength={19}
+              autoCapitalize="characters"
+              placeholder="UDYAM-RJ-00-0000000"
+              onChange={(e) => onText("udyamNumber", e.target.value.toUpperCase())}
+            />
+            <Input
+              label="UIN No."
+              endAdornment={toggled("uinNumber", "UIN")}
+              value={settings.uinNumber}
+              maxLength={20}
+              autoCapitalize="characters"
+              onChange={(e) => onText("uinNumber", e.target.value.toUpperCase())}
+            />
+            <Input
+              label="Other Registration No."
+              endAdornment={toggled("registrationNumber", "Registration number")}
+              value={settings.registrationNumber}
+              maxLength={40}
+              onChange={(e) => onText("registrationNumber", e.target.value)}
             />
           </div>
         </SectionCard>

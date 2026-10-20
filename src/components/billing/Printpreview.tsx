@@ -122,6 +122,7 @@ export function LorryCopy({ values, copyName, company, lrFormat }: {
             </div>
             <div className="lr-company-details">
               <div className="lr-company-name !tracking-tight">{companyName}</div>
+              {companyInfo.tagline && <div className="text-[11px] font-medium italic leading-tight">{companyInfo.tagline}</div>}
               <div className="text-[13.4px]">
                 {companyAddress && (
                   <div className="leading-tight tracking-tighter">

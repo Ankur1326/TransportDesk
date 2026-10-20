@@ -30,6 +30,9 @@ export function FreightBillHeader({ company }: { company: CompanySettingsValues 
         </h1>
       </div>
 
+      {info.tagline && (
+        <p className="text-center text-xs italic text-slate-600">{info.tagline}</p>
+      )}
       <p className="mt-1 text-center text-sm text-slate-700 font-semibold">
         {companyAddress}
       </p>

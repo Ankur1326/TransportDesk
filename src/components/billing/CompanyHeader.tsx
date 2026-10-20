@@ -31,6 +31,7 @@ export function CompanyHeader() {
         </div>
         <div>
           <h1 className="text-h3 font-bold uppercase tracking-tight text-brand-800">{companyName}</h1>
+          {info.tagline && <p className="text-body-sm italic text-neutral-600">{info.tagline}</p>}
           {address && <p className="text-body-sm text-neutral-500">{address}</p>}
           {contact && <p className="text-body-sm text-neutral-500">{contact}</p>}
         </div>

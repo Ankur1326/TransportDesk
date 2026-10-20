@@ -12,6 +12,7 @@ const companySettingsSchema = new Schema<ICompanySettings>(
   {
     ownerId: { type: String, required: true, unique: true, index: true },
     companyName: { type: String, default: "", trim: true, maxlength: 160 },
+    tagline: { type: String, default: "", trim: true, maxlength: 120 },
     mobile1: { type: String, default: "", trim: true, maxlength: 30 },
     mobile2: { type: String, default: "", trim: true, maxlength: 30 },
     email: { type: String, default: "", trim: true, lowercase: true, maxlength: 254 },
@@ -23,6 +24,10 @@ const companySettingsSchema = new Schema<ICompanySettings>(
     pinCode: { type: String, default: "", trim: true, maxlength: 20 },
     gstNumber: { type: String, default: "", trim: true, uppercase: true, maxlength: 15 },
     panNumber: { type: String, default: "", trim: true, uppercase: true, maxlength: 10 },
+    tanNumber: { type: String, default: "", trim: true, uppercase: true, maxlength: 10 },
+    cinNumber: { type: String, default: "", trim: true, uppercase: true, maxlength: 21 },
+    udyamNumber: { type: String, default: "", trim: true, uppercase: true, maxlength: 19 },
+    uinNumber: { type: String, default: "", trim: true, uppercase: true, maxlength: 20 },
     registrationNumber: { type: String, default: "", trim: true, maxlength: 40 },
     fieldVisibility: {
       type: new Schema(
