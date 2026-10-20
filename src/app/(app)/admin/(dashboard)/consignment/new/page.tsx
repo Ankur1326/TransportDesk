@@ -29,7 +29,6 @@ import { InsuranceSection } from "@/components/billing/Insurancesection";
 import { AdditionalInfoSection } from "@/components/billing/Additionalinfosection";
 import { FormActionsBar } from "@/components/billing/Formactionsbar";
 import { PrintPreview } from "@/components/billing/Printpreview";
-import { WorkflowTabs } from "@/components/admin/WorkflowTabs";
 
 import { billingFormSchema, buildDefaultValues, type BillingFormValues } from "@/lib/validations/billing";
 import { fetchNextConsignmentNumber, generateConsignmentNumber, saveConsignmentNumber } from "@/lib/generateConsignmentNumber";
@@ -342,7 +341,6 @@ function TransportBillingForm() {
           className="mx-auto max-w-[1320px] space-y-4 pb-24 text-[12px]"
           onSubmit={(e) => e.preventDefault()}
         >
-          <WorkflowTabs workflow="consignment" activePage="create" />
           <header className="uts-rise flex flex-col gap-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-brand-50/60 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-700 text-white shadow-sm">

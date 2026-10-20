@@ -11,7 +11,6 @@ import { Select } from "@/components/ui/Select";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { WorkflowTabs } from "@/components/admin/WorkflowTabs";
 import { ConsignmentDetailsModal } from "@/components/billing/ConsignmentDetailsModal";
 import { PrintPreview } from "@/components/billing/Printpreview";
 import { AccountModal } from "@/components/bookings/AccountModal";
@@ -356,7 +355,6 @@ export default function BookingsPage() {
         <PrintPreview values={printTarget as never} onClose={() => setPrintTarget(null)} />
       ) : (
         <>
-          <WorkflowTabs workflow="consignment" activePage="list" />
 
           {/* HEADER */}
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

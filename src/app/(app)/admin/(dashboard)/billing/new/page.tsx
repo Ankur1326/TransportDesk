@@ -29,7 +29,6 @@ import SelectedCnsChips from "@/components/bills/SelectedCnsChips";
 import { useSearchParams } from "next/navigation";
 import { Loading } from "@/components/ui/Loading";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
-import { WorkflowTabs } from "@/components/admin/WorkflowTabs";
 import { chargeLinesFromLegacy, DEFAULT_CHARGE_DEFINITIONS, type ChargeDefinition } from "@/lib/charges";
 
 function buildDefaultValues(billNo: string): FreightBillFormValues {
@@ -329,7 +328,6 @@ function FreightBillForm() {
                 <FreightBillPrintPreview onClose={() => setPreviewOpen(false)} />
             ) : (
                 <form className="mx-auto max-w-6xl space-y-4 pb-28" onSubmit={(e) => e.preventDefault()}>
-                    <WorkflowTabs workflow="billing" activePage="create" />
 
                     {/* Bill number + date */}
                     <SectionCard>

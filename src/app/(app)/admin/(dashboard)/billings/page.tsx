@@ -17,7 +17,6 @@ import {
 import { getApiErrorMessage } from "@/lib/api/consignments";
 import { BillCard, BillCardSkeleton, type BillCardActions } from "@/components/bills/BillCard";
 import { BillPrintPreviewStandalone } from "@/components/bills/BillPrintPreviewStandalone";
-import { WorkflowTabs } from "@/components/admin/WorkflowTabs";
 
 const PAGE_SIZE = 10;
 
@@ -123,7 +122,6 @@ export default function BillsPage() {
         <BillPrintPreviewStandalone bill={printTarget} onClose={() => setPrintTarget(null)} />
       ) : (
         <>
-          <WorkflowTabs workflow="billing" activePage="list" />
 
           {/* HEADER */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

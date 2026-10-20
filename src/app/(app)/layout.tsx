@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Menu } from "@/components/icons";
 import Sidebar from "@/components/admin/Sidebar";
+import { GlobalTopBar } from "@/components/admin/GlobalTopBar";
 import 'react-loading-skeleton/dist/skeleton.css';
 import 'nprogress/nprogress.css';
 import '../globals.css';
@@ -32,6 +33,8 @@ function RootLayoutContent({ children }: { children: React.ReactNode }) {
       ) : null}
 
       <div className="flex-1 transition-all duration-300 md:pl-64 print:pl-0">
+        {/* Flush with the top of the content column; the sidebar is a separate column so nothing overlaps. */}
+        {session?.user && <GlobalTopBar />}
         <main className="min-h-screen px-3 py-3 pt-3 transition-all duration-300 print:pt-0">
           {session?.user && (
             <div className="mb-3 flex justify-end md:hidden print:hidden">
