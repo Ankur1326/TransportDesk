@@ -1,15 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import toast from "react-hot-toast";
-import { ChevronLeft, ChevronRight, FileText, Pencil, Printer, Search, Trash2 } from "@/components/icons";
+import { ChevronLeft, ChevronRight, FileText, Search } from "@/components/icons";
 
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/ui/Input";
-import { Loading } from "@/components/ui/Loading";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -19,29 +15,11 @@ import {
   type FreightBillRecord,
 } from "@/lib/bill/api";
 import { getApiErrorMessage } from "@/lib/api/consignments";
+import { BillCard, BillCardSkeleton, type BillCardActions } from "@/components/bills/BillCard";
 import { BillPrintPreviewStandalone } from "@/components/bills/BillPrintPreviewStandalone";
 import { WorkflowTabs } from "@/components/admin/WorkflowTabs";
 
 const PAGE_SIZE = 10;
-
-const PARTY_VARIANT: Record<string, "brand" | "info" | "neutral"> = {
-  Consignor: "brand",
-  Consignee: "info",
-  "Third Party": "neutral",
-};
-
-function formatDate(value?: string): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-}
-
-function formatINR(value: number | undefined): string {
-  const n = Number(value ?? 0);
-  if (!Number.isFinite(n) || n === 0) return "₹0";
-  return n.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
-}
 
 export default function BillsPage() {
   const [search, setSearch] = useState("");
@@ -110,6 +88,26 @@ export default function BillsPage() {
     }
   };
 
+  const actions: BillCardActions = {
+    open: setPrintTarget,
+    print: setPrintTarget,
+    remove: setDeleteTarget,
+    copyDetails: async (bill) => {
+      const text = [
+        `Bill ${bill.billNo}${bill.billStn ? ` (${bill.billStn})` : ""}`,
+        `Billed to: ${bill.billedTo?.name ?? "—"}${bill.billedTo?.gstin ? ` · ${bill.billedTo.gstin}` : ""}`,
+        `LRs: ${(bill.items ?? []).map((i) => i.cnsNo).join(", ") || "—"}`,
+        `Amount: ₹${Number(bill.totalAmount ?? 0).toLocaleString("en-IN")}`,
+      ].join("\n");
+      try {
+        await navigator.clipboard.writeText(text);
+        toast.success("Bill details copied.");
+      } catch {
+        toast.error("Couldn't copy to the clipboard.");
+      }
+    },
+  };
+
   const rangeLabel = useMemo(() => {
     if (pagination.total === 0) return "0 results";
     const start = (pagination.page - 1) * pagination.limit + 1;
@@ -149,7 +147,7 @@ export default function BillsPage() {
 
           {/* CONTENT */}
           {isLoading ? (
-            <Loading fullPage label="Loading bills…" />
+            <div className="grid gap-3">{[0, 1, 2].map((i) => <BillCardSkeleton key={i} />)}</div>
           ) : error ? (
             <ErrorState description={error} onRetry={fetchList} />
           ) : items.length === 0 ? (
@@ -164,125 +162,9 @@ export default function BillsPage() {
             />
           ) : (
             <>
-              {/* DESKTOP TABLE */}
-              <Card padding="none" className="hidden overflow-hidden md:block">
-                <table className="w-full text-left text-body-sm">
-                  <thead>
-                    <tr className="border-b border-neutral-200 bg-neutral-50 text-caption font-semibold uppercase tracking-wide text-neutral-500">
-                      <th className="px-4 py-3">Bill No.</th>
-                      <th className="px-4 py-3">Bill STN</th>
-                      <th className="px-4 py-3">Billed To</th>
-                      <th className="px-4 py-3">Items</th>
-                      <th className="px-4 py-3">Vehicle</th>
-                      <th className="px-4 py-3 text-right">Amount</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((bill) => (
-                      <tr
-                        key={bill._id}
-                        className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50"
-                      >
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-brand-700">{bill.billNo}</div>
-                          <div className="text-caption text-neutral-500">{formatDate(bill.billDate)}</div>
-                        </td>
-                        <td className="px-4 py-3 font-medium text-neutral-800">{bill.billStn || "—"}</td>
-                        <td className="px-4 py-3">
-                          <div className="font-medium text-neutral-800">{bill.billedTo?.name || "—"}</div>
-                          <Badge variant={PARTY_VARIANT[bill.billedToType] ?? "neutral"} className="mt-1">
-                            {bill.billedToType}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-neutral-700">{bill.items?.length ?? 0}</td>
-                        <td className="px-4 py-3 text-neutral-700">{bill.vehicleNumber || "—"}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-neutral-900">
-                          {formatINR(bill.totalAmount)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Print bill"
-                              onClick={() => setPrintTarget(bill)}
-                            >
-                              <Printer className="h-4 w-4" aria-hidden="true" />
-                            </Button>
-                            <Link href={`/admin/billing/new?id=${bill._id}`}>
-                              <Button variant="ghost" size="icon" aria-label="Edit bill">
-                                <Pencil className="h-4 w-4" aria-hidden="true" />
-                              </Button>
-                            </Link>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Delete bill"
-                              onClick={() => setDeleteTarget(bill)}
-                            >
-                              <Trash2 className="h-4 w-4 text-error-600" aria-hidden="true" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </Card>
-
-              {/* MOBILE CARDS */}
-              <div className="grid gap-3 md:hidden">
+              <div className="grid gap-3">
                 {items.map((bill) => (
-                  <Card key={bill._id} padding="md" className="rounded-xl">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-[15px] font-bold text-brand-700">{bill.billNo}</div>
-                        <div className="text-caption text-neutral-500">{formatDate(bill.billDate)}</div>
-                      </div>
-                      <Badge variant={PARTY_VARIANT[bill.billedToType] ?? "neutral"}>{bill.billedToType}</Badge>
-                    </div>
-
-                    <div className="mt-3 text-body-sm font-medium text-neutral-800">
-                      {bill.billedTo?.name || "—"}
-                    </div>
-
-                    <div className="mt-2 space-y-0.5 text-body-sm text-neutral-600">
-                      <div>Bill STN: {bill.billStn || "—"}</div>
-                      <div>
-                        {bill.items?.length ?? 0} item{(bill.items?.length ?? 0) === 1 ? "" : "s"}
-                        {bill.vehicleNumber ? ` • ${bill.vehicleNumber}` : ""}
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3">
-                      <div className="text-[15px] font-semibold text-neutral-900">{formatINR(bill.totalAmount)}</div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Print bill"
-                          onClick={() => setPrintTarget(bill)}
-                        >
-                          <Printer className="h-4 w-4" aria-hidden="true" />
-                        </Button>
-                        <Link href={`/admin/billing/new?id=${bill._id}`}>
-                          <Button variant="outline" size="sm">
-                            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                            Edit
-                          </Button>
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Delete bill"
-                          onClick={() => setDeleteTarget(bill)}
-                        >
-                          <Trash2 className="h-4 w-4 text-error-600" aria-hidden="true" />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
+                  <BillCard key={bill._id} bill={bill} actions={actions} />
                 ))}
               </div>
 
