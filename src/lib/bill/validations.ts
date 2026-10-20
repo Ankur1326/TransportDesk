@@ -51,6 +51,38 @@ const billPartySchema = z.object({
   gstin: z.string().trim().optional().or(z.literal("")),
 
   mobile: z.string().trim().optional().or(z.literal("")),
+
+  country: z.string().trim().optional().or(z.literal("")),
+
+  email: z.string().trim().optional().or(z.literal("")),
+});
+
+export const GST_MODES = ["None", "GST", "RCM"] as const;
+export const TDS_MODES = ["Deduction", "Addition"] as const;
+export const ADVANCE_MODES = ["Cash", "UPI", "Bank Transfer", "Cheque"] as const;
+export const GST_RATE_OPTIONS = [0, 5, 12, 18, 28] as const;
+export const TDS_RATE_OPTIONS = [0, 0.1, 1, 2, 5, 10] as const;
+/** Reverse-charge freight GST is a flat 5%. */
+export const RCM_RATE = 5;
+
+/** Discount / tax / TDS / advance block shown on the right of the bill form. All optional. */
+export const billAdjustmentsSchema = z.object({
+  discount: z.coerce.number().nonnegative().default(0),
+  gstMode: z.enum(GST_MODES).default("None"),
+  gstRate: z.coerce.number().min(0).max(100).default(0),
+  tdsMode: z.enum(TDS_MODES).default("Deduction"),
+  tdsRate: z.coerce.number().min(0).max(100).default(0),
+  roundOff: z.boolean().default(false),
+  advanceReceived: z.coerce.number().nonnegative().default(0),
+  advanceDate: z.string().optional().or(z.literal("")),
+  advanceVia: z.enum(ADVANCE_MODES).default("Cash"),
+});
+
+export const billBankDetailsSchema = z.object({
+  accountHolderName: z.string().trim().optional().or(z.literal("")),
+  bankName: z.string().trim().optional().or(z.literal("")),
+  accountNumber: z.string().trim().optional().or(z.literal("")),
+  ifscCode: z.string().trim().optional().or(z.literal("")),
 });
 
 export const billItemSchema = z.object({
@@ -90,7 +122,7 @@ export const billItemSchema = z.object({
 });
 
 export const freightBillFormSchema = z.object({
-  billStn: z.string().trim().min(1, "Bill STN is required."),
+  billStn: z.string().trim().optional().or(z.literal("")),
 
   billNo: z.string().trim().min(1, "Bill No. is required."),
 
@@ -106,6 +138,10 @@ export const freightBillFormSchema = z.object({
 
   remark: z.string().trim().optional().or(z.literal("")),
   vehicleNumber: z.string().trim().optional().or(z.literal("")),
+
+  hsnCode: z.string().trim().optional().or(z.literal("")),
+  bankDetails: billBankDetailsSchema.optional(),
+  adjustments: billAdjustmentsSchema.optional(),
 });
 
 export type FreightBillFormValues = z.infer<typeof freightBillFormSchema>;
@@ -113,6 +149,10 @@ export type FreightBillFormValues = z.infer<typeof freightBillFormSchema>;
 export type BillItemValues = z.infer<typeof billItemSchema>;
 
 export type BillPartyValues = z.infer<typeof billPartySchema>;
+
+export type BillAdjustments = z.infer<typeof billAdjustmentsSchema>;
+
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 /**
  * Convert a charge value to number before calculation.
@@ -142,6 +182,39 @@ export function computeItemTotal(item: BillItemValues): number {
     chargeNumber(item.loadingCharges) +
     chargeNumber(item.gstinCharges)
   );
+}
+
+/**
+ * Money maths for the summary panel. Used by the form AND re-run on the server
+ * when a bill is saved, so the stored totals can't be tampered with.
+ *
+ *   taxable   = trip total - discount
+ *   GST       = added to the invoice (RCM tax is paid by the recipient, so it is shown but not added)
+ *   TDS       = deducted from (or added to) the taxable value
+ *   invoice   = taxable + GST ± TDS, optionally rounded to a whole rupee
+ *   payable   = invoice - advance received
+ */
+export function computeBillSummary(tripTotal: number, adjustments?: Partial<BillAdjustments>) {
+  const trip = round2(chargeNumber(tripTotal));
+  const discount = round2(Math.min(Math.max(chargeNumber(adjustments?.discount), 0), trip));
+  const taxable = round2(trip - discount);
+
+  const gstMode = adjustments?.gstMode ?? "None";
+  const gstRate = gstMode === "GST" ? chargeNumber(adjustments?.gstRate) : gstMode === "RCM" ? RCM_RATE : 0;
+  const gstAmount = round2((taxable * gstRate) / 100);
+  const gstAdded = gstMode === "GST" ? gstAmount : 0;
+
+  const tdsAmount = round2((taxable * chargeNumber(adjustments?.tdsRate)) / 100);
+  const tdsSigned = adjustments?.tdsMode === "Addition" ? tdsAmount : -tdsAmount;
+
+  const beforeRound = taxable + gstAdded + tdsSigned;
+  const invoiceAmount = adjustments?.roundOff ? Math.round(beforeRound) : round2(beforeRound);
+  const roundOffAmount = round2(invoiceAmount - beforeRound);
+
+  const advance = Math.max(chargeNumber(adjustments?.advanceReceived), 0);
+  const payable = Math.max(0, round2(invoiceAmount - advance));
+
+  return { trip, discount, taxable, gstMode, gstRate, gstAmount, gstAdded, tdsAmount, tdsSigned, roundOffAmount, invoiceAmount, advance, payable };
 }
 
 export const CHARGE_KEYS = [

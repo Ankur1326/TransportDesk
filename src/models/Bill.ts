@@ -12,6 +12,8 @@ export interface IBillParty {
   pincode?: string;
   gstin?: string;
   mobile?: string;
+  country?: string;
+  email?: string;
 }
 
 export interface IBillItem {
@@ -44,6 +46,26 @@ export interface IFreightBill extends Document {
 
   remark?: string;
   vehicleNumber?: string;
+  hsnCode?: string;
+  bankDetails?: {
+    accountHolderName?: string;
+    bankName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+  };
+  adjustments?: {
+    discount: number;
+    gstMode: "None" | "GST" | "RCM";
+    gstRate: number;
+    tdsMode: "Deduction" | "Addition";
+    tdsRate: number;
+    roundOff: boolean;
+    advanceReceived: number;
+    advanceDate?: string;
+    advanceVia: string;
+  };
+  /** Amount still to collect after advance (invoice amount - advance). */
+  payableAmount?: number;
 
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -61,6 +83,33 @@ const billPartySchema = new Schema<IBillParty>(
     pincode: { type: String, default: "" },
     gstin: { type: String, default: "" },
     mobile: { type: String, default: "" },
+    country: { type: String, default: "" },
+    email: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const billBankDetailsSchema = new Schema(
+  {
+    accountHolderName: { type: String, default: "" },
+    bankName: { type: String, default: "" },
+    accountNumber: { type: String, default: "" },
+    ifscCode: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const billAdjustmentsSchema = new Schema(
+  {
+    discount: { type: Number, default: 0, min: 0 },
+    gstMode: { type: String, enum: ["None", "GST", "RCM"], default: "None" },
+    gstRate: { type: Number, default: 0, min: 0, max: 100 },
+    tdsMode: { type: String, enum: ["Deduction", "Addition"], default: "Deduction" },
+    tdsRate: { type: Number, default: 0, min: 0, max: 100 },
+    roundOff: { type: Boolean, default: false },
+    advanceReceived: { type: Number, default: 0, min: 0 },
+    advanceDate: { type: String, default: "" },
+    advanceVia: { type: String, default: "Cash" },
   },
   { _id: false }
 );
@@ -101,7 +150,7 @@ const billItemSchema = new Schema<IBillItem>(
 
 const freightBillSchema = new Schema<IFreightBill>(
   {
-    billStn: { type: String, required: [true, "Bill STN is required"], trim: true },
+    billStn: { type: String, default: "", trim: true },
     billNo: {
       type: String,
       required: [true, "Bill number is required"],
@@ -125,6 +174,10 @@ const freightBillSchema = new Schema<IFreightBill>(
 
     remark: { type: String, default: "" },
     vehicleNumber: { type: String, default: "" },
+    hsnCode: { type: String, default: "" },
+    bankDetails: { type: billBankDetailsSchema, default: undefined },
+    adjustments: { type: billAdjustmentsSchema, default: undefined },
+    payableAmount: { type: Number, default: 0, min: 0 },
 
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },

@@ -101,6 +101,11 @@ export interface ConsignmentListParams {
   consignor?: string;
   consignee?: string;
   vehicle?: string;
+  /** "Any" = the party is the consignor or the consignee (exact name match). */
+  partyType?: "Consignor" | "Consignee" | "Any";
+  partyName?: string;
+  /** "true" hides LRs that are already on a freight bill. */
+  excludeBilled?: "true";
   sort?: ConsignmentSort;
   page?: number;
   limit?: number;

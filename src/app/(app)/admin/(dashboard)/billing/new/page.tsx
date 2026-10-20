@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FormProvider, useForm, useFieldArray, useWatch } from "react-hook-form";
+import { FormProvider, useForm, useFieldArray } from "react-hook-form";
 import toast from "react-hot-toast";
 
 import {
@@ -11,12 +11,17 @@ import {
     type BillItemValues,
 } from "@/lib/bill/validations";
 import { fetchNextBillNumber, saveLastBillNumber } from "@/lib/bill/Generatebillnumber";
-import { createFreightBill, getConsignmentForBill, getFreightBill, updateFreightBill } from "@/lib/bill/api";
+import { createFreightBill, getConsignmentForBill, getFreightBill, updateFreightBill, type CustomerOption } from "@/lib/bill/api";
 
-import { FreightBillHeader } from "@/components/bills/Freightbillheader";
-import { BillMetaSection } from "@/components/bills/Billmetasection";
-import { BilledToSection } from "@/components/bills/Billedtosection";
 import { BillItemsTable } from "@/components/bills/Billitemstable";
+import { CnsSelector } from "@/components/bills/Cnsselector";
+import { BillToPicker, type PartyMode } from "@/components/bills/create/BillToPicker";
+import { PartyBiltyPicker } from "@/components/bills/create/PartyBiltyPicker";
+import { BillSummaryPanel } from "@/components/bills/create/BillSummaryPanel";
+import { AdditionalDetailsCard } from "@/components/bills/create/AdditionalDetailsCard";
+import { Input } from "@/components/ui/Input";
+import { SectionCard } from "@/components/bills/create/ui";
+import { RefreshCw } from "@/components/icons";
 import { FreightBillFormActionsBar } from "@/components/bills/Freightbillformactionsbar";
 import { FreightBillPrintPreview } from "@/components/bills/Freightbillprintpreview";
 import { ConsignmentListItem, ConsignmentRecord, getApiErrorMessage } from "@/lib/api/consignments";
@@ -33,10 +38,23 @@ function buildDefaultValues(billNo: string): FreightBillFormValues {
         billNo,
         billDate: new Date().toISOString().slice(0, 10),
         billedToType: "Consignor",
-        billedTo: { name: "", address: "", city: "", state: "", pincode: "", gstin: "", mobile: "" },
+        billedTo: { name: "", address: "", city: "", state: "", pincode: "", gstin: "", mobile: "", country: "", email: "" },
         items: [],
         remark: "",
         vehicleNumber: "",
+        hsnCode: "",
+        bankDetails: { accountHolderName: "", bankName: "", accountNumber: "", ifscCode: "" },
+        adjustments: {
+            discount: 0,
+            gstMode: "None",
+            gstRate: 0,
+            tdsMode: "Deduction",
+            tdsRate: 0,
+            roundOff: false,
+            advanceReceived: 0,
+            advanceDate: "",
+            advanceVia: "Cash",
+        },
     };
 }
 
@@ -81,13 +99,10 @@ function FreightBillForm() {
     const [savedChargeDefinitions, setSavedChargeDefinitions] = useState<ChargeDefinition[] | null>(null);
 
     const [previewOpen, setPreviewOpen] = useState(false);
-    const [addingId, setAddingId] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
     const [isLoadingBill, setIsLoadingBill] = useState(Boolean(billId));
-
-    const [firstConsignmentParties, setFirstConsignmentParties] = useState<{
-        consignor?: ConsignmentRecord["consignor"];
-        consignee?: ConsignmentRecord["consignee"];
-    } | null>(null);
+    const [partyMode, setPartyMode] = useState<PartyMode | null>(null);
+    const [partyName, setPartyName] = useState<string | null>(null);
 
     const methods = useForm<FreightBillFormValues>({
         resolver: zodResolver(freightBillFormSchema),
@@ -96,25 +111,15 @@ function FreightBillForm() {
     });
 
     const {
-        handleSubmit, reset, setValue, getValues, formState: { isSubmitting, dirtyFields }, } = methods;
-    const billedToType = useWatch({ control: methods.control, name: "billedToType" });
+        handleSubmit, reset, setValue, getValues, formState: { isSubmitting, errors },
+    } = methods;
 
-    const applyBilledToFromParty = useCallback((source?: {
-        name?: string; address?: string; city?: string; state?: string; pincode?: string; gstin?: string; mobile?: string;
-    }) => {
-        setValue("billedTo", {
-            name: source?.name ?? "",
-            address: source?.address ?? "",
-            city: source?.city ?? "",
-            state: source?.state ?? "",
-            pincode: source?.pincode ?? "",
-            gstin: source?.gstin ?? "",
-            mobile: source?.mobile ?? "",
-        });
-    }, [setValue]);
-
-    const { fields, append, remove } = useFieldArray({ control: methods.control, name: "items" });
+    const { fields, append, remove, replace } = useFieldArray({ control: methods.control, name: "items" });
     const chargeDefinitions = savedChargeDefinitions ?? companySettings.chargeDefinitions.filter((charge) => charge.includeOnBill);
+
+    const clearBilledTo = useCallback(() => {
+        setValue("billedTo", { name: "", address: "", city: "", state: "", pincode: "", gstin: "", mobile: "", country: "", email: "" });
+    }, [setValue]);
 
     useEffect(() => {
         if (billId) {
@@ -136,8 +141,13 @@ function FreightBillForm() {
                     const legacyDefinitions = DEFAULT_CHARGE_DEFINITIONS.filter((definition) => definition.legacyBillField);
                     const definitions = snapshotDefinitions.length ? snapshotDefinitions : legacyDefinitions;
                     setSavedChargeDefinitions(definitions);
+                    const defaults = buildDefaultValues(bill.billNo);
                     reset({
+                        ...defaults,
                         ...bill,
+                        bankDetails: { ...defaults.bankDetails, ...bill.bankDetails },
+                        adjustments: { ...defaults.adjustments!, ...bill.adjustments },
+                        billDate: String(bill.billDate).slice(0, 10),
                         items: bill.items.map((item) => ({
                             ...item,
                             chargeLines: Array.isArray(item.chargeLines)
@@ -145,16 +155,12 @@ function FreightBillForm() {
                                 : chargeLinesFromLegacy(item, definitions, "bill"),
                         })),
                     });
-                    // useFieldArray needs `reset` with the same field name to pick up `items` —
-                    // this works because `items` is part of `bill` and reset() re-syncs the array.
-
-                    // We don't have the ORIGINAL consignor/consignee sub-docs anymore (only what
-                    // was saved onto billedTo), so re-derive them so the Consignor/Consignee
-                    // toggle still works correctly if the user flips it while editing.
-                    if (bill.billedToType === "Consignor") {
-                        setFirstConsignmentParties({ consignor: bill.billedTo });
-                    } else if (bill.billedToType === "Consignee") {
-                        setFirstConsignmentParties({ consignee: bill.billedTo });
+                    // A saved bill keeps its party; let the user add more of that party's LRs.
+                    if (bill.billedToType === "Third Party") {
+                        setPartyMode("manual");
+                    } else {
+                        setPartyMode("company");
+                        setPartyName(bill.billedTo.name);
                     }
                 })
                 .catch((err) => {
@@ -167,54 +173,92 @@ function FreightBillForm() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [billId]);
 
+    // Prefill the bank block from Settings once (new bills only, never over saved/typed values).
     useEffect(() => {
-        if (!firstConsignmentParties) return;
-        if (billedToType === "Consignor") applyBilledToFromParty(firstConsignmentParties.consignor);
-        else if (billedToType === "Consignee") applyBilledToFromParty(firstConsignmentParties.consignee);
-        // Third Party: leave the fields alone — that's manual entry, don't clobber what's been typed.
-    }, [applyBilledToFromParty, billedToType, firstConsignmentParties]);
+        if (billId) return;
+        const bank = getValues("bankDetails");
+        if (bank && Object.values(bank).some(Boolean)) return;
+        const { accountHolderName, bankName, accountNumber, ifscCode } = companySettings;
+        if (accountHolderName || bankName || accountNumber || ifscCode) {
+            setValue("bankDetails", { accountHolderName, bankName, accountNumber, ifscCode });
+        }
+    }, [billId, companySettings, getValues, setValue]);
 
-    const excludeIds = fields.map((f) => f.consignmentId);
+    // SR NO always follows selection order: 1 for the first LR picked, 2 for the second, …
+    useEffect(() => {
+        fields.forEach((_, i) => setValue(`items.${i}.srNo`, i + 1));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fields.length, setValue]);
 
-    async function handleCnsSelect(picked: ConsignmentListItem) {
-        if (addingId) return; // ignore a second click while one is already being fetched/added
-        setAddingId(picked._id);
+    const selectedIds = fields.map((f) => f.consignmentId);
 
+    function handleModeChange(mode: PartyMode) {
+        if (mode === partyMode) return;
+        setPartyMode(mode);
+        setPartyName(null);
+        clearBilledTo();
+        if (fields.length) {
+            replace([]);
+            toast("Selected bilties were cleared because the billing party changed.", { icon: "ℹ️" });
+        }
+    }
+
+    function handleClearParty() {
+        setPartyName(null);
+        clearBilledTo();
+        if (fields.length) {
+            replace([]);
+            toast("Selected bilties were cleared because the billing party changed.", { icon: "ℹ️" });
+        }
+    }
+
+    function handleCustomerSelected(customer: CustomerOption) {
+        setValue("billedTo", {
+            name: customer.name,
+            address: customer.address ?? "",
+            city: customer.city ?? "",
+            state: customer.state ?? "",
+            pincode: customer.pincode ?? "",
+            gstin: customer.gstin ?? "",
+            mobile: customer.mobile ?? "",
+            country: "",
+            email: customer.email ?? "",
+        }, { shouldDirty: true, shouldValidate: true });
+        setPartyName(customer.name);
+    }
+
+    /** Fetch the full record(s), build the bill rows and append them; SR NO continues from what's already there. */
+    async function addConsignments(picked: ConsignmentListItem[]) {
+        if (busy || picked.length === 0) return;
+        setBusy(true);
         try {
-            // The list endpoint's item is a slim shape (no address, loose charges) —
-            // fetch the full record so the bill row and auto-filled party are accurate.
-            const c = await getConsignmentForBill(picked._id);
-            const isFirstItem = fields.length === 0;
-            const newItem = consignmentToBillItem(c, fields.length + 1, chargeDefinitions);
+            const records = await Promise.all(picked.map((p) => getConsignmentForBill(p._id)));
+            const base = getValues("items").length;
+            const newItems = records.map((record, i) => consignmentToBillItem(record, base + i + 1, chargeDefinitions));
 
-            if (isFirstItem) {
-                setFirstConsignmentParties({ consignor: c.consignor, consignee: c.consignee });
-                const party = c.payment?.billingParty;
-                // Only auto-pick Consignor/Consignee/Third Party if the user hasn't
-                // already chosen one by hand — don't clobber a manual selection.
-                if (!dirtyFields.billedToType) {
-                    const suggestedType = party === "Consignor" || party === "Consignee" ? party : "Third Party";
-                    setValue("billedToType", suggestedType);
+            if (base === 0) {
+                const first = records[0];
+                if (partyMode === "manual" || !partyName) {
+                    setValue("billedToType", "Third Party");
+                } else {
+                    const same = (a?: string, b?: string) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
+                    setValue("billedToType", same(first.consignor?.name, partyName) ? "Consignor" : "Consignee");
                 }
-
-                // if (c.remark) setValue("remark", c.remark);
-                // Auto-fill vehicle number from selected consignment, but don't
-                // overwrite a value the user has already typed.
-                if (c.vehicleNumber && !getValues("vehicleNumber")) setValue("vehicleNumber", c.vehicleNumber);
-            } else if (c.payment?.billingParty && c.payment.billingParty !== getValues("billedToType")) {
-                toast(
-                    `Heads up: CNS ${c.consignmentNumber} is normally billed to ${c.payment.billingParty}, not ${getValues("billedToType")}.`,
-                    { icon: "⚠️" }
-                );
+                // Auto-fill vehicle number from the first LR, but never over something already typed.
+                if (first.vehicleNumber && !getValues("vehicleNumber")) setValue("vehicleNumber", first.vehicleNumber);
             }
 
-            append(newItem);
-            // console.log("newItem: ", newItem)
+            append(newItems);
         } catch (error) {
-            toast.error(getApiErrorMessage(error, `Couldn't load CNS ${picked.consignmentNumber}.`));
+            toast.error(getApiErrorMessage(error, "Couldn't load the selected bilty."));
         } finally {
-            setAddingId(null);
+            setBusy(false);
         }
+    }
+
+    function removeByConsignmentId(consignmentId: string) {
+        const index = getValues("items").findIndex((item) => item.consignmentId === consignmentId);
+        if (index >= 0) remove(index);
     }
 
     const onSaveAndPrint = handleSubmit(
@@ -262,8 +306,17 @@ function FreightBillForm() {
     );
 
     function onReset() {
-        setFirstConsignmentParties(null);
+        setPartyMode(null);
+        setPartyName(null);
         fetchNextBillNumber().then((billNo) => reset(buildDefaultValues(billNo)));
+    }
+
+    async function refreshBillNumber() {
+        try {
+            setValue("billNo", await fetchNextBillNumber(), { shouldDirty: true });
+        } catch {
+            toast.error("Couldn't fetch the next bill number.");
+        }
     }
 
     if (isLoadingBill) {
@@ -275,38 +328,75 @@ function FreightBillForm() {
             {previewOpen ? (
                 <FreightBillPrintPreview onClose={() => setPreviewOpen(false)} />
             ) : (
-                <form className="mx-auto max-w-3xl pb-24 text-[12px]" onSubmit={(e) => e.preventDefault()}>
+                <form className="mx-auto max-w-6xl space-y-4 pb-28" onSubmit={(e) => e.preventDefault()}>
                     <WorkflowTabs workflow="billing" activePage="create" />
-                    <div className="rounded-lg border border-slate-300 p-4 shadow-sm">
-                        <FreightBillHeader company={companySettings} />
 
-                        <div className="border-b border-slate-300 py-2 text-[12px] text-slate-500">
-                            Select a CNS No. below — Consignor/Consignee/Third Party and their details fill in automatically
-                            from the first consignment you add. Already-paid consignments won&apos;t appear in the picker.
+                    {/* Bill number + date */}
+                    <SectionCard>
+                        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_8rem]">
+                            <div className="relative">
+                                <Input
+                                    size="compact"
+                                    label="Invoice / Bill number"
+                                    hi="बिल नंबर"
+                                    error={errors.billNo?.message}
+                                    className={billId ? undefined : "pr-9"}
+                                    {...methods.register("billNo")}
+                                />
+                                {!billId && (
+                                    <button
+                                        type="button"
+                                        onClick={refreshBillNumber}
+                                        aria-label="Get next bill number"
+                                        className="focus-ring absolute right-1 top-[18px] flex h-6 w-6 items-center justify-center rounded text-slate-500 hover:bg-slate-200"
+                                    >
+                                        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                                    </button>
+                                )}
+                            </div>
+                            <Input size="compact" type="date" label="Date" hi="तारीख" {...methods.register("billDate")} />
+                            <Input size="compact" label="Bill STN (optional)" hi="बिल एसटीएन" placeholder="e.g. WGH" className="uppercase" {...methods.register("billStn")} />
                         </div>
+                    </SectionCard>
 
-                        <BilledToSection excludeIds={excludeIds} onCnsSelect={handleCnsSelect} cnsDisabled={Boolean(addingId)} />
-                        <BillMetaSection />
+                    <BillToPicker
+                        mode={partyMode}
+                        onModeChange={handleModeChange}
+                        partyName={partyName}
+                        onCustomerSelected={handleCustomerSelected}
+                        onClearParty={handleClearParty}
+                    />
 
-                        <div className="py-2">
-                            <SelectedCnsChips fields={fields} onRemove={remove} />
-                            <BillItemsTable fields={fields} onRemove={remove} chargeDefinitions={chargeDefinitions} />
-                        </div>
+                    {/* Customer chosen: every unbilled LR where they are consignor or consignee */}
+                    {partyName && (
+                        <PartyBiltyPicker
+                            key={partyName}
+                            partyName={partyName}
+                            selectedIds={selectedIds}
+                            busy={busy}
+                            onAdd={addConsignments}
+                            onRemoveId={removeByConsignmentId}
+                        />
+                    )}
 
-                        <label className="mt-2 flex items-center gap-2 text-[12px]">
-                            <span className="font-semibold">Vehicle Number</span>
-                            <input
-                                {...methods.register("vehicleNumber")}
-                                className="focus-ring rounded border border-slate-300 px-2 py-1"
-                            />
-                        </label>
-                        <label className="mt-2 flex items-center gap-2 text-[12px]">
-                            <span className="font-semibold">Remark</span>
-                            <input
-                                {...methods.register("remark")}
-                                className="focus-ring flex-1 rounded border border-slate-300 px-2 py-1"
-                            />
-                        </label>
+                    {/* Manual party: look up any LR by number */}
+                    {partyMode === "manual" && (
+                        <SectionCard title="Add Bilty by LR number">
+                            <CnsSelector excludeIds={selectedIds} onSelect={(c) => addConsignments([c])} disabled={busy} />
+                        </SectionCard>
+                    )}
+
+                    <SectionCard title="LR Details">
+                        <SelectedCnsChips fields={fields} onRemove={remove} />
+                        <BillItemsTable fields={fields} onRemove={remove} chargeDefinitions={chargeDefinitions} />
+                        {(errors.items?.message || errors.items?.root?.message) && (
+                            <p className="mt-2 text-xs text-red-600">{errors.items?.message || errors.items?.root?.message}</p>
+                        )}
+                    </SectionCard>
+
+                    <div className="grid items-start gap-4 lg:grid-cols-2">
+                        <AdditionalDetailsCard />
+                        <BillSummaryPanel />
                     </div>
 
                     <FreightBillFormActionsBar

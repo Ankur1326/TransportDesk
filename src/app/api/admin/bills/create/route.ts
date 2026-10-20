@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 
 import dbConnect from "@/lib/db";
 import FreightBillModel from "@/models/Bill";
-import { freightBillFormSchema, computeItemTotal, computeBillTotals } from "@/lib/bill/validations";
+import { freightBillFormSchema, computeItemTotal, computeBillTotals, computeBillSummary } from "@/lib/bill/validations";
 
 export async function POST(request: NextRequest) {
   await dbConnect();
@@ -17,12 +17,16 @@ export async function POST(request: NextRequest) {
       ...item,
       totalCharges: computeItemTotal(item),
     }));
-    const totalAmount = computeBillTotals(parsed.items).totalCharges;
+    // totalAmount is the final invoice amount (trip total after discount / GST / TDS / round-off).
+    const summary = computeBillSummary(computeBillTotals(parsed.items).totalCharges, parsed.adjustments);
+    const totalAmount = summary.invoiceAmount;
+    const payableAmount = summary.payable;
 
     const created = await FreightBillModel.create({
       ...parsed,
       items,
       totalAmount,
+      payableAmount,
     });
 
     return NextResponse.json(

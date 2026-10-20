@@ -104,3 +104,32 @@ export async function listFreightBills(params: FreightBillListParams = {}): Prom
   const { data } = await axios.get<FreightBillListResponse>(`${BILLS_BASE_URL}/get`, { params });
   return data;
 }
+
+/** A saved customer (company) as returned by /api/admin/customer/get. */
+export interface CustomerOption {
+  _id: string;
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  gstin?: string;
+  mobile?: string | null;
+  email?: string;
+}
+
+/** Search saved customers by name, city, GSTIN or mobile. */
+export async function searchCustomers(search: string, limit = 15): Promise<CustomerOption[]> {
+  const { data } = await axios.get<{ data?: { customers?: CustomerOption[] } }>("/api/admin/customer/get", {
+    params: { search: search.trim() || undefined, itemsPerPage: limit, currentPage: 1 },
+  });
+  return data?.data?.customers ?? [];
+}
+
+/**
+ * Every unbilled, unpaid LR where this party is the consignor OR the consignee.
+ */
+export async function listPartyConsignments(partyName: string): Promise<ConsignmentListItem[]> {
+  const { data } = await listConsignments({ partyType: "Any", partyName, excludeBilled: "true", limit: 100 });
+  return data.filter((c) => c.payment?.status !== "Paid");
+}

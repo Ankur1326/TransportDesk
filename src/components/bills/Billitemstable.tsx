@@ -20,13 +20,13 @@ export function BillItemsTable({ fields, onRemove, chargeDefinitions }: BillItem
   const totals = computeBillTotals(items);
 
   return (
-    <table className="w-full border-collapse text-[11px]">
+    <div className="overflow-x-auto"><table className="w-full min-w-[640px] border-collapse text-xs">
       <thead>
         <tr className="bg-slate-100 text-left">
           <th className="border border-slate-300 px-1 py-1">SR NO</th>
           <th className="border border-slate-300 px-1 py-1">Booking STN</th>
           <th className="border border-slate-300 px-1 py-1">To STN</th>
-          <th className="border border-slate-300 px-1 py-1">CNS No</th>
+          <th className="border border-slate-300 px-1 py-1">LR No</th>
           <th className="border border-slate-300 px-1 py-1">Date</th>
           {chargeDefinitions.map((definition) => (
             <th key={definition.id} className="border border-slate-300 px-1 py-1">{definition.name}</th>
@@ -66,7 +66,7 @@ export function BillItemsTable({ fields, onRemove, chargeDefinitions }: BillItem
               <button
                 type="button"
                 onClick={() => onRemove(index)}
-                aria-label={`Remove CNS ${field.cnsNo}`}
+                aria-label={`Remove LR ${field.cnsNo}`}
                 className="focus-ring rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
               >
                 <X className="h-3.5 w-3.5" />
@@ -78,7 +78,7 @@ export function BillItemsTable({ fields, onRemove, chargeDefinitions }: BillItem
         {fields.length === 0 && (
           <tr>
             <td colSpan={5 + chargeDefinitions.length + 2} className="border border-slate-300 px-2 py-4 text-center text-slate-400">
-              No consignments added yet — search a CNS No. above to start the bill.
+              No bilties added yet — choose a party above and tick the LRs to bill.
             </td>
           </tr>
         )}
@@ -97,6 +97,6 @@ export function BillItemsTable({ fields, onRemove, chargeDefinitions }: BillItem
           <td className="border border-slate-300 px-1 py-1 print:hidden" />
         </tr>
       </tbody>
-    </table>
+    </table></div>
   );
 }

@@ -69,7 +69,11 @@ export function buildConsignmentQuery(params: URLSearchParams, companyId: string
 
   const partyType = clean(params, "partyType");
   const partyName = clean(params, "partyName");
-  if (partyName && (partyType === "Consignor" || partyType === "Consignee")) {
+  if (partyName && partyType === "Any") {
+    // Every LR where this exact party is the consignor OR the consignee (used by the bill form).
+    const exact = new RegExp(`^\\s*${escapeRegex(partyName)}\\s*$`, "i");
+    and.push({ $or: [{ "consignor.name": exact }, { "consignee.name": exact }] });
+  } else if (partyName && (partyType === "Consignor" || partyType === "Consignee")) {
     const key = partyType === "Consignor" ? "consignor.name" : "consignee.name";
     and.push({ [key]: new RegExp(escapeRegex(partyName), "i") });
   }

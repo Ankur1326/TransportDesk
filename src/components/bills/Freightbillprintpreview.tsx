@@ -2,7 +2,7 @@
 
 import { FreightBillHeader } from "@/components/bills/Freightbillheader";
 import { useFormContext, useWatch } from "react-hook-form";
-import { amountInWords, BillItemValues, computeBillTotals, type FreightBillFormValues } from "@/lib/bill/validations";
+import { amountInWords, BillItemValues, computeBillSummary, computeBillTotals, type FreightBillFormValues } from "@/lib/bill/validations";
 import { PrintItemsTable } from "@/components/bills/PrintItemsTable";
 import formatDate from "@/lib/formateDate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
@@ -19,6 +19,18 @@ export function FreightBillPrintPreview({ onClose }: FreightBillPrintPreviewProp
     const { settings } = useCompanySettings();
     const items = values.items ?? [];
     const totals = computeBillTotals(items as never);
+    const summary = computeBillSummary(totals.totalCharges, values.adjustments);
+    const hasAdjustments = Boolean(values.adjustments) && (
+        summary.discount > 0 || summary.gstMode !== "None" || summary.tdsAmount > 0 ||
+        summary.roundOffAmount !== 0 || summary.advance > 0
+    );
+    // Bank details saved on the bill win; older bills fall back to Settings.
+    const bank = {
+        accountHolderName: values.bankDetails?.accountHolderName || settings.accountHolderName,
+        bankName: values.bankDetails?.bankName || settings.bankName,
+        accountNumber: values.bankDetails?.accountNumber || settings.accountNumber,
+        ifscCode: values.bankDetails?.ifscCode || settings.ifscCode,
+    };
     const chargeDefinitions = (items as BillItemValues[]).flatMap((item) => item.chargeLines ?? [])
         .reduce<import("@/lib/charges").ChargeDefinition[]>((definitions, line) => {
             if (!definitions.some((definition) => definition.id === line.chargeId)) {
@@ -77,11 +89,14 @@ export function FreightBillPrintPreview({ onClose }: FreightBillPrintPreviewProp
                             {values.billedTo?.gstin && (
                                 <p className="mt-1.5 font-semibold">GSTIN:- {values.billedTo.gstin}</p>
                             )}
+                            {values.hsnCode && <p className="mt-1 font-semibold">HSN/SAC:- {values.hsnCode}</p>}
                         </div>
                         <div className="space-y-1 p-3">
-                            <p>
-                                <span className="inline-block w-24 font-bold">BILL STN</span> : {values.billStn}
-                            </p>
+                            {values.billStn && (
+                                <p>
+                                    <span className="inline-block w-24 font-bold">BILL STN</span> : {values.billStn}
+                                </p>
+                            )}
                             <p>
                                 <span className="inline-block w-24 font-bold">BILL NO</span> : {values.billNo}
                             </p>
@@ -93,21 +108,41 @@ export function FreightBillPrintPreview({ onClose }: FreightBillPrintPreviewProp
 
                     <PrintItemsTable items={(items as BillItemValues[]) ?? []} chargeDefinitions={printChargeDefinitions} />
 
+                    {hasAdjustments && (
+                        <div className="flex justify-end border-x border-t border-slate-400 border-x-slate-900 px-3 py-2 text-sm">
+                            <table className="w-72">
+                                <tbody>
+                                    <tr><td className="py-0.5">Total Trip Amount</td><td className="py-0.5 text-right">{summary.trip.toFixed(2)}</td></tr>
+                                    {summary.discount > 0 && <tr><td className="py-0.5">Discount</td><td className="py-0.5 text-right">- {summary.discount.toFixed(2)}</td></tr>}
+                                    {summary.gstMode === "GST" && <tr><td className="py-0.5">GST @ {summary.gstRate}%</td><td className="py-0.5 text-right">+ {summary.gstAmount.toFixed(2)}</td></tr>}
+                                    {summary.gstMode === "RCM" && <tr><td className="py-0.5">GST @ {summary.gstRate}% (RCM, payable by recipient)</td><td className="py-0.5 text-right">{summary.gstAmount.toFixed(2)}</td></tr>}
+                                    {summary.tdsAmount > 0 && <tr><td className="py-0.5">TDS {summary.tdsSigned < 0 ? "deducted" : "added"}</td><td className="py-0.5 text-right">{summary.tdsSigned < 0 ? "-" : "+"} {summary.tdsAmount.toFixed(2)}</td></tr>}
+                                    {summary.roundOffAmount !== 0 && <tr><td className="py-0.5">Round off</td><td className="py-0.5 text-right">{summary.roundOffAmount.toFixed(2)}</td></tr>}
+                                    <tr className="border-t border-slate-400 font-bold"><td className="py-0.5">Invoice Amount</td><td className="py-0.5 text-right">{summary.invoiceAmount.toFixed(2)}</td></tr>
+                                    {summary.advance > 0 && <tr><td className="py-0.5">Advance received</td><td className="py-0.5 text-right">- {summary.advance.toFixed(2)}</td></tr>}
+                                    {summary.advance > 0 && <tr className="font-bold"><td className="py-0.5">Payable Amount</td><td className="py-0.5 text-right">{summary.payable.toFixed(2)}</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
                     <div className="border-x border-slate-900 px-3 py-2 text-sm">
-                        <p>
-                            GST on Reverse Charge To be paid by: {values.billedTo?.name}{"  "}
-                            {values.billedTo?.gstin ? `(${values.billedTo.gstin})` : ""}
-                        </p>
-                        <p className="mt-1 font-semibold">Amount in words :- {amountInWords(totals.totalCharges)}</p>
+                        {summary.gstMode !== "GST" && (
+                            <p>
+                                GST on Reverse Charge To be paid by: {values.billedTo?.name}{"  "}
+                                {values.billedTo?.gstin ? `(${values.billedTo.gstin})` : ""}
+                            </p>
+                        )}
+                        <p className="mt-1 font-semibold">Amount in words :- {amountInWords(summary.invoiceAmount)}</p>
                     </div>
 
                     <div className="grid grid-cols-2 border-t border-t-slate-400 border-x border-x-slate-900 text-sm">
                         <div className="space-y-1 p-3">
                             <p><span className="inline-block w-32 font-bold">Company Name</span>{settings.companyName || siteConfig.name}</p>
-                            {settings.accountHolderName && <p><span className="inline-block w-32 font-bold">Account Holder</span>{settings.accountHolderName}</p>}
-                            {settings.bankName && <p><span className="inline-block w-32 font-bold">Bank Name</span>{settings.bankName}</p>}
-                            {settings.accountNumber && <p><span className="inline-block w-32 font-bold">A/c No</span>{settings.accountNumber}</p>}
-                            {settings.ifscCode && <p><span className="inline-block w-32 font-bold">IFSC</span>{settings.ifscCode}</p>}
+                            {bank.accountHolderName && <p><span className="inline-block w-32 font-bold">Account Holder</span>{bank.accountHolderName}</p>}
+                            {bank.bankName && <p><span className="inline-block w-32 font-bold">Bank Name</span>{bank.bankName}</p>}
+                            {bank.accountNumber && <p><span className="inline-block w-32 font-bold">A/c No</span>{bank.accountNumber}</p>}
+                            {bank.ifscCode && <p><span className="inline-block w-32 font-bold">IFSC</span>{bank.ifscCode}</p>}
                             {settings.bankBranch && <p><span className="inline-block w-32 font-bold">Bank Branch</span>{settings.bankBranch}</p>}
                             {settings.upiId && <p><span className="inline-block w-32 font-bold">UPI ID</span>{settings.upiId}</p>}
                         </div>

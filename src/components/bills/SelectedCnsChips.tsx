@@ -19,11 +19,11 @@ function SelectedCnsChips({ fields, onRemove }: SelectedCnsChipsProps) {
           key={field.id}
           className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700"
         >
-          CNS {field.cnsNo}
+          #{index + 1} · LR {field.cnsNo}
           <button
             type="button"
             onClick={() => onRemove(index)}
-            aria-label={`Remove CNS ${field.cnsNo}`}
+            aria-label={`Remove LR ${field.cnsNo}`}
             className="focus-ring rounded-full p-0.5 hover:bg-brand-100"
           >
             <X className="h-3 w-3" />

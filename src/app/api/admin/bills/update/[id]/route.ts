@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 
 import dbConnect from "@/lib/db";
 import FreightBillModel from "@/models/Bill";
-import { freightBillFormSchema, computeItemTotal, computeBillTotals } from "@/lib/bill/validations"
+import { freightBillFormSchema, computeItemTotal, computeBillTotals, computeBillSummary } from "@/lib/bill/validations"
 
 function isValidObjectId(id: string) {
   return mongoose.Types.ObjectId.isValid(id);
@@ -32,11 +32,14 @@ export async function PUT(
     const parsed = freightBillFormSchema.parse(body);
 
     const items = parsed.items.map((item) => ({ ...item, totalCharges: computeItemTotal(item) }));
-    const totalAmount = computeBillTotals(parsed.items).totalCharges;
+    // totalAmount is the final invoice amount (trip total after discount / GST / TDS / round-off).
+    const summary = computeBillSummary(computeBillTotals(parsed.items).totalCharges, parsed.adjustments);
+    const totalAmount = summary.invoiceAmount;
+    const payableAmount = summary.payable;
 
     const updated = await FreightBillModel.findByIdAndUpdate(
       id,
-      { ...parsed, items, totalAmount },
+      { ...parsed, items, totalAmount, payableAmount },
       { new: true, runValidators: true }
     ).lean();
 
