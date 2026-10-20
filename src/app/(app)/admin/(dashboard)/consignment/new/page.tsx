@@ -6,7 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormProvider, useForm } from "react-hook-form";
 import toast from "react-hot-toast";
-import { ArrowDown, FilePlus2, X } from "@/components/icons";
+import { ClipboardList, FileText } from "lucide-react";
+import { ArrowDown, X } from "@/components/icons";
 
 import {
   createConsignment,
@@ -19,6 +20,7 @@ import { Loading } from "@/components/ui/Loading";
 import { ConsignmentInfoSection } from "@/components/billing/ConsignmentInfoSection";
 import { RouteSection } from "@/components/billing/RouteSection";
 import { PartyCard } from "@/components/billing/PartyCard";
+import { TruckIllustration } from "@/components/billing/TruckIllustration";
 import { ShipmentDetailsSection } from "@/components/billing/Shipmentdetailssection";
 import { LoadTypeSection } from "@/components/billing/Loadtypesection";
 import { TransportDetailsSection } from "@/components/billing/Transportdetailssection";
@@ -208,14 +210,22 @@ function TransportBillingForm() {
 
   /** Creates the consignment on first save, updates it on every save after that. */
   const persistToBackend = async (values: BillingFormValues) => {
+    let saved;
     if (recordId) {
-      const updated = await updateConsignment(recordId, values);
-      return updated;
+      saved = await updateConsignment(recordId, values);
+    } else {
+      saved = await createConsignment(values);
+      setRecordId(saved._id);
+      router.replace(`/admin/consignment/new?id=${saved._id}`);
     }
-    const created = await createConsignment(values);
-    setRecordId(created._id);
-    router.replace(`/admin/consignment/new?id=${created._id}`);
-    return created;
+    // The server saves new consignor / consignee as customers — keep the form linked to them.
+    for (const party of ["consignor", "consignee"] as const) {
+      const customerId = saved[party]?.customerId;
+      if (customerId) {
+        methods.setValue(`${party}.customerId`, customerId, { shouldDirty: false, shouldValidate: false });
+      }
+    }
+    return saved;
   };
 
   const onSaveDraft = handleSubmit(
@@ -280,7 +290,7 @@ function TransportBillingForm() {
       {/* DRAFT BANNER                                                     */}
       {/* ================================================================ */}
 
-      {/* {draftBanner && (
+      {draftBanner && (
         <div className="mb-6 rounded-xl border border-brand-200 bg-brand-50/80 px-5 py-2 shadow-sm print:hidden">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
@@ -330,7 +340,7 @@ function TransportBillingForm() {
             </div>
           </div>
         </div>
-      )} */}
+      )}
 
       {previewOpen ? (
         <PrintPreview
@@ -342,26 +352,40 @@ function TransportBillingForm() {
           className="mx-auto max-w-[1320px] space-y-4 pb-24 text-[12px]"
           onSubmit={(e) => e.preventDefault()}
         >
-          <header className="uts-rise flex flex-col gap-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-brand-50/60 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-700 text-white shadow-sm">
-                <FilePlus2 className="h-5 w-5" aria-hidden="true" />
+          <header className="uts-rise relative overflow-hidden px-5 py-4  sm:px-6">
+            <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-600 shadow-inner">
+                  <FileText className="size-7" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-sky-600">Transport Documents</p>
+                  <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight text-slate-950 sm:text-[28px]">
+                    {editId ? "Edit Consignment" : "Create Lorry Receipt"}
+                  </h1>
+                  <p className="mt-1 max-w-xl text-sm text-slate-500">
+                    Enter the shipment, parties, route and charges. Your draft is saved automatically in this browser.
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-brand-700">
-                  Transport documents
-                </p>
-                <h1 className="mt-1 text-xl font-bold text-slate-950 sm:text-2xl">
-                  {editId ? "Edit Consignment" : "Create Lorry Receipt"}
-                </h1>
-                <p className="mt-1 text-sm text-slate-600">
-                  Enter the shipment, parties, route and charges. Your draft is saved automatically in this browser.
-                </p>
+
+              <div className="flex items-center justify-between gap-4 md:justify-end">
+                <div className="flex shrink-0 items-center gap-3 rounded-2xl border border-white bg-white px-5 py-3 shadow-sm ring-1 ring-sky-100">
+                  <ClipboardList className="size-5 text-sky-700" aria-hidden="true" />
+                  <span className="text-[13px] font-medium text-slate-500">LR No.</span>
+                  <span className="uts-pop inline-block text-xl font-bold text-sky-900">
+                    {values.consignmentNumber || "—"}
+                  </span>
+                </div>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 py-2 sm:self-center">
-              <span className="text-xs font-medium text-slate-500">LR No.</span>
-              <span  className="uts-pop inline-block text-base font-bold text-brand-800">{values.consignmentNumber || "—"}</span>
+
+            {/* Truck scene sits behind the content on wide screens, between the title and the LR No. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-40 hidden w-[440px] items-end justify-end lg:flex xl:right-48"
+            >
+              <TruckIllustration className="h-[130px]" />
             </div>
           </header>
 
@@ -375,7 +399,7 @@ function TransportBillingForm() {
             <div className="grid items-start gap-3 lg:grid-cols-2">
               <PartyCard
                 prefix="consignor"
-                title="Consigner"
+                title="Consignor"
                 description="Party sending the goods."
               />
               <PartyCard

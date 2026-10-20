@@ -12,7 +12,7 @@ export function ConsignmentInfoSection() {
     formState: { errors },
   } = useFormContext<BillingFormValues>();
   return (
-    <FormSection title="LR details" description="Set the consignment number, date and supporting document references.">
+    <FormSection title="LR Details" accent="sky" collapsible collapseLabel="Shipment Details">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <div className="sm:col-span-2 xl:col-span-1">
           <Input

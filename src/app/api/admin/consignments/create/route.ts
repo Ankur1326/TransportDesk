@@ -6,6 +6,7 @@ import ConsignmentModel from "@/models/Consignment";
 import { billingFormSchema } from "@/lib/validations/billing";
 import { syncLegacyChargeFields } from "@/lib/charges";
 import { companyFilter, requireCompanyProfile } from "@/lib/company-scope";
+import { ensurePartyCustomers } from "@/lib/ensure-party-customers";
 
 /**
  * POST /api/admin/consignments/create
@@ -13,6 +14,7 @@ import { companyFilter, requireCompanyProfile } from "@/lib/company-scope";
  * Body: BillingFormValues (validated with billingFormSchema).
  * Creates a consignment owned by the signed-in company with status "Booked".
  * Fails with 409 if that company already has the same consignment number.
+ * A consignor / consignee that is not yet a saved customer is added to Customers.
  */
 export async function POST(request: NextRequest) {
   const auth = await requireCompanyProfile();
@@ -38,6 +40,9 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
+
+    // New consignor / consignee that aren't customers yet are saved as customers automatically.
+    await ensurePartyCustomers(parsed, auth.companyId, auth.userId);
 
     const now = new Date();
     const consignment = await ConsignmentModel.create({

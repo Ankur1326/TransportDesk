@@ -1,10 +1,9 @@
 "use client";
 
-import { BadgeCheck, Building2, Hash, Home, Landmark, Mail, Map, Smartphone } from "lucide-react";
+import { BadgeCheck, Building2, CirclePlus, Hash, Home, Landmark, Mail, Map, MapPin, Smartphone } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useFormContext } from "react-hook-form";
-import { UserPlus } from "@/components/icons";
 import { FormSection } from "@/components/billing/FormSection";
 import { Input } from "@/components/ui/Input";
 import type { BillingFormValues } from "@/lib/validations/billing";
@@ -131,8 +130,13 @@ export function PartyCard({ prefix, title, description }: PartyCardProps) {
   // Wrap RHF's handlers so we keep validation AND add search behaviour
   const nameField = register(`${prefix}.name`);
 
+  const isConsignor = prefix === "consignor";
+
   return (
-    <FormSection title={title} description={description}>
+    <FormSection
+      title={title}
+      description={description}
+    >
       <div className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div ref={wrapperRef} className="relative">
@@ -216,9 +220,11 @@ export function PartyCard({ prefix, title, description }: PartyCardProps) {
         <button
           type="button"
           onClick={handleAddNew}
-          className="focus-ring inline-flex items-center gap-1 text-[11px] font-medium text-brand-700 hover:text-brand-800"
+          className={`focus-ring inline-flex items-center gap-1.5 rounded-md text-xs font-semibold transition-colors ${
+            isConsignor ? "text-teal-700 hover:text-teal-900" : "text-violet-700 hover:text-violet-900"
+          }`}
         >
-          <UserPlus className="h-3 w-3" aria-hidden="true" />
+          <CirclePlus className="size-4" aria-hidden="true" />
           Clear / add as new customer
         </button>
       </div>

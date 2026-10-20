@@ -7,6 +7,7 @@ import ConsignmentModel from "@/models/Consignment";
 import { billingFormSchema } from "@/lib/validations/billing";
 import { syncLegacyChargeFields } from "@/lib/charges";
 import { companyFilter, requireCompany } from "@/lib/company-scope";
+import { ensurePartyCustomers } from "@/lib/ensure-party-customers";
 
 /**
  * PUT /api/admin/consignments/update/:id
@@ -56,6 +57,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         { status: 409 }
       );
     }
+
+    // Parties added while editing a saved bilty also become customers.
+    await ensurePartyCustomers(parsed, auth.companyId, auth.userId);
 
     const consignment = await ConsignmentModel.findOneAndUpdate(
       scope,
