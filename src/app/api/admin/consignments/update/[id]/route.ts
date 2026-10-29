@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { ZodError } from "zod";
 
@@ -8,6 +8,7 @@ import { billingFormSchema } from "@/lib/validations/billing";
 import { syncLegacyChargeFields } from "@/lib/charges";
 import { companyFilter, requireCompany } from "@/lib/company-scope";
 import { ensurePartyCustomers } from "@/lib/ensure-party-customers";
+import { warmLrPdf } from "@/lib/lr-pdf-cache";
 
 /**
  * PUT /api/admin/consignments/update/:id
@@ -70,6 +71,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!consignment) {
       return NextResponse.json({ success: false, message: "Consignment not found" }, { status: 404 });
     }
+
+    // Build the PDF in the background so the first "open" is already instant.
+    const cookieHeader = request.headers.get("cookie") ?? "";
+    const baseUrl = (process.env.PDF_RENDER_BASE_URL || request.nextUrl.origin).replace(/\/$/, "");
+    const lrId = String(consignment._id);
+    after(() => warmLrPdf({ id: lrId, companyId: auth.companyId, baseUrl, cookieHeader }));
 
     return NextResponse.json(
       { success: true, message: "Consignment updated successfully", data: consignment },

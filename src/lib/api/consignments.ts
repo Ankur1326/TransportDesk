@@ -20,6 +20,8 @@ export type MongoDate = string | { $date: string } | null | undefined;
  */
 export interface ConsignmentListItem {
   _id: string;
+  /** Stored PDFs by variant; use freshPdfUrl() from @/lib/lr-pdf-url to check it is current. */
+  pdfCache?: Record<string, { url: string; publicId?: string; sourceUpdatedAt: string }>;
   consignmentNumber: string;
   bookingDate?: MongoDate | null;
   cnsDate?: MongoDate | null;

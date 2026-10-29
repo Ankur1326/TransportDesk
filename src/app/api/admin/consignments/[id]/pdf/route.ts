@@ -5,7 +5,9 @@ import dbConnect from "@/lib/db";
 import ConsignmentModel from "@/models/Consignment";
 import { companyFilter, requireCompany } from "@/lib/company-scope";
 import { parseCopies } from "@/lib/lr-copies";
-import { ChromiumUnavailableError, renderPageToPdf, SheetLoadError } from "@/lib/lr-pdf";
+import { ChromiumUnavailableError, SheetLoadError } from "@/lib/lr-pdf";
+import { buildAndStoreLrPdf, pdfVariantKey } from "@/lib/lr-pdf-cache";
+import { freshPdfUrl } from "@/lib/lr-pdf-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,24 +46,38 @@ export async function GET(request: NextRequest, { params }: Ctx) {
   // Ownership check up front: no Chromium launch for ids that aren't theirs.
   await dbConnect();
   const lr = await ConsignmentModel.findOne({ _id: id, ...companyFilter(auth.companyId) })
-    .select("consignmentNumber")
+    .select("consignmentNumber updatedAt pdfCache")
     .lean();
   if (!lr) return fail("Consignment not found", 404);
+
+  const variant = pdfVariantKey(parsed.copies);
+  const download = request.nextUrl.searchParams.get("download") === "1";
+
+  // Already built and still current: send the browser straight to the stored file.
+  if (!download) {
+    const stored = freshPdfUrl(lr as never, variant);
+    if (stored) return NextResponse.redirect(stored, 302);
+  }
 
   const base = (process.env.PDF_RENDER_BASE_URL || request.nextUrl.origin).replace(/\/$/, "");
   const sheetPath = `/admin/lr/${encodeURIComponent(id)}`;
   const qs = copiesParam ? `?copies=${encodeURIComponent(copiesParam)}` : "";
 
   try {
-    const pdf = await renderPageToPdf({
-      url: `${base}${sheetPath}${qs}`,
+    // Renders once, stores the PDF and records it, so the next open is instant.
+    const pdf = await buildAndStoreLrPdf({
+      id,
+      companyId: auth.companyId,
+      variant,
+      copiesParam: copiesParam ?? "",
+      baseUrl: base,
       cookieHeader: request.headers.get("cookie") ?? "",
     });
 
     const safeName = String(lr.consignmentNumber ?? id).replace(/[^\w.-]+/g, "_");
     const suffix =
       parsed.copies.length === 1 ? `-${parsed.copies[0]}` : parsed.copies.length > 1 ? "-all-copies" : "";
-    const disposition = request.nextUrl.searchParams.get("download") === "1" ? "attachment" : "inline";
+    const disposition = download ? "attachment" : "inline";
     return new NextResponse(new Uint8Array(pdf), {
       status: 200,
       headers: {

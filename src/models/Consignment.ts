@@ -149,6 +149,9 @@ export interface IConsignment extends Document {
     podFileName?: string;
     podUploadedAt?: Date;
 
+    /** Stored LR PDFs by variant ("default", "all", ...). See src/lib/lr-pdf-cache.ts. */
+    pdfCache?: Record<string, { url: string; publicId: string; sourceUpdatedAt: string }>;
+
     companyId?: string;
     createdBy?: mongoose.Types.ObjectId;
     createdAt: Date;
@@ -332,6 +335,8 @@ const consignmentSchema = new Schema<IConsignment>(
         podResourceType: { type: String, default: "" },
         podFileName: { type: String, default: "" },
         podUploadedAt: { type: Date },
+
+        pdfCache: { type: Schema.Types.Mixed, default: undefined },
 
         companyId: { type: String, index: true },
         createdBy: { type: Schema.Types.ObjectId, ref: "User" },

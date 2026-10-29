@@ -48,3 +48,22 @@ export async function destroyAsset(publicId: string, resourceType = "image"): Pr
     console.error("Cloudinary destroy failed:", error);
   }
 }
+
+/**
+ * Stores a generated PDF at a fixed public id (re-uploading replaces it).
+ * Uploaded as a `raw` asset; the returned secure_url carries a version, so
+ * the CDN never serves an older copy after an overwrite.
+ *
+ * NOTE: Cloudinary blocks PDF delivery on new accounts by default — enable
+ * Settings -> Security -> "PDF and ZIP files delivery".
+ */
+export function uploadPdf(buffer: Buffer, opts: { publicId: string }): Promise<UploadApiResponse> {
+  configure();
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { public_id: opts.publicId, resource_type: "raw", overwrite: true, invalidate: true },
+      (error, result) => (error || !result ? reject(error ?? new Error("PDF upload failed")) : resolve(result))
+    );
+    stream.end(buffer);
+  });
+}

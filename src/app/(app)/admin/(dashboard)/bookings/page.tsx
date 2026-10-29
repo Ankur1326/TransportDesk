@@ -34,6 +34,7 @@ import { canTransition, type LrStatus } from "@/lib/consignment-status";
 import { downloadCsv, getStatus, summaryText } from "@/lib/lr-helpers";
 import { preparePodFile } from "@/lib/image-compress";
 import { lrPdfPath, LR_STANDARD_COPIES } from "@/lib/lr-copies";
+import { openLrPdf } from "@/lib/lr-pdf-url";
 
 const PAGE_SIZES = [10, 25, 50];
 const EXPORT_PAGE = 100;
@@ -322,7 +323,7 @@ export default function BookingsPage() {
   /* --------------------------------- actions -------------------------------- */
 
   const actions: LrCardActions = {
-    open: (r) => window.open(printUrl(r._id), "_blank", "noopener"),
+    open: (r) => openLrPdf(r),
     account: setAccountTarget,
     podUpload: (r) => { podFor.current = r; podInput.current?.click(); },
     podView: (r) => r.podUrl && window.open(r.podUrl, "_blank", "noopener"),
@@ -334,7 +335,7 @@ export default function BookingsPage() {
     copyDetails: (r) => copyText(summaryText(r), "Details copied."),
     viewDetails: setViewTarget,
     printCopies,
-    pdfAllCopies: (r) => window.open(lrPdfPath(r._id, LR_STANDARD_COPIES), "_blank", "noopener"),
+    pdfAllCopies: (r) => openLrPdf(r, { copies: LR_STANDARD_COPIES, variant: "all" }),
     duplicate: (r) => router.push(`/admin/consignment/new?copyFrom=${r._id}`),
     setStatus: (r, s) => void setStatus(r, s),
     cancel: setCancelTarget,

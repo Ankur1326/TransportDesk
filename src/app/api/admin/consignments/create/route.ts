@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import dbConnect from "@/lib/db";
@@ -7,6 +7,7 @@ import { billingFormSchema } from "@/lib/validations/billing";
 import { syncLegacyChargeFields } from "@/lib/charges";
 import { companyFilter, requireCompanyProfile } from "@/lib/company-scope";
 import { ensurePartyCustomers } from "@/lib/ensure-party-customers";
+import { warmLrPdf } from "@/lib/lr-pdf-cache";
 
 /**
  * POST /api/admin/consignments/create
@@ -53,6 +54,12 @@ export async function POST(request: NextRequest) {
       status: "Booked",
       statusHistory: [{ status: "Booked", at: now, by: auth.userId, note: "" }],
     });
+
+    // Build the PDF in the background so the first "open" is already instant.
+    const cookieHeader = request.headers.get("cookie") ?? "";
+    const baseUrl = (process.env.PDF_RENDER_BASE_URL || request.nextUrl.origin).replace(/\/$/, "");
+    const lrId = String(consignment._id);
+    after(() => warmLrPdf({ id: lrId, companyId: auth.companyId, baseUrl, cookieHeader }));
 
     return NextResponse.json(
       { success: true, message: "Consignment created successfully", data: consignment },
