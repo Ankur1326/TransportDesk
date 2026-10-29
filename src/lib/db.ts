@@ -23,7 +23,7 @@ async function dbConnect(): Promise<void> {
     if (!uri) throw new Error("MONGODB_URI is not set");
 
     if (!globalCache.__mongoose) {
-        const dbName = process.env.MONGODB_DB_NAME || "UTS";
+        const dbName = process.env.MONGODB_DB_NAME;
         globalCache.__mongoose = mongoose.connect(`${uri}/${dbName}`).catch((error) => {
             globalCache.__mongoose = undefined; // allow the next request to retry
             console.error("Database connection failed:", error instanceof Error ? error.message : error);
