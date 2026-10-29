@@ -68,6 +68,9 @@ export interface IFreightBill extends Document {
   /** Amount still to collect after advance (invoice amount - advance). */
   payableAmount?: number;
 
+  /** Stored bill PDFs by variant ("default"). See src/lib/pdf-cache.ts. */
+  pdfCache?: Record<string, { url: string; publicId: string; sourceUpdatedAt: string }>;
+
   companyId: string;
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -178,6 +181,8 @@ const freightBillSchema = new Schema<IFreightBill>(
     bankDetails: { type: billBankDetailsSchema, default: undefined },
     adjustments: { type: billAdjustmentsSchema, default: undefined },
     payableAmount: { type: Number, default: 0, min: 0 },
+
+    pdfCache: { type: Schema.Types.Mixed, default: undefined },
 
     companyId: { type: String, required: [true, "companyId is required"], index: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },

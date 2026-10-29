@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import dbConnect from "@/lib/db";
 import FreightBillModel from "@/models/Bill";
 import { requireCompanyProfile } from "@/lib/company-scope";
 import { dropLegacyUniqueIndex } from "@/lib/legacy-indexes";
+import { warmBillPdf } from "@/lib/bill-pdf-cache";
+import { pdfRenderBaseUrl } from "@/lib/pdf-cache";
 import { allConsignmentsBelongToCompany } from "@/lib/bill/verify-consignments";
 import { freightBillFormSchema, computeItemTotal, computeBillTotals, computeBillSummary } from "@/lib/bill/validations";
 
@@ -45,6 +47,12 @@ export async function POST(request: NextRequest) {
       companyId: auth.companyId,
       createdBy: auth.userId,
     });
+
+    // Build the PDF in the background so the first "open" is already instant.
+    const cookieHeader = request.headers.get("cookie") ?? "";
+    const baseUrl = pdfRenderBaseUrl(request.nextUrl.origin);
+    const billId = String(created._id);
+    after(() => warmBillPdf({ id: billId, companyId: auth.companyId, baseUrl, cookieHeader }));
 
     return NextResponse.json(
       { success: true, message: "Bill created successfully", data: created },

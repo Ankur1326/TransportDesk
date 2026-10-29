@@ -8,7 +8,7 @@ import { companyFilter, requireCompany } from "@/lib/company-scope";
 import { loadCompanySettings } from "@/lib/company-settings-server";
 import { LR_COPY_LABELS, parseCopies } from "@/lib/lr-copies";
 import { LorryCopy, LRStyles } from "@/components/billing/Printpreview";
-import { PrintToolbar } from "./PrintToolbar";
+import { PrintToolbar } from "@/components/print/PrintToolbar";
 
 /**
  * Bare, server-rendered LR sheet — NO sidebar, session provider or app shell.

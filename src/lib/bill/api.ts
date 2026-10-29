@@ -7,12 +7,15 @@ import {
   type ConsignmentRecord,
 } from "@/lib/api/consignments";
 import axios from "axios";
+import type { PdfCacheEntry } from "@/lib/pdf-url";
 
 export type { ConsignmentListItem, ConsignmentRecord };
 
 export interface FreightBillRecord extends FreightBillFormValues {
   _id: string;
   totalAmount: number;
+  /** Stored PDFs by variant; use freshPdfUrl() from @/lib/pdf-url to check it is current. */
+  pdfCache?: Record<string, PdfCacheEntry>;
   createdAt: string;
   updatedAt: string;
 }

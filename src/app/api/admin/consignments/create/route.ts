@@ -8,6 +8,7 @@ import { syncLegacyChargeFields } from "@/lib/charges";
 import { companyFilter, requireCompanyProfile } from "@/lib/company-scope";
 import { ensurePartyCustomers } from "@/lib/ensure-party-customers";
 import { warmLrPdf } from "@/lib/lr-pdf-cache";
+import { pdfRenderBaseUrl } from "@/lib/pdf-cache";
 
 /**
  * POST /api/admin/consignments/create
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     // Build the PDF in the background so the first "open" is already instant.
     const cookieHeader = request.headers.get("cookie") ?? "";
-    const baseUrl = (process.env.PDF_RENDER_BASE_URL || request.nextUrl.origin).replace(/\/$/, "");
+    const baseUrl = pdfRenderBaseUrl(request.nextUrl.origin);
     const lrId = String(consignment._id);
     after(() => warmLrPdf({ id: lrId, companyId: auth.companyId, baseUrl, cookieHeader }));
 

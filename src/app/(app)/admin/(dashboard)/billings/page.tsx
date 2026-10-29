@@ -18,7 +18,7 @@ import {
 import { getApiErrorMessage } from "@/lib/api/consignments";
 import { getApiErrorInfo, type ApiErrorInfo } from "@/lib/api/errors";
 import { BillCard, BillCardSkeleton, type BillCardActions } from "@/components/bills/BillCard";
-import { BillPrintPreviewStandalone } from "@/components/bills/BillPrintPreviewStandalone";
+import { openBillPdf } from "@/lib/bill-pdf-url";
 
 const PAGE_SIZE = 10;
 
@@ -34,9 +34,6 @@ export default function BillsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<FreightBillRecord | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // The row clicked for "Print" — mirrors bookings/page.tsx's printTarget pattern.
-  const [printTarget, setPrintTarget] = useState<FreightBillRecord | null>(null);
 
   // Debounce the search box so we're not firing a request on every keystroke.
   useEffect(() => {
@@ -90,8 +87,9 @@ export default function BillsPage() {
   };
 
   const actions: BillCardActions = {
-    open: setPrintTarget,
-    print: setPrintTarget,
+    // Opens the stored PDF straight away; builds it once if it isn't current.
+    open: openBillPdf,
+    print: openBillPdf,
     remove: setDeleteTarget,
     copyDetails: async (bill) => {
       const text = [
@@ -120,85 +118,78 @@ export default function BillsPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
-      {printTarget ? (
-        <BillPrintPreviewStandalone bill={printTarget} onClose={() => setPrintTarget(null)} />
+      {/* HEADER */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-h3 font-semibold text-neutral-900">Freight Bills</h1>
+          <p className="text-body-sm text-neutral-500">All freight bills raised so far.</p>
+        </div>
+      </div>
+
+      <CompanySetupNotice />
+
+      {/* FILTERS */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="sm:max-w-xs sm:flex-1">
+          <Input
+            placeholder="Search by bill no, CNS no, party…"
+            startIcon={<Search className="h-4 w-4" aria-hidden="true" />}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* CONTENT */}
+      {isLoading ? (
+        <div className="grid gap-3">{[0, 1, 2].map((i) => <BillCardSkeleton key={i} />)}</div>
+      ) : error ? (
+        <ApiErrorState error={error} onRetry={fetchList} />
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon={<FileText className="h-6 w-6" aria-hidden="true" />}
+          title="No bills found"
+          description={
+            hasActiveFilters
+              ? "Try adjusting your search."
+              : "Create your first freight bill to see it here."
+          }
+        />
       ) : (
         <>
-
-          {/* HEADER */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-h3 font-semibold text-neutral-900">Freight Bills</h1>
-              <p className="text-body-sm text-neutral-500">All freight bills raised so far.</p>
-            </div>
+          <div className="grid gap-3">
+            {items.map((bill) => (
+              <BillCard key={bill._id} bill={bill} actions={actions} />
+            ))}
           </div>
 
-          <CompanySetupNotice />
-
-          {/* FILTERS */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="sm:max-w-xs sm:flex-1">
-              <Input
-                placeholder="Search by bill no, CNS no, party…"
-                startIcon={<Search className="h-4 w-4" aria-hidden="true" />}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+          {/* PAGINATION */}
+          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+            <p className="text-caption text-neutral-500">{rangeLabel}</p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                Prev
+              </Button>
+              <span className="px-1 text-body-sm text-neutral-600">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              </Button>
             </div>
           </div>
-
-          {/* CONTENT */}
-          {isLoading ? (
-            <div className="grid gap-3">{[0, 1, 2].map((i) => <BillCardSkeleton key={i} />)}</div>
-          ) : error ? (
-            <ApiErrorState error={error} onRetry={fetchList} />
-          ) : items.length === 0 ? (
-            <EmptyState
-              icon={<FileText className="h-6 w-6" aria-hidden="true" />}
-              title="No bills found"
-              description={
-                hasActiveFilters
-                  ? "Try adjusting your search."
-                  : "Create your first freight bill to see it here."
-              }
-            />
-          ) : (
-            <>
-              <div className="grid gap-3">
-                {items.map((bill) => (
-                  <BillCard key={bill._id} bill={bill} actions={actions} />
-                ))}
-              </div>
-
-              {/* PAGINATION */}
-              <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-                <p className="text-caption text-neutral-500">{rangeLabel}</p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={pagination.page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                    Prev
-                  </Button>
-                  <span className="px-1 text-body-sm text-neutral-600">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={pagination.page >= pagination.totalPages}
-                    onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
         </>
       )}
 

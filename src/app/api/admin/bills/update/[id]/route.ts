@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { ZodError } from "zod";
 
 import dbConnect from "@/lib/db";
 import FreightBillModel from "@/models/Bill";
 import { requireCompany, companyFilter } from "@/lib/company-scope";
+import { warmBillPdf } from "@/lib/bill-pdf-cache";
+import { pdfRenderBaseUrl } from "@/lib/pdf-cache";
 import { allConsignmentsBelongToCompany } from "@/lib/bill/verify-consignments";
 import { freightBillFormSchema, computeItemTotal, computeBillTotals, computeBillSummary } from "@/lib/bill/validations"
 
@@ -58,6 +60,12 @@ export async function PUT(
     if (!updated) {
       return NextResponse.json({ success: false, message: "Bill not found" }, { status: 404 });
     }
+
+    // Build the PDF in the background so the first "open" is already instant.
+    const cookieHeader = request.headers.get("cookie") ?? "";
+    const baseUrl = pdfRenderBaseUrl(request.nextUrl.origin);
+    const billId = String(updated._id);
+    after(() => warmBillPdf({ id: billId, companyId: auth.companyId, baseUrl, cookieHeader }));
 
     return NextResponse.json(
       { success: true, message: "Bill updated successfully", data: updated },
