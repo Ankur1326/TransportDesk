@@ -1,6 +1,7 @@
 import dbConnect from "@/lib/db";
 import Customer from "@/models/Customer";
 import { requireCompany, companyFilter } from "@/lib/company-scope";
+import { parseOpeningBalance } from "@/lib/opening-balance";
 // import { getSession } from "next-auth/react";
 
 export async function PUT(request: Request) {
@@ -29,8 +30,7 @@ export async function PUT(request: Request) {
     // }
 
     try {
-        const { _id, name, address, city, state, pincode, gstin, mobile, email } = await request.json();
-        console.log(name, address, city, state, pincode, gstin, mobile, email);
+        const { _id, name, address, city, state, pincode, gstin, mobile, email, openingBalance, balanceType } = await request.json();
 
         const customerId = _id;
 
@@ -44,6 +44,11 @@ export async function PUT(request: Request) {
                     status: 400,
                 }
             );
+        }
+
+        const balance = parseOpeningBalance(openingBalance, balanceType);
+        if (!balance.ok) {
+            return Response.json({ success: false, message: balance.message }, { status: 400 });
         }
 
         // Check if the new name is already taken
@@ -63,7 +68,7 @@ export async function PUT(request: Request) {
         // Find the category by ID and update it
         const updatedCustomer = await Customer.findOneAndUpdate(
             { _id: customerId, ...companyFilter(auth.companyId) },
-            { name, address, city, state, pincode, gstin, mobile, email },
+            { name, address, city, state, pincode, gstin, mobile, email, openingBalance: balance.openingBalance, balanceType: balance.balanceType },
             { new: true, runValidators: true }
         );
 

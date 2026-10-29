@@ -22,6 +22,8 @@ import { CompanySetupNotice } from "@/components/admin/CompanySetupNotice";
 import type { ApiErrorInfo } from "@/lib/api/errors";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { CompanyProfileRequiredDialog } from "@/components/admin/CompanyProfileRequiredDialog";
+import { OpeningBalanceField } from "@/components/parties/OpeningBalanceField";
+import { CUSTOMER_BALANCE_LABELS, type BalanceType } from "@/lib/opening-balance";
 
 export default function CustomerManagement({ params }: { params: Promise<{ role: string }> }) {
     // Check if user can delete based on role
@@ -39,6 +41,8 @@ export default function CustomerManagement({ params }: { params: Promise<{ role:
     const [gstin, setGstin] = useState<string>("");
     const [mobile, setMobile] = useState<string>("");
     const [email, setEmail] = useState<string>("");
+    const [openingBalance, setOpeningBalance] = useState<string>("");
+    const [balanceType, setBalanceType] = useState<BalanceType>("debit");
 
     const [isModalVisible, setModalVisible] = useState<boolean>(false);
     const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
@@ -153,13 +157,15 @@ export default function CustomerManagement({ params }: { params: Promise<{ role:
         setGstin("")
         setMobile("")
         setEmail("")
+        setOpeningBalance("")
+        setBalanceType("debit")
         setSelectedCustomer(null);
         setModalVisible(true);
     };
 
     const handleSave = async (e: any) => {
         e.preventDefault();
-        const customerData = { name, address, city, state, pincode, gstin, mobile, email };
+        const customerData = { name, address, city, state, pincode, gstin, mobile, email, openingBalance: Number(openingBalance) || 0, balanceType };
         let response: any;
         if (selectedCustomer) {
             // Update existing category
@@ -195,6 +201,8 @@ export default function CustomerManagement({ params }: { params: Promise<{ role:
         setGstin(customer.gstin);
         setMobile(customer.mobile);
         setEmail(customer.email);
+        setOpeningBalance(customer.openingBalance ? String(customer.openingBalance) : "");
+        setBalanceType(customer.balanceType === "credit" ? "credit" : "debit");
         setModalVisible(true);
         setDropdownOpen(null);
     };
@@ -293,7 +301,7 @@ export default function CustomerManagement({ params }: { params: Promise<{ role:
 
             {/* Categories Table */}
             <Table
-                headings={["Company / Customer Name", "Address", "City", "State", "Pin Code", "Gstin", "Mobile", "Email", "Actions"]}
+                headings={["Company / Customer Name", "Address", "City", "State", "Pin Code", "Gstin", "Mobile", "Email", "Opening Balance", "Actions"]}
                 handleSearch={handleSearch}
                 data={customers}
                 isLoading={loadingPage}
@@ -336,6 +344,14 @@ export default function CustomerManagement({ params }: { params: Promise<{ role:
                     if (key === "Email") return (
                         <span className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-200 max-w-[120px] sm:max-w-full">
                             {item?.email}
+                        </span>
+                    );
+                    if (key === "Opening Balance") return (
+                        <span className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-200 max-w-[120px] sm:max-w-full">
+                            {Number(item?.openingBalance ?? 0).toFixed(2)}{" "}
+                            <span className="text-xs text-gray-500">
+                                {item?.balanceType === "credit" ? "Cr" : "Dr"}
+                            </span>
                         </span>
                     );
                     if (key === "Actions") return (
@@ -415,6 +431,15 @@ export default function CustomerManagement({ params }: { params: Promise<{ role:
                 </div>
                 <div className="form-group mb-5">
                     <FormInput label="Email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
+                </div>
+                <div className="form-group mb-5">
+                    <OpeningBalanceField
+                        amount={openingBalance}
+                        type={balanceType}
+                        onAmountChange={setOpeningBalance}
+                        onTypeChange={setBalanceType}
+                        labels={CUSTOMER_BALANCE_LABELS}
+                    />
                 </div>
 
             </EditOrCreateNewModalWrapper>

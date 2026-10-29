@@ -6,6 +6,7 @@ import {
   LuSettings,
   LuSend,
   LuUsersRound,
+  Truck,
 } from "@/components/icons";
 
 // A single sidebar menu item
@@ -107,6 +108,12 @@ export const NAVIGATION_CONFIG: Record<string, NavigationConfig> = {
             title: "customers",
             icon: <LuSend className="h-[18px] w-[18px]" />,
             route: "/admin/customers",
+          },
+          {
+            id: "suppliers",
+            title: "suppliers",
+            icon: <Truck className="h-[18px] w-[18px]" />,
+            route: "/admin/suppliers",
           },
         ],
       },

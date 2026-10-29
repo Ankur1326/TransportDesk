@@ -3,6 +3,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { setLoading } from "./loadingSlice";
 import { getApiErrorInfo } from "@/lib/api/errors";
+import type { BalanceType } from "@/lib/opening-balance";
 
 // name, address, city, state, gstin, mobile
 interface Customer {
@@ -15,6 +16,8 @@ interface Customer {
     gstin: string;
     mobile: string;
     email: string;
+    openingBalance: number;
+    balanceType: BalanceType;
     createdAt: string;
     updatedAt: string;
 }

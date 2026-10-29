@@ -1,5 +1,6 @@
 import mongoose, { model, Schema, Document, Model } from "mongoose";
 import { dropStaleModel } from "@/lib/model-guard";
+import { BALANCE_TYPES, type BalanceType } from "@/lib/opening-balance";
 
 // Define the Category interface, extending Mongoose's Document
 export interface ICustomer extends Document {
@@ -11,6 +12,10 @@ export interface ICustomer extends Document {
     gstin: string;
     mobile: string | null;
     email: string;
+    /** Balance when the customer was added. See src/lib/opening-balance.ts. */
+    openingBalance: number;
+    /** "debit" = Receivable, "credit" = Received. */
+    balanceType: BalanceType;
     companyId: string;
     createdBy?: mongoose.Types.ObjectId;
     createdAt: Date;
@@ -54,6 +59,16 @@ const CustomerSchema: Schema<ICustomer> = new mongoose.Schema(
             type: String,
             default: ""
         },
+        openingBalance: {
+            type: Number,
+            default: 0,
+            min: 0
+        },
+        balanceType: {
+            type: String,
+            enum: BALANCE_TYPES,
+            default: "debit"
+        },
         companyId: {
             type: String,
             required: [true, "companyId is required"],
@@ -69,7 +84,7 @@ const CustomerSchema: Schema<ICustomer> = new mongoose.Schema(
 // Names are unique per company, not globally.
 CustomerSchema.index({ companyId: 1, name: 1 }, { unique: true })
 
-dropStaleModel("Customer", "companyId");
+dropStaleModel("Customer", "balanceType");
 
 const Customer: Model<ICustomer> = (mongoose?.models?.Customer as Model<ICustomer>) || model<ICustomer>("Customer", CustomerSchema)
 
