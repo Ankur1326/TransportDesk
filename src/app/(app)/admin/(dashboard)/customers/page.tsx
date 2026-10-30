@@ -27,6 +27,7 @@ import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { CUSTOMER_BALANCE_LABELS, type BalanceType } from "@/lib/opening-balance";
 import type { LedgerEntry } from "@/lib/ledger/build-ledger";
 import { formatInr } from "@/lib/ledger/format";
+import { openStatementPdf, shareStatementOnWhatsApp, type StatementRange } from "@/lib/ledger/statement-url";
 import { PartyListPanel } from "@/components/ledger/PartyListPanel";
 import { LedgerHeader } from "@/components/ledger/LedgerHeader";
 import { LedgerSummaryChips } from "@/components/ledger/LedgerSummaryChips";
@@ -63,6 +64,7 @@ export default function CustomerLedgerPage() {
         key: number;
     } | null>(null);
     const [paymentToDelete, setPaymentToDelete] = useState<LedgerEntry | null>(null);
+    const [statementBusy, setStatementBusy] = useState(false);
 
     // Customer add / edit / delete (moved here from the old table page)
     const [name, setName] = useState("");
@@ -154,6 +156,43 @@ export default function CustomerLedgerPage() {
         }
     };
 
+    // ── statement ───────────────────────────────────────────────────
+    // The statement is always complete for its period: it honours the date range and the
+    // unbilled toggle, but not the Receivable / Received type or the bill search.
+    const statementRange: StatementRange = {
+        from: appliedFilters.from,
+        to: appliedFilters.to,
+        includeUnbilled: appliedFilters.includeUnbilled,
+    };
+
+    const handleDownloadStatement = () => {
+        if (selectedId) openStatementPdf(selectedId, statementRange);
+    };
+
+    const handleShareStatement = async () => {
+        const c = ledger?.customer;
+        if (!c || statementBusy) return;
+        const net = ledger.summary.overallNetBalance;
+        const status = net > 0 ? `${formatInr(net)} is receivable (Dr)` : net < 0 ? `${formatInr(net)} is an advance (Cr)` : "your account is settled";
+        const message = `Dear ${c.name}, please find your account statement attached. Net balance: ${status}.`;
+        setStatementBusy(true);
+        const loading = toast.loading("Preparing statement…");
+        try {
+            const outcome = await shareStatementOnWhatsApp({
+                customerId: c._id,
+                customerName: c.name,
+                mobile: c.mobile,
+                range: statementRange,
+                message,
+            });
+            toast.success(outcome === "shared" ? "Statement ready to share." : "Statement downloaded. Attach it in WhatsApp.", { id: loading });
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Couldn't share the statement.", { id: loading });
+        } finally {
+            setStatementBusy(false);
+        }
+    };
+
     // ── customer CRUD ───────────────────────────────────────────────
     const handleCreateNewCustomer = () => {
         // No company name yet -> explain instead of opening the form (the API refuses too).
@@ -217,15 +256,16 @@ export default function CustomerLedgerPage() {
     const filtersActive = useMemo(() => !filtersAreDefault(appliedFilters), [appliedFilters]);
 
     return (
-        <div className="container mx-auto p-2 sm:p-4">
+        <div className="-mx-3 -mb-3 md:-mt-3">
             <CompanyProfileRequiredDialog
                 open={showCompanyRequired}
                 action="add customers"
                 onClose={() => setShowCompanyRequired(false)}
             />
-            <CompanySetupNotice className="mb-3" />
+            <CompanySetupNotice className="mx-3 mb-3" />
 
-            <div className="flex h-[calc(100dvh-8rem)] min-h-[520px] overflow-hidden rounded-lg border border-neutral-200 bg-(--ledger-surface) dark:border-neutral-700">
+            {/* Fills the content column (right of the sidebar). 3rem = the top tab bar; on mobile the menu button row is 4.25rem more. */}
+            <div className="flex h-[calc(100dvh-7.5rem)] min-h-[480px] overflow-hidden border-y border-neutral-200 bg-(--ledger-surface) md:h-[calc(100dvh-3rem)] dark:border-neutral-700">
                 {/* LEFT: customer list (full screen on mobile until one is chosen) */}
                 <section className={`${selectedId ? "hidden md:flex" : "flex"} w-full flex-col md:w-[38%] md:max-w-md md:border-r md:border-neutral-200 dark:md:border-neutral-700`}>
                     <PartyListPanel
@@ -258,6 +298,9 @@ export default function CustomerLedgerPage() {
                                     onBack={goBack}
                                     onEdit={onEdit}
                                     onDelete={() => setDeleteOpen(true)}
+                                    onDownloadStatement={handleDownloadStatement}
+                                    onShareStatement={handleShareStatement}
+                                    statementBusy={statementBusy}
                                 />
                             </div>
 

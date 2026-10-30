@@ -393,3 +393,66 @@ export function buildLedger(input: {
     },
   };
 }
+
+// ─── statement ──────────────────────────────────────────────────────────────
+export interface StatementRow {
+  entry: LedgerEntry;
+  /** Running balance after this entry. > 0 = customer owes us (Dr), < 0 = advance (Cr). */
+  balance: number;
+}
+
+export interface Statement {
+  /** Net balance of everything dated before `from` (0 when there is no `from`). */
+  broughtForward: number;
+  /** Chronological (oldest first), each with its running balance. */
+  rows: StatementRow[];
+  totalReceivable: number;
+  totalReceived: number;
+  closingBalance: number;
+}
+
+/**
+ * Statement for a date range, from a customer's COMPLETE entry list (newest
+ * first, as `buildLedger` returns it with no filters). Entries before `from`
+ * collapse into one brought-forward figure so the running balance is right
+ * even for a partial period. `to` is an inclusive instant.
+ */
+export function buildStatement(
+  entries: LedgerEntry[],
+  range: { from?: Date | null; to?: Date | null } = {}
+): Statement {
+  const fromT = range.from ? range.from.getTime() : null;
+  const toT = range.to ? range.to.getTime() : null;
+
+  // Oldest first. On the same date the list puts received first (newest-first
+  // order), so reversing gives receivable before received.
+  const chronological = [...entries].reverse();
+
+  let bf = 0;
+  let running = 0;
+  let r = 0;
+  let c = 0;
+  const rows: StatementRow[] = [];
+  for (const entry of chronological) {
+    const t = new Date(entry.date).getTime();
+    if (toT !== null && t > toT) continue;
+    const signed = entry.side === "receivable" ? paise(entry.amount) : -paise(entry.amount);
+    if (fromT !== null && t < fromT) {
+      bf += signed;
+      running += signed;
+      continue;
+    }
+    running += signed;
+    if (entry.side === "receivable") r += paise(entry.amount);
+    else c += paise(entry.amount);
+    rows.push({ entry, balance: fromPaise(running) });
+  }
+
+  return {
+    broughtForward: fromPaise(bf),
+    rows,
+    totalReceivable: fromPaise(r),
+    totalReceived: fromPaise(c),
+    closingBalance: fromPaise(running),
+  };
+}

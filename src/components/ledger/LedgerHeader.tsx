@@ -17,6 +17,10 @@ interface LedgerHeaderProps {
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onDownloadStatement: () => void;
+  onShareStatement: () => void;
+  /** True while a statement is being prepared (menu entries disable to stop double clicks). */
+  statementBusy: boolean;
 }
 
 export function LedgerHeader({
@@ -28,6 +32,9 @@ export function LedgerHeader({
   onBack,
   onEdit,
   onDelete,
+  onDownloadStatement,
+  onShareStatement,
+  statementBusy,
 }: LedgerHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -83,10 +90,20 @@ export function LedgerHeader({
                 <button role="menuitem" className={item} onClick={() => { setMenuOpen(false); onEdit(); }}>
                   Edit customer
                 </button>
-                <button role="menuitem" className={cn(item, "cursor-not-allowed opacity-50")} disabled title="Coming soon">
+                <button
+                  role="menuitem"
+                  className={cn(item, statementBusy && "cursor-wait opacity-50")}
+                  disabled={statementBusy}
+                  onClick={() => { setMenuOpen(false); onDownloadStatement(); }}
+                >
                   Download statement
                 </button>
-                <button role="menuitem" className={cn(item, "cursor-not-allowed opacity-50")} disabled title="Coming soon">
+                <button
+                  role="menuitem"
+                  className={cn(item, statementBusy && "cursor-wait opacity-50")}
+                  disabled={statementBusy}
+                  onClick={() => { setMenuOpen(false); onShareStatement(); }}
+                >
                   Share on WhatsApp
                 </button>
                 <button
