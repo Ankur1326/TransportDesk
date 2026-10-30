@@ -14,3 +14,9 @@ export function formatLedgerDate(value: string): string {
 
 /** net > 0 means the customer owes us. */
 export const isReceivable = (net: number): boolean => net > 0;
+
+/** Friendly WhatsApp text asking a customer to clear their balance. */
+export function reminderMessage(name: string, netBalance: number, companyName: string): string {
+  const sign = companyName ? `\n\nRegards,\n${companyName}` : "";
+  return `Dear ${name}, this is a gentle reminder that ${formatInr(netBalance)} is pending on your account. Kindly arrange the payment at the earliest. Thank you.${sign}`;
+}

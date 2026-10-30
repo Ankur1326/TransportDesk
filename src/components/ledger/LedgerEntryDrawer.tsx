@@ -1,7 +1,8 @@
 "use client";
 
+import { ArrowDownLeft, ArrowUpRight } from "@/components/ledger/ledger-icons";
 import { useEffect } from "react";
-import { Pencil, Trash2, X } from "@/components/icons";
+import { FileText, Pencil, Trash2, X } from "@/components/icons";
 import { Button } from "@/components/Button";
 import { cn } from "@/lib/utils";
 import type { BillStatusInfo, LedgerEntry } from "@/lib/ledger/build-ledger";
@@ -51,95 +52,117 @@ export function LedgerEntryDrawer({
   const canRecordForBill = entry.source === "bill" && Boolean(entry.billId) && (billStatus?.outstanding ?? 0) > 0;
   const items = Array.isArray(entry.meta.items) ? (entry.meta.items as BillItemMeta[]) : [];
   const details: [string, string][] = [
+    ["Date", formatLedgerDate(entry.date)],
     ["Mode", str(entry.meta.mode)],
     ["UTR / Reference", str(entry.meta.reference)],
     ["MR number", str(entry.meta.mrNumber)],
     ["Remark", str(entry.meta.remark)],
   ].filter((row): row is [string, string] => row[1] !== "");
+  const Icon = receivable ? (entry.type === "Invoice" || entry.type === "Bilty" ? FileText : ArrowUpRight) : ArrowDownLeft;
+  const paidPct = billStatus && billStatus.totalAmount > 0 ? Math.min(100, (billStatus.paid / billStatus.totalAmount) * 100) : 0;
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex justify-end bg-black/40 backdrop-blur-[1px]" onClick={onClose}>
       <aside
         role="dialog"
         aria-modal="true"
         aria-label="Entry details"
         onClick={(e) => e.stopPropagation()}
-        className="h-full w-full max-w-md overflow-y-auto bg-white p-5 shadow-xl dark:bg-neutral-900"
+        className="flex h-full w-full max-w-md flex-col bg-(--ledger-card) shadow-2xl"
       >
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-xs text-neutral-500">{formatLedgerDate(entry.date)}</p>
-            <h3 className="text-base font-semibold">{entryTitle(entry)}</h3>
+        <div className="flex items-start gap-3 border-b border-(--ledger-line) p-5">
+          <span
+            aria-hidden="true"
+            className={cn(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+              receivable ? "bg-(--receivable-soft) text-(--receivable)" : "bg-(--received-soft) text-(--received)"
+            )}
+          >
+            <Icon size={20} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-base font-semibold">{entryTitle(entry)}</h3>
             <p className="text-sm text-neutral-500">{entry.label}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close details">
+          <button type="button" onClick={onClose} aria-label="Close details" className="rounded-lg p-1.5 text-neutral-500 hover:bg-(--ledger-surface)">
             <X size={20} />
           </button>
         </div>
 
-        <p className={cn("mt-4 text-2xl font-semibold", receivable ? "text-(--receivable)" : "text-(--received)")}>
-          {formatInr(entry.amount)}{" "}
-          <span className="text-sm">{receivable ? "Receivable (Dr)" : "Received (Cr)"}</span>
-        </p>
-
-        {billStatus && (
-          <div className="mt-3 flex items-center gap-2 text-sm">
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 text-xs font-semibold",
-                billStatus.status === "Paid"
-                  ? "bg-(--received-soft) text-(--received)"
-                  : billStatus.status === "Partial"
-                    ? "bg-(--partial-soft) text-(--partial)"
-                    : "bg-(--receivable-soft) text-(--receivable)"
-              )}
-            >
-              {billStatus.status}
-            </span>
-            <span className="text-neutral-500">
-              Outstanding {formatInr(billStatus.outstanding)} of {formatInr(billStatus.totalAmount)}
-            </span>
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+          <div className={cn("rounded-2xl p-4", receivable ? "bg-(--receivable-soft)" : "bg-(--received-soft)")}>
+            <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
+              {receivable ? "Receivable (Dr)" : "Received (Cr)"}
+            </p>
+            <p className={cn("mt-0.5 text-3xl font-bold tabular-nums", receivable ? "text-(--receivable)" : "text-(--received)")}>
+              {formatInr(entry.amount)}
+            </p>
           </div>
-        )}
-        {billStatus && billStatus.paid > 0 && (
-          <p className="mt-1 text-xs text-neutral-500">Paid so far {formatInr(billStatus.paid)}</p>
-        )}
 
-        {items.length > 0 && (
-          <table className="mt-5 w-full text-sm">
-            <caption className="mb-1 text-left text-xs font-medium text-neutral-500">Bilties on this bill</caption>
-            <thead>
-              <tr className="border-b text-left text-xs text-neutral-500">
-                <th className="py-1 font-medium">LR no.</th>
-                <th className="py-1 text-right font-medium">Freight</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it) => (
-                <tr key={it.cnsNo} className="border-b border-black/5">
-                  <td className="py-1">{it.cnsNo}</td>
-                  <td className="py-1 text-right">{formatInr(it.freightAmt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        {details.length > 0 && (
-          <dl className="mt-5 space-y-2 text-sm">
-            {details.map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-4">
-                <dt className="text-neutral-500">{k}</dt>
-                <dd className="text-right">{v}</dd>
+          {billStatus && (
+            <section aria-label="Bill status" className="rounded-xl border border-(--ledger-line) p-3">
+              <div className="flex items-center justify-between">
+                <span
+                  className={cn(
+                    "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                    billStatus.status === "Paid"
+                      ? "bg-(--received-soft) text-(--received)"
+                      : billStatus.status === "Partial"
+                        ? "bg-(--partial-soft) text-(--partial)"
+                        : "bg-(--receivable-soft) text-(--receivable)"
+                  )}
+                >
+                  {billStatus.status}
+                </span>
+                <span className="text-xs text-neutral-500">Bill total {formatInr(billStatus.totalAmount)}</span>
               </div>
-            ))}
-          </dl>
-        )}
+              <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-(--ledger-surface)" aria-hidden="true">
+                <div className="h-full rounded-full bg-(--received)" style={{ width: `${paidPct}%` }} />
+              </div>
+              <div className="mt-1.5 flex justify-between text-xs text-neutral-500">
+                <span>Paid {formatInr(billStatus.paid)}</span>
+                <span className="font-medium text-neutral-700 dark:text-neutral-200">Outstanding {formatInr(billStatus.outstanding)}</span>
+              </div>
+            </section>
+          )}
 
-        <div className="mt-6 space-y-2">
+          {items.length > 0 && (
+            <section>
+              <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-500">Bilties on this bill</h4>
+              <ul className="divide-y divide-(--ledger-line) rounded-xl border border-(--ledger-line)">
+                {items.map((it) => (
+                  <li key={it.cnsNo} className="flex items-center justify-between px-3 py-2 text-sm">
+                    <span>LR {it.cnsNo}</span>
+                    <span className="tabular-nums">{formatInr(it.freightAmt)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {details.length > 0 && (
+            <dl className="space-y-2 text-sm">
+              {details.map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4">
+                  <dt className="text-neutral-500">{k}</dt>
+                  <dd className="text-right font-medium">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
+          {EDIT_ELSEWHERE[entry.source] && <p className="text-xs text-neutral-500">{EDIT_ELSEWHERE[entry.source]}</p>}
+        </div>
+
+        <div className="space-y-2 border-t border-(--ledger-line) p-4">
           {canRecordForBill && (
             <Button className="w-full" onClick={() => onRecordForBill(entry.billId as string)}>
               Record payment for this bill
+            </Button>
+          )}
+          {entry.billId && (
+            <Button className="w-full" variant="outline" onClick={() => window.open(billPdfPath(entry.billId as string), "_blank", "noopener")}>
+              <FileText size={16} aria-hidden="true" /> Open bill PDF
             </Button>
           )}
           {editable && (
@@ -151,18 +174,6 @@ export function LedgerEntryDrawer({
                 <Trash2 size={16} aria-hidden="true" /> Delete
               </Button>
             </div>
-          )}
-          {EDIT_ELSEWHERE[entry.source] && (
-            <p className="text-xs text-neutral-500">{EDIT_ELSEWHERE[entry.source]}</p>
-          )}
-          {entry.billId && (
-            <Button
-              className="w-full"
-              variant="outline"
-              onClick={() => window.open(billPdfPath(entry.billId as string), "_blank", "noopener")}
-            >
-              Open bill PDF
-            </Button>
           )}
         </div>
       </aside>

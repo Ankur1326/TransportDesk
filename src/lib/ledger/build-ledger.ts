@@ -456,3 +456,18 @@ export function buildStatement(
     closingBalance: fromPaise(running),
   };
 }
+
+/**
+ * Running balance AFTER each entry, for a newest-first list that starts at the
+ * very top of the ledger with no filter applied. The newest entry's balance is
+ * the overall net; each older entry removes the newer entry's effect.
+ * > 0 = customer owes us (Dr), < 0 = advance (Cr).
+ */
+export function runningBalances(entriesNewestFirst: LedgerEntry[], overallNetBalance: number): number[] {
+  let running = paise(overallNetBalance);
+  return entriesNewestFirst.map((entry) => {
+    const after = running;
+    running -= entry.side === "receivable" ? paise(entry.amount) : -paise(entry.amount);
+    return fromPaise(after);
+  });
+}

@@ -2,7 +2,7 @@ import Skeleton from "react-loading-skeleton";
 
 export function PartyListSkeleton({ rows = 8 }: { rows?: number }) {
   return (
-    <div aria-busy="true" aria-label="Loading customers" className="space-y-3 p-3">
+    <div aria-busy="true" aria-label="Loading customers" className="space-y-3 p-2">
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className="flex items-center gap-3">
           <Skeleton circle width={40} height={40} />
@@ -22,7 +22,7 @@ export function LedgerSkeleton({ rows = 7 }: { rows?: number }) {
     <div aria-busy="true" aria-label="Loading ledger" className="space-y-3 p-3">
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className="flex items-center gap-3">
-          <Skeleton width={28} height={28} />
+          <Skeleton width={40} height={40} borderRadius={12} />
           <div className="flex-1">
             <Skeleton width="40%" />
             <Skeleton width="25%" height={10} />

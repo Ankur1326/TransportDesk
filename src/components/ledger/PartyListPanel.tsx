@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search } from "@/components/icons";
+import { Plus, Search, X } from "@/components/icons";
 import { Button } from "@/components/Button";
 import { ApiErrorState } from "@/components/ui/ApiErrorState";
 import { cn } from "@/lib/utils";
 import type { ApiErrorInfo } from "@/lib/api/errors";
 import type { PartySummary } from "@/redux/slices/ledgerSlice";
-import { formatInr, isReceivable } from "@/lib/ledger/format";
+import { formatInr } from "@/lib/ledger/format";
 import { PartyListSkeleton } from "@/components/ledger/LedgerSkeleton";
+import { BalancePill, LedgerAvatar } from "@/components/ledger/LedgerAvatar";
 
 interface PartyListPanelProps {
   parties: PartySummary[];
+  /** Total customers matching the search (all pages). */
+  total: number;
   isLoading: boolean;
   error: ApiErrorInfo | null;
   hasMore: boolean;
@@ -25,6 +28,7 @@ interface PartyListPanelProps {
 
 export function PartyListPanel({
   parties,
+  total,
   isLoading,
   error,
   hasMore,
@@ -44,38 +48,49 @@ export function PartyListPanel({
   }, [text, onSearch]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-(--ledger-surface)">
-      <div className="flex gap-0 p-3">
-        <input
-          type="search"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Search name / mobile / GSTIN"
-          aria-label="Search customers"
-          className="h-10 w-full rounded-l-md border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-(--ledger-edge) dark:border-neutral-700 dark:bg-neutral-900"
-        />
-        <span className="flex h-10 w-11 items-center justify-center rounded-r-md bg-(--ledger-edge) text-white" aria-hidden="true">
-          <Search size={18} />
-        </span>
+    <div className="flex h-full min-h-0 flex-col bg-(--ledger-card)">
+      <div className="px-4 pb-2 pt-4">
+        <div className="flex items-baseline justify-between">
+          <h1 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">Customers</h1>
+          {total > 0 && <span className="text-xs text-neutral-500">{total} {total === 1 ? "party" : "parties"}</span>}
+        </div>
+        <div className="relative mt-3">
+          <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <input
+            type="search"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Search name, mobile or GSTIN"
+            aria-label="Search customers"
+            className="h-10 w-full rounded-full border border-(--ledger-line) bg-(--ledger-surface) pl-9 pr-9 text-sm outline-none transition focus:border-(--ledger-edge) focus:ring-2 focus:ring-(--ledger-accent-soft) [&::-webkit-search-cancel-button]:appearance-none"
+          />
+          {text && (
+            <button
+              type="button"
+              onClick={() => setText("")}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="flex justify-between px-4 pb-1 text-xs font-medium text-neutral-500">
-        <span>Name</span>
-        <span>Amount</span>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {error && parties.length === 0 ? (
-          <ApiErrorState error={error} onRetry={onRetry} className="m-3" />
+          <ApiErrorState error={error} onRetry={onRetry} className="m-2" />
         ) : isLoading && parties.length === 0 ? (
           <PartyListSkeleton />
         ) : parties.length === 0 ? (
-          <p className="p-6 text-center text-sm text-neutral-500">No customers found.</p>
+          <p className="p-6 text-center text-sm text-neutral-500">
+            {text ? "No customer matches your search." : "No customers yet. Add your first one below."}
+          </p>
         ) : (
-          <ul>
+          <ul className="space-y-0.5">
             {parties.map((p) => {
-              const owes = isReceivable(p.netBalance);
               const selected = p._id === selectedId;
+              const tone = p.netBalance > 0 ? "text-(--receivable)" : p.netBalance < 0 ? "text-(--received)" : "text-neutral-500";
               return (
                 <li key={p._id}>
                   <button
@@ -83,28 +98,20 @@ export function PartyListPanel({
                     onClick={() => onSelect(p._id)}
                     aria-current={selected ? "true" : undefined}
                     className={cn(
-                      "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
-                      selected ? "bg-white dark:bg-neutral-800" : "hover:bg-black/5 dark:hover:bg-white/5"
+                      "flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors",
+                      selected
+                        ? "bg-(--ledger-accent-soft) ring-1 ring-inset ring-(--ledger-edge)/30"
+                        : "hover:bg-(--ledger-surface)"
                     )}
                   >
-                    <span
-                      aria-hidden="true"
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-500 font-semibold text-white"
-                    >
-                      {p.name.charAt(0)}
-                    </span>
+                    <LedgerAvatar name={p.name} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm text-neutral-800 dark:text-neutral-100">{p.name}</span>
-                      {p.mobile ? <span className="block text-xs text-neutral-500">{p.mobile}</span> : null}
+                      <span className="block truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">{p.name}</span>
+                      <span className="block truncate text-xs text-neutral-500">{p.mobile || p.gstin || "No contact"}</span>
                     </span>
-                    <span
-                      className={cn(
-                        "shrink-0 text-sm",
-                        owes ? "text-(--receivable)" : "text-(--received)"
-                      )}
-                    >
-                      {formatInr(p.netBalance)}
-                      <span className="ml-1 text-[10px] font-semibold">{owes ? "Dr" : p.netBalance < 0 ? "Cr" : ""}</span>
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <span className={cn("text-sm font-semibold tabular-nums", tone)}>{formatInr(p.netBalance)}</span>
+                      <BalancePill net={p.netBalance} />
                     </span>
                   </button>
                 </li>
@@ -121,9 +128,9 @@ export function PartyListPanel({
         )}
       </div>
 
-      <div className="bg-white p-3 dark:bg-neutral-900">
+      <div className="border-t border-(--ledger-line) p-3">
         <Button className="w-full" onClick={onAdd}>
-          Add Customer
+          <Plus size={16} aria-hidden="true" /> Add customer
         </Button>
       </div>
     </div>

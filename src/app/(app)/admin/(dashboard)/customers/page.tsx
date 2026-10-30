@@ -26,12 +26,14 @@ import { OpeningBalanceField } from "@/components/parties/OpeningBalanceField";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { CUSTOMER_BALANCE_LABELS, type BalanceType } from "@/lib/opening-balance";
 import type { LedgerEntry } from "@/lib/ledger/build-ledger";
-import { formatInr } from "@/lib/ledger/format";
-import { openStatementPdf, shareStatementOnWhatsApp, type StatementRange } from "@/lib/ledger/statement-url";
+import { formatInr, reminderMessage } from "@/lib/ledger/format";
+import { runningBalances } from "@/lib/ledger/build-ledger";
+import { openStatementPdf, shareStatementOnWhatsApp, whatsappLink, type StatementRange } from "@/lib/ledger/statement-url";
 import { PartyListPanel } from "@/components/ledger/PartyListPanel";
 import { LedgerHeader } from "@/components/ledger/LedgerHeader";
 import { LedgerSummaryChips } from "@/components/ledger/LedgerSummaryChips";
-import { LedgerEntryRow } from "@/components/ledger/LedgerEntryRow";
+import { LedgerEntryList } from "@/components/ledger/LedgerEntryList";
+import { LedgerToolbar } from "@/components/ledger/LedgerToolbar";
 import { LedgerEntryDrawer } from "@/components/ledger/LedgerEntryDrawer";
 import { LedgerAgeing } from "@/components/ledger/LedgerAgeing";
 import { RecordPaymentDialog, type PaymentDirection } from "@/components/ledger/RecordPaymentDialog";
@@ -46,7 +48,7 @@ const filtersAreDefault = (f: LedgerFilterState) =>
 export default function CustomerLedgerPage() {
     const dispatch = useDispatch<AppDispatch>();
     const {
-        parties, partiesPage, partiesTotalPages, partiesStatus, partiesError,
+        parties, partiesTotal, partiesPage, partiesTotalPages, partiesStatus, partiesError,
         ledger, ledgerStatus, ledgerError,
     } = useSelector((state: RootState) => state.ledger);
 
@@ -55,6 +57,7 @@ export default function CustomerLedgerPage() {
     const [filters, setFilters] = useState<LedgerFilterState>(DEFAULT_LEDGER_FILTERS);
     const [appliedFilters, setAppliedFilters] = useState<LedgerFilterState>(DEFAULT_LEDGER_FILTERS);
     const [openEntry, setOpenEntry] = useState<LedgerEntry | null>(null);
+    const [showBalance, setShowBalance] = useState(false);
 
     // Record / edit payment, and delete confirmation
     const [paymentDialog, setPaymentDialog] = useState<{
@@ -156,6 +159,13 @@ export default function CustomerLedgerPage() {
         }
     };
 
+    const handleSendReminder = () => {
+        const c = ledger?.customer;
+        if (!c) return;
+        const text = reminderMessage(c.name, ledger.summary.overallNetBalance, companySettings.companyName.trim());
+        window.open(whatsappLink(c.mobile, text), "_blank", "noopener");
+    };
+
     // ── statement ───────────────────────────────────────────────────
     // The statement is always complete for its period: it honours the date range and the
     // unbilled toggle, but not the Receivable / Received type or the bill search.
@@ -254,6 +264,12 @@ export default function CustomerLedgerPage() {
     const entries = ledger?.entries ?? [];
     const hasMoreEntries = ledger ? ledger.pagination.currentPage < ledger.pagination.totalPages : false;
     const filtersActive = useMemo(() => !filtersAreDefault(appliedFilters), [appliedFilters]);
+    // Running balance is only correct for the unfiltered list, loaded from the top.
+    const balanceAvailable = !filtersActive;
+    const balances = useMemo(
+        () => (showBalance && balanceAvailable && ledger ? runningBalances(ledger.entries, ledger.summary.overallNetBalance) : null),
+        [showBalance, balanceAvailable, ledger]
+    );
 
     return (
         <div className="-mx-3 -mb-3 md:-mt-3">
@@ -265,11 +281,12 @@ export default function CustomerLedgerPage() {
             <CompanySetupNotice className="mx-3 mb-3" />
 
             {/* Fills the content column (right of the sidebar). 3rem = the top tab bar; on mobile the menu button row is 4.25rem more. */}
-            <div className="flex h-[calc(100dvh-7.5rem)] min-h-[480px] overflow-hidden border-y border-neutral-200 bg-(--ledger-surface) md:h-[calc(100dvh-3rem)] dark:border-neutral-700">
+            <div className="flex h-[calc(100dvh-7.5rem)] min-h-[480px] overflow-hidden border-y border-(--ledger-line) bg-(--ledger-surface) md:h-[calc(100dvh-3rem)]">
                 {/* LEFT: customer list (full screen on mobile until one is chosen) */}
-                <section className={`${selectedId ? "hidden md:flex" : "flex"} w-full flex-col md:w-[38%] md:max-w-md md:border-r md:border-neutral-200 dark:md:border-neutral-700`}>
+                <section className={`${selectedId ? "hidden md:flex" : "flex"} w-full flex-col md:w-[38%] md:max-w-md md:border-r md:border-(--ledger-line)`}>
                     <PartyListPanel
                         parties={parties}
+                        total={partiesTotal}
                         isLoading={partiesStatus === "loading"}
                         error={partiesError}
                         hasMore={partiesPage < partiesTotalPages}
@@ -291,40 +308,48 @@ export default function CustomerLedgerPage() {
                             <div className="p-3 pb-0">
                                 <LedgerHeader
                                     name={ledger?.customer.name ?? parties.find((p) => p._id === selectedId)?.name ?? ""}
+                                    mobile={ledger?.customer.mobile ?? parties.find((p) => p._id === selectedId)?.mobile}
+                                    gstin={ledger?.customer.gstin}
+                                    city={ledger?.customer.city}
                                     netBalance={ledger?.summary.overallNetBalance ?? parties.find((p) => p._id === selectedId)?.netBalance ?? 0}
-                                    filters={filters}
-                                    filtersActive={filtersActive}
-                                    onFiltersChange={setFilters}
+                                    lastEntryDate={!filtersActive ? ledger?.entries[0]?.date : undefined}
                                     onBack={goBack}
                                     onEdit={onEdit}
                                     onDelete={() => setDeleteOpen(true)}
                                     onDownloadStatement={handleDownloadStatement}
                                     onShareStatement={handleShareStatement}
+                                    onSendReminder={handleSendReminder}
                                     statementBusy={statementBusy}
                                 />
                             </div>
 
+                            <LedgerToolbar
+                                value={filters}
+                                active={filtersActive}
+                                onChange={setFilters}
+                                showBalance={showBalance}
+                                balanceAvailable={balanceAvailable}
+                                onShowBalanceChange={setShowBalance}
+                            />
+
                             {ledger && <LedgerSummaryChips summary={ledger.summary} />}
                             {ledger && <LedgerAgeing ageing={ledger.ageing} />}
 
-                            <div className="min-h-0 flex-1 overflow-y-auto">
+                            <div className="mt-2 min-h-0 flex-1 overflow-y-auto">
                                 {ledgerError && !ledger ? (
                                     <ApiErrorState error={ledgerError} onRetry={refresh} className="m-3" />
                                 ) : ledgerStatus === "loading" && !ledger ? (
                                     <LedgerSkeleton />
                                 ) : ledger && entries.length === 0 ? (
-                                    <NoLedgerEntries filtered={filtersActive} />
+                                    <NoLedgerEntries filtered={filtersActive} onClear={() => setFilters(DEFAULT_LEDGER_FILTERS)} />
                                 ) : (
-                                    <ul>
-                                        {entries.map((entry) => (
-                                            <LedgerEntryRow
-                                                key={entry.id}
-                                                entry={entry}
-                                                selected={openEntry?.id === entry.id}
-                                                onOpen={setOpenEntry}
-                                            />
-                                        ))}
-                                    </ul>
+                                    <LedgerEntryList
+                                        entries={entries}
+                                        openId={openEntry?.id ?? null}
+                                        balances={balances}
+                                        hasMore={hasMoreEntries}
+                                        onOpen={setOpenEntry}
+                                    />
                                 )}
                                 {hasMoreEntries && (
                                     <div className="p-3 text-center">
@@ -335,12 +360,12 @@ export default function CustomerLedgerPage() {
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 bg-white p-3 dark:bg-neutral-900">
+                            <div className="grid grid-cols-2 gap-3 border-t border-(--ledger-line) bg-(--ledger-card) p-3">
                                 <button
                                     type="button"
                                     disabled={!ledger}
                                     onClick={() => openPaymentDialog("receivable_adjustment")}
-                                    className="h-10 rounded-md bg-(--receivable-soft) text-sm font-semibold text-(--receivable) disabled:cursor-not-allowed disabled:opacity-60"
+                                    className="h-11 rounded-xl bg-(--receivable-soft) text-sm font-semibold text-(--receivable) transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     Receivable (Debit)
                                 </button>
@@ -348,7 +373,7 @@ export default function CustomerLedgerPage() {
                                     type="button"
                                     disabled={!ledger}
                                     onClick={() => openPaymentDialog("received")}
-                                    className="h-10 rounded-md bg-(--received-soft) text-sm font-semibold text-(--received) disabled:cursor-not-allowed disabled:opacity-60"
+                                    className="h-11 rounded-xl bg-(--received) text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 dark:text-neutral-900"
                                 >
                                     Received (Credit)
                                 </button>

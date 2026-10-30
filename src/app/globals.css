@@ -216,29 +216,46 @@
 }
 
 
-/* Ledger (Khata) semantic colours. Never rely on colour alone: rows also show Dr / Cr text. */
+/* Ledger semantic colours. Never rely on colour alone: rows also show Dr / Cr text.
+   --ledger-edge is the accent (name kept so older references still resolve). */
 :root {
   --receivable: #dc2626;
-  --receivable-soft: #fee2e2;
-  --received: #16a34a;
-  --received-soft: #dcfce7;
+  --receivable-soft: #fdecec;
+  --received: #15803d;
+  --received-soft: #e3f6ea;
   --partial: #b45309;
-  --partial-soft: #fef3c7;
-  --ledger-edge: #1e90ff;
-  --ledger-surface: #e9edf5;
-  --ledger-card: #f2f6ff;
+  --partial-soft: #fdf1d6;
+  --ledger-edge: #4f46e5;
+  --ledger-accent-soft: #eceefd;
+  --ledger-surface: #f4f6fb;
+  --ledger-card: #ffffff;
+  --ledger-line: #e4e8f1;
+  --avatar-1-bg: #e0e7ff; --avatar-1-fg: #3730a3;
+  --avatar-2-bg: #fce7f3; --avatar-2-fg: #9d174d;
+  --avatar-3-bg: #d1fae5; --avatar-3-fg: #065f46;
+  --avatar-4-bg: #fef3c7; --avatar-4-fg: #92400e;
+  --avatar-5-bg: #cffafe; --avatar-5-fg: #155e75;
+  --avatar-6-bg: #ede9fe; --avatar-6-fg: #5b21b6;
 }
 
 .dark {
   --receivable: #f87171;
-  --receivable-soft: rgba(248, 113, 113, 0.16);
+  --receivable-soft: rgba(248, 113, 113, 0.14);
   --received: #4ade80;
-  --received-soft: rgba(74, 222, 128, 0.16);
+  --received-soft: rgba(74, 222, 128, 0.14);
   --partial: #fbbf24;
-  --partial-soft: rgba(251, 191, 36, 0.16);
-  --ledger-edge: #60a5fa;
-  --ledger-surface: #1b2230;
-  --ledger-card: #232c3d;
+  --partial-soft: rgba(251, 191, 36, 0.14);
+  --ledger-edge: #818cf8;
+  --ledger-accent-soft: rgba(129, 140, 248, 0.16);
+  --ledger-surface: #0f1420;
+  --ledger-card: #171d2b;
+  --ledger-line: #283043;
+  --avatar-1-bg: rgba(129, 140, 248, 0.2); --avatar-1-fg: #c7d2fe;
+  --avatar-2-bg: rgba(244, 114, 182, 0.2); --avatar-2-fg: #fbcfe8;
+  --avatar-3-bg: rgba(52, 211, 153, 0.2); --avatar-3-fg: #a7f3d0;
+  --avatar-4-bg: rgba(251, 191, 36, 0.2); --avatar-4-fg: #fde68a;
+  --avatar-5-bg: rgba(34, 211, 238, 0.2); --avatar-5-fg: #a5f3fc;
+  --avatar-6-bg: rgba(167, 139, 250, 0.2); --avatar-6-fg: #ddd6fe;
 }
 
 /* =========================================================

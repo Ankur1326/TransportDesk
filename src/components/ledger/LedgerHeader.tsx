@@ -1,43 +1,50 @@
 "use client";
 
+import { BellRing, Download, Ellipsis } from "@/components/ledger/ledger-icons";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Filter } from "@/components/icons";
+import { ArrowLeft, MessageCircle, Phone } from "@/components/icons";
 import { cn } from "@/lib/utils";
-import { formatInr } from "@/lib/ledger/format";
-import { LedgerFilters } from "@/components/ledger/LedgerFilters";
-import type { LedgerFilterState } from "@/redux/slices/ledgerSlice";
+import { formatInr, formatLedgerDate } from "@/lib/ledger/format";
+import { BalancePill, LedgerAvatar } from "@/components/ledger/LedgerAvatar";
 
 interface LedgerHeaderProps {
   name: string;
+  mobile?: string | null;
+  gstin?: string;
+  city?: string;
   /** Unfiltered net balance; > 0 means the customer owes us. */
   netBalance: number;
-  filters: LedgerFilterState;
-  filtersActive: boolean;
-  onFiltersChange: (next: LedgerFilterState) => void;
+  /** ISO date of the newest entry in the unfiltered ledger, when known. */
+  lastEntryDate?: string;
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onDownloadStatement: () => void;
   onShareStatement: () => void;
-  /** True while a statement is being prepared (menu entries disable to stop double clicks). */
+  onSendReminder: () => void;
+  /** True while a statement is being prepared (entries disable to stop double clicks). */
   statementBusy: boolean;
 }
 
+const iconBtn =
+  "inline-flex h-9 items-center gap-1.5 rounded-lg border border-(--ledger-line) bg-(--ledger-card) px-3 text-xs font-medium text-neutral-700 transition hover:bg-(--ledger-surface) disabled:cursor-wait disabled:opacity-50 dark:text-neutral-200";
+
 export function LedgerHeader({
   name,
+  mobile,
+  gstin,
+  city,
   netBalance,
-  filters,
-  filtersActive,
-  onFiltersChange,
+  lastEntryDate,
   onBack,
   onEdit,
   onDelete,
   onDownloadStatement,
   onShareStatement,
+  onSendReminder,
   statementBusy,
 }: LedgerHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,92 +52,106 @@ export function LedgerHeader({
     const close = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setMenuOpen(false);
     };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
     document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc);
+    };
   }, [menuOpen]);
 
   const owes = netBalance > 0;
-  const item = "block w-full px-4 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800";
+  const advance = netBalance < 0;
+  const status = owes ? "Receivable" : advance ? "Advance" : "Settled";
+  const tone = owes ? "text-(--receivable)" : "text-(--received)";
+  const item = "block w-full px-4 py-2 text-left text-sm hover:bg-(--ledger-surface) disabled:opacity-50";
+  const meta = [mobile, gstin && `GSTIN ${gstin}`, city].filter(Boolean).join("  ·  ");
 
   return (
-    <div className="relative rounded-md bg-(--ledger-card) p-4 shadow">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-start gap-2">
-          <button type="button" onClick={onBack} aria-label="Back to customer list" className="mt-0.5 md:hidden">
-            <ArrowLeft size={20} />
-          </button>
-          <div className="min-w-0">
-            <h2 className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">{name}</h2>
-            <p className="mt-2 text-xs text-neutral-500">
-              NET BALANCE{" "}
-              <span className={cn("text-sm font-semibold", owes ? "text-(--receivable)" : "text-(--received)")}>
-                {formatInr(netBalance)}
-              </span>
-              <span className="ml-1 font-semibold">{owes ? "Dr (Receivable)" : netBalance < 0 ? "Cr (Advance)" : "(Settled)"}</span>
-            </p>
-          </div>
+    <div className="rounded-2xl border border-(--ledger-line) bg-(--ledger-card) p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back to customer list"
+          className="mt-1.5 rounded-lg p-1 text-neutral-600 hover:bg-(--ledger-surface) md:hidden"
+        >
+          <ArrowLeft size={20} />
+        </button>
+        <LedgerAvatar name={name} className="h-12 w-12 text-lg" />
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-base font-semibold text-neutral-900 dark:text-neutral-50">{name}</h2>
+          {meta && <p className="truncate text-xs text-neutral-500">{meta}</p>}
         </div>
-        <div className="flex shrink-0 items-center gap-1" ref={ref}>
-          <div className="relative">
-            <button
-              type="button"
-              aria-label="More options"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((v) => !v)}
-              className="px-2 py-1 text-xl leading-none"
-            >
-              ⋮
-            </button>
-            {menuOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 z-20 mt-1 w-52 rounded-md border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
-              >
-                <button role="menuitem" className={item} onClick={() => { setMenuOpen(false); onEdit(); }}>
-                  Edit customer
-                </button>
-                <button
-                  role="menuitem"
-                  className={cn(item, statementBusy && "cursor-wait opacity-50")}
-                  disabled={statementBusy}
-                  onClick={() => { setMenuOpen(false); onDownloadStatement(); }}
-                >
-                  Download statement
-                </button>
-                <button
-                  role="menuitem"
-                  className={cn(item, statementBusy && "cursor-wait opacity-50")}
-                  disabled={statementBusy}
-                  onClick={() => { setMenuOpen(false); onShareStatement(); }}
-                >
-                  Share on WhatsApp
-                </button>
-                <button
-                  role="menuitem"
-                  className={cn(item, "text-(--receivable)")}
-                  onClick={() => { setMenuOpen(false); onDelete(); }}
-                >
-                  Delete customer
-                </button>
-              </div>
-            )}
-          </div>
+
+        <div className="relative shrink-0" ref={ref}>
           <button
             type="button"
-            aria-label="Filter ledger"
-            aria-expanded={filterOpen}
-            onClick={() => setFilterOpen((v) => !v)}
-            className="relative px-2 py-1"
+            aria-label="More options"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+            className="rounded-lg p-2 text-neutral-600 hover:bg-(--ledger-surface)"
           >
-            <Filter size={18} />
-            {filtersActive && <span className="absolute right-1 top-0 h-2 w-2 rounded-full bg-(--ledger-edge)" />}
+            <Ellipsis size={18} />
           </button>
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-xl border border-(--ledger-line) bg-(--ledger-card) py-1 shadow-lg"
+            >
+              <button role="menuitem" className={item} onClick={() => { setMenuOpen(false); onEdit(); }}>
+                Edit customer
+              </button>
+              <button role="menuitem" className={item} disabled={statementBusy} onClick={() => { setMenuOpen(false); onDownloadStatement(); }}>
+                Download statement (PDF)
+              </button>
+              <button role="menuitem" className={item} disabled={statementBusy} onClick={() => { setMenuOpen(false); onShareStatement(); }}>
+                Share statement on WhatsApp
+              </button>
+              <div className="my-1 border-t border-(--ledger-line)" />
+              <button role="menuitem" className={cn(item, "text-(--receivable)")} onClick={() => { setMenuOpen(false); onDelete(); }}>
+                Delete customer
+              </button>
+            </div>
+          )}
         </div>
       </div>
-      {filterOpen && (
-        <LedgerFilters value={filters} onChange={onFiltersChange} onClose={() => setFilterOpen(false)} />
-      )}
+
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Net balance</p>
+          <p className="mt-0.5 flex items-center gap-2">
+            <span className={cn("text-3xl font-bold tabular-nums tracking-tight", tone)}>{formatInr(netBalance)}</span>
+            <BalancePill net={netBalance} className="text-xs" />
+          </p>
+          <p className="mt-0.5 text-xs text-neutral-500">
+            {status}
+            {owes ? " · customer owes you" : advance ? " · customer has paid ahead" : " · nothing pending"}
+            {lastEntryDate ? ` · last entry ${formatLedgerDate(lastEntryDate)}` : ""}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {owes && (
+            <button type="button" onClick={onSendReminder} className={iconBtn} aria-label="Send payment reminder on WhatsApp">
+              <BellRing size={15} aria-hidden="true" /> Remind
+            </button>
+          )}
+          <button type="button" onClick={onDownloadStatement} disabled={statementBusy} className={iconBtn} aria-label="Download statement PDF">
+            <Download size={15} aria-hidden="true" /> Statement
+          </button>
+          <button type="button" onClick={onShareStatement} disabled={statementBusy} className={iconBtn} aria-label="Share statement on WhatsApp">
+            <MessageCircle size={15} aria-hidden="true" /> Share
+          </button>
+          {mobile && (
+            <a href={`tel:${mobile.replace(/[^\d+]/g, "")}`} className={iconBtn} aria-label={`Call ${name}`}>
+              <Phone size={15} aria-hidden="true" /> Call
+            </a>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

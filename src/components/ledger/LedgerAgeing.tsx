@@ -2,29 +2,43 @@ import type { Ageing, AgeingBucket } from "@/lib/ledger/ageing";
 import { formatInr } from "@/lib/ledger/format";
 import { cn } from "@/lib/utils";
 
-/** Older buckets get warmer colours; the bucket label is always text too. */
-const TONE: Record<AgeingBucket["key"], string> = {
-  "0-30": "text-neutral-700 dark:text-neutral-200",
-  "31-60": "text-(--partial)",
-  "61-90": "text-(--receivable)",
-  "90+": "text-(--receivable)",
+/** Older buckets get warmer colours; every bucket is also labelled with text and an amount. */
+const BAR: Record<AgeingBucket["key"], string> = {
+  "0-30": "bg-(--received)",
+  "31-60": "bg-(--partial)",
+  "61-90": "bg-(--receivable)/70",
+  "90+": "bg-(--receivable)",
 };
 
 export function LedgerAgeing({ ageing }: { ageing: Ageing }) {
   if (ageing.total <= 0) return null;
   return (
-    <section aria-label="Open invoices by age" className="px-3 pb-1">
+    <section
+      aria-label="Open invoices by age"
+      className="mx-3 mt-3 rounded-xl border border-(--ledger-line) bg-(--ledger-card) px-3 py-2.5"
+    >
       <p
-        className="mb-1 text-[11px] font-medium text-neutral-500"
+        className="flex items-center justify-between text-[11px] font-medium text-neutral-500"
         title="Counted from each bill's date. The opening balance and advances not applied to a bill are not included."
       >
-        Open invoices by age · {formatInr(ageing.total)} due
+        <span>Open invoices by age</span>
+        <span className="font-semibold text-neutral-700 dark:text-neutral-200">{formatInr(ageing.total)} due</span>
       </p>
-      <ul className="grid grid-cols-4 gap-2">
+      <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-(--ledger-surface)" role="img" aria-label="Share of dues by age">
+        {ageing.buckets.map((b) =>
+          b.amount > 0 ? (
+            <span key={b.key} className={BAR[b.key]} style={{ width: `${(b.amount / ageing.total) * 100}%` }} />
+          ) : null
+        )}
+      </div>
+      <ul className="mt-2 grid grid-cols-4 gap-2">
         {ageing.buckets.map((b) => (
-          <li key={b.key} className="rounded-md bg-white/70 px-2 py-1 text-center dark:bg-white/10">
-            <span className="block text-[10px] text-neutral-500">{b.label}</span>
-            <span className={cn("block text-xs font-semibold", b.amount > 0 ? TONE[b.key] : "text-neutral-400")}>
+          <li key={b.key} className="min-w-0">
+            <span className="flex items-center gap-1 text-[10px] text-neutral-500">
+              <span aria-hidden="true" className={cn("h-1.5 w-1.5 rounded-full", BAR[b.key])} />
+              {b.label}
+            </span>
+            <span className={cn("block truncate text-xs font-semibold tabular-nums", b.amount > 0 ? "" : "text-neutral-400")}>
               {formatInr(b.amount)}
             </span>
             {b.count > 0 && (

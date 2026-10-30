@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowDownLeft, ArrowUpRight } from "@/components/ledger/ledger-icons";
 import { useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { Button } from "@/components/Button";
@@ -32,7 +33,7 @@ interface Props {
 }
 
 const field =
-  "h-9 w-full rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-neutral-700 dark:bg-neutral-900";
+  "h-10 w-full rounded-lg border border-(--ledger-line) bg-(--ledger-card) px-3 text-sm outline-none transition focus:border-(--ledger-edge) focus:ring-2 focus:ring-(--ledger-accent-soft)";
 const label = "block text-xs font-medium text-neutral-600 dark:text-neutral-300";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -178,10 +179,18 @@ export function RecordPaymentDialog({
     }
   };
 
-  const radio = (value: Apply, text: string) => (
-    <label className="flex cursor-pointer items-center gap-2 text-sm">
-      <input type="radio" name="apply" checked={apply === value} onChange={() => setApply(value)} />
-      {text}
+  const radio = (value: Apply, text: string, hint?: string) => (
+    <label
+      className={cn(
+        "flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 text-sm transition",
+        apply === value ? "border-(--ledger-edge) bg-(--ledger-accent-soft)" : "border-(--ledger-line) hover:bg-(--ledger-surface)"
+      )}
+    >
+      <input type="radio" name="apply" className="mt-0.5" checked={apply === value} onChange={() => setApply(value)} />
+      <span>
+        <span className="font-medium">{text}</span>
+        {hint && <span className="block text-xs text-neutral-500">{hint}</span>}
+      </span>
     </label>
   );
 
@@ -189,42 +198,57 @@ export function RecordPaymentDialog({
     <Dialog open onOpenChange={(open) => !open && !saving && onClose()}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md" initialFocus={amountRef}>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>
-            {customerName}
-            {!isReceived && !editing && " · an amount the customer owes that is not on a bill"}
-          </DialogDescription>
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className={cn(
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                isReceived ? "bg-(--received-soft) text-(--received)" : "bg-(--receivable-soft) text-(--receivable)"
+              )}
+            >
+              {isReceived ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
+            </span>
+            <div className="text-left">
+              <DialogTitle>{title}</DialogTitle>
+              <DialogDescription>
+                {customerName}
+                {!isReceived && !editing && " · an amount owed that is not on a bill"}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <form onSubmit={submit} className="space-y-3" noValidate>
-          <div className="grid grid-cols-2 gap-2">
+        <form onSubmit={submit} className="space-y-4" noValidate>
+          <div className="grid grid-cols-[1fr_9.5rem] gap-3">
             <label className={label}>
-              Amount (₹)
-              <input
-                ref={amountRef}
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                className={field}
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                aria-invalid={amount !== "" && !amountOk}
-              />
+              Amount
+              <span className="relative mt-1 block">
+                <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-lg text-neutral-400">₹</span>
+                <input
+                  ref={amountRef}
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  className={cn(field, "h-12 pl-8 text-xl font-semibold tabular-nums")}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  aria-invalid={amount !== "" && !amountOk}
+                  placeholder="0"
+                />
+              </span>
             </label>
             <label className={label}>
               Date
-              <input type="date" className={field} value={date} onChange={(e) => setDate(e.target.value)} />
+              <input type="date" className={cn(field, "mt-1 h-12")} value={date} onChange={(e) => setDate(e.target.value)} />
             </label>
           </div>
 
           {isReceived && (editing || openBills.length > 0) && (
-            <fieldset className="space-y-2 rounded-md border border-neutral-200 p-2 dark:border-neutral-700">
-              <legend className="px-1 text-xs font-medium text-neutral-600 dark:text-neutral-300">Apply to</legend>
-              {canAutoApply && radio("auto", "Oldest invoices first (auto)")}
+            <fieldset className="space-y-2">
+              <legend className="mb-1 text-xs font-medium text-neutral-600 dark:text-neutral-300">Apply to</legend>
+              {canAutoApply && radio("auto", "Oldest invoices first", "Spreads the amount across open bills; any extra stays as an advance.")}
               {(openBills.length > 0 || editing) && radio("bill", "One bill")}
-              {radio("none", "No bill (kept as an advance)")}
-
               {apply === "bill" && (
                 <select
                   className={field}
@@ -241,9 +265,10 @@ export function RecordPaymentDialog({
                   ))}
                 </select>
               )}
+              {radio("none", "No bill", "Kept as an advance on the customer's account.")}
 
               {(apply === "auto" || (apply === "bill" && chosen)) && (
-                <button type="button" onClick={fillAmount} className="text-xs font-medium text-(--ledger-edge) underline">
+                <button type="button" onClick={fillAmount} className="text-xs font-medium text-(--ledger-edge) hover:underline">
                   Fill {apply === "auto" ? `total due (${formatInr(totalDue)})` : `bill due (${formatInr(chosen?.room ?? 0)})`}
                 </button>
               )}
@@ -251,53 +276,70 @@ export function RecordPaymentDialog({
           )}
 
           {plan && (
-            <div aria-live="polite" className="rounded-md bg-(--ledger-card) p-2 text-xs">
+            <div aria-live="polite" className="space-y-1 rounded-lg bg-(--ledger-surface) p-3 text-xs">
               {plan.allocations.map((a) => (
                 <p key={a.billId} className="flex justify-between">
                   <span>Invoice {a.billNo}</span>
-                  <span className="font-semibold text-(--received)">{formatInr(a.amount)}</span>
+                  <span className="font-semibold tabular-nums text-(--received)">{formatInr(a.amount)}</span>
                 </p>
               ))}
               {plan.unapplied > 0 && (
                 <p className="flex justify-between">
                   <span>Advance (no open invoice left)</span>
-                  <span className="font-semibold text-(--received)">{formatInr(plan.unapplied)}</span>
+                  <span className="font-semibold tabular-nums text-(--received)">{formatInr(plan.unapplied)}</span>
                 </p>
               )}
             </div>
           )}
 
           {isReceived && (
-            <div className="grid grid-cols-2 gap-2">
-              <label className={label}>
-                Mode
-                <select className={field} value={mode} onChange={(e) => setMode(e.target.value as PaymentMode)}>
-                  {PAYMENT_MODES.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </label>
+            <>
+              <div role="group" aria-label="Payment mode" className="flex flex-wrap gap-1.5">
+                {PAYMENT_MODES.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={mode === m}
+                    onClick={() => setMode(m)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-medium transition",
+                      mode === m
+                        ? "border-(--ledger-edge) bg-(--ledger-accent-soft) text-(--ledger-edge)"
+                        : "border-(--ledger-line) text-neutral-600 hover:bg-(--ledger-surface) dark:text-neutral-300"
+                    )}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
               <label className={label}>
                 UTR / cheque no.
-                <input className={field} value={reference} onChange={(e) => setReference(e.target.value)} maxLength={100} />
+                <input className={cn(field, "mt-1")} value={reference} onChange={(e) => setReference(e.target.value)} maxLength={100} />
               </label>
-            </div>
+            </>
           )}
 
           <label className={label}>
             {isReceived ? "Remark" : "Reason / remark"}
-            <input className={field} value={remark} onChange={(e) => setRemark(e.target.value)} maxLength={500} />
+            <input className={cn(field, "mt-1")} value={remark} onChange={(e) => setRemark(e.target.value)} maxLength={500} />
           </label>
 
           {netAfter !== null && (
-            <p className="text-xs text-neutral-600 dark:text-neutral-300" aria-live="polite">
-              Balance now <b>{describeNet(netBalance)}</b> → after saving{" "}
-              <b className={cn(netAfter > 0 ? "text-(--receivable)" : "text-(--received)")}>{describeNet(netAfter)}</b>
-            </p>
+            <div aria-live="polite" className="flex items-center justify-between rounded-xl bg-(--ledger-surface) px-3 py-2.5 text-xs">
+              <span>
+                <span className="block text-neutral-500">Now</span>
+                <b className="text-sm">{describeNet(netBalance)}</b>
+              </span>
+              <span aria-hidden="true" className="text-neutral-400">→</span>
+              <span className="text-right">
+                <span className="block text-neutral-500">After saving</span>
+                <b className={cn("text-sm", netAfter > 0 ? "text-(--receivable)" : "text-(--received)")}>{describeNet(netAfter)}</b>
+              </span>
+            </div>
           )}
 
           {(billProblem || error) && (
-            <p role="alert" className="text-xs font-medium text-(--receivable)">
+            <p role="alert" className="rounded-lg bg-(--receivable-soft) px-3 py-2 text-xs font-medium text-(--receivable)">
               {error || billProblem}
             </p>
           )}
