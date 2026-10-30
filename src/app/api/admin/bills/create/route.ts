@@ -8,6 +8,7 @@ import { dropLegacyUniqueIndex } from "@/lib/legacy-indexes";
 import { warmBillPdf } from "@/lib/bill-pdf-cache";
 import { pdfRenderBaseUrl } from "@/lib/pdf-cache";
 import { allConsignmentsBelongToCompany } from "@/lib/bill/verify-consignments";
+import { syncBillStatusAfterBillSave } from "@/lib/ledger/load-ledger";
 import { freightBillFormSchema, computeItemTotal, computeBillTotals, computeBillSummary } from "@/lib/bill/validations";
 
 export async function POST(request: NextRequest) {
@@ -47,6 +48,9 @@ export async function POST(request: NextRequest) {
       companyId: auth.companyId,
       createdBy: auth.userId,
     });
+
+    // An advance on the bill already counts as payment (Partially Paid / Paid bilties).
+    await syncBillStatusAfterBillSave(auth.companyId, String(created._id), { hadAdvance: false });
 
     // Build the PDF in the background so the first "open" is already instant.
     const cookieHeader = request.headers.get("cookie") ?? "";

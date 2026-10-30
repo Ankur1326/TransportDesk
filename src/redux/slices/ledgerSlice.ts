@@ -2,6 +2,9 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axios from "axios";
 import { getApiErrorInfo, type ApiErrorInfo } from "@/lib/api/errors";
 import type { BalanceType } from "@/lib/opening-balance";
+import type { Ageing } from "@/lib/ledger/ageing";
+import type { Allocation } from "@/lib/ledger/allocate";
+import type { PaymentMode } from "@/lib/ledger/payment-modes";
 import type {
   BillStatusInfo,
   LedgerEntry,
@@ -44,6 +47,7 @@ export interface LedgerData {
   summary: LedgerSummary;
   entries: LedgerEntry[];
   billStatuses: Record<string, BillStatusInfo>;
+  ageing: Ageing;
   pagination: LedgerPagination;
 }
 
@@ -107,7 +111,7 @@ interface SummaryResponse {
 
 export const fetchCustomerSummaries = createAsyncThunk<
   SummaryResponse,
-  { search: string; currentPage: number; includeUnbilled?: boolean },
+  { search: string; currentPage: number; includeUnbilled?: boolean; keepCurrent?: boolean },
   { rejectValue: ApiErrorInfo }
 >("ledger/fetchCustomerSummaries", async ({ search, currentPage, includeUnbilled = true }, { rejectWithValue }) => {
   try {
@@ -122,7 +126,8 @@ export const fetchCustomerSummaries = createAsyncThunk<
 
 export const fetchLedger = createAsyncThunk<
   LedgerData,
-  { id: string; filters: LedgerFilterState; currentPage: number },
+  // keepCurrent: refetch in place (after a payment) instead of blanking the screen first.
+  { id: string; filters: LedgerFilterState; currentPage: number; keepCurrent?: boolean },
   { rejectValue: ApiErrorInfo }
 >("ledger/fetchLedger", async ({ id, filters, currentPage }, { rejectWithValue }) => {
   try {
@@ -143,6 +148,81 @@ export const fetchLedger = createAsyncThunk<
   }
 });
 
+// ─── payments (record / edit / delete) ──────────────────────────────────────
+// These only talk to the API. The page refetches the ledger and the customer
+// list afterwards, so balances never come from client-side maths.
+
+export interface PaymentFields {
+  amount: number;
+  /** YYYY-MM-DD */
+  date: string;
+  mode: PaymentMode;
+  reference: string;
+  remark: string;
+}
+
+interface PaymentResult {
+  message: string;
+}
+
+const paymentError = (error: unknown, fallback: string): string => getApiErrorInfo(error, fallback).message;
+
+/** "Received (Credit)" or a manual "Receivable (Debit)", optionally linked to one bill. */
+export const createPayment = createAsyncThunk<
+  PaymentResult,
+  PaymentFields & { partyId: string; direction: "received" | "receivable_adjustment"; billId?: string | null },
+  { rejectValue: string }
+>("ledger/createPayment", async (input, { rejectWithValue }) => {
+  try {
+    const res = await axios.post<{ message: string }>("/api/admin/payment/create", input);
+    return { message: res.data.message };
+  } catch (error) {
+    return rejectWithValue(paymentError(error, "Couldn't record this payment."));
+  }
+});
+
+/** One received amount split over open invoices, oldest first (decided on the server). */
+export const allocatePayment = createAsyncThunk<
+  PaymentResult & { allocations: Allocation[]; unapplied: number },
+  PaymentFields & { partyId: string },
+  { rejectValue: string }
+>("ledger/allocatePayment", async (input, { rejectWithValue }) => {
+  try {
+    const res = await axios.post<{
+      message: string;
+      data: { allocations: Allocation[]; unapplied: number };
+    }>("/api/admin/payment/allocate", input);
+    return { message: res.data.message, ...res.data.data };
+  } catch (error) {
+    return rejectWithValue(paymentError(error, "Couldn't record this payment."));
+  }
+});
+
+export const updatePayment = createAsyncThunk<
+  PaymentResult,
+  PaymentFields & { _id: string; billId?: string | null },
+  { rejectValue: string }
+>("ledger/updatePayment", async (input, { rejectWithValue }) => {
+  try {
+    const res = await axios.put<{ message: string }>("/api/admin/payment/update", input);
+    return { message: res.data.message };
+  } catch (error) {
+    return rejectWithValue(paymentError(error, "Couldn't update this payment."));
+  }
+});
+
+export const deletePayment = createAsyncThunk<PaymentResult, { _id: string }, { rejectValue: string }>(
+  "ledger/deletePayment",
+  async ({ _id }, { rejectWithValue }) => {
+    try {
+      const res = await axios.delete<{ message: string }>("/api/admin/payment/delete", { data: { _id } });
+      return { message: res.data.message };
+    } catch (error) {
+      return rejectWithValue(paymentError(error, "Couldn't delete this payment."));
+    }
+  }
+);
+
 const ledgerSlice = createSlice({
   name: "ledger",
   initialState,
@@ -161,7 +241,7 @@ const ledgerSlice = createSlice({
         state.partiesError = null;
         state.partiesRequestId = action.meta.requestId;
         // A fresh search / first page replaces the list immediately.
-        if (action.meta.arg.currentPage === 1) state.parties = [];
+        if (action.meta.arg.currentPage === 1 && !action.meta.arg.keepCurrent) state.parties = [];
       })
       .addCase(fetchCustomerSummaries.fulfilled, (state, action) => {
         if (state.partiesRequestId !== action.meta.requestId) return; // stale response
@@ -182,7 +262,7 @@ const ledgerSlice = createSlice({
         state.ledgerError = null;
         state.ledgerRequestId = action.meta.requestId;
         // Switching customer (or filters) must not flash the previous ledger.
-        if (action.meta.arg.currentPage === 1) state.ledger = null;
+        if (action.meta.arg.currentPage === 1 && !action.meta.arg.keepCurrent) state.ledger = null;
       })
       .addCase(fetchLedger.fulfilled, (state, action) => {
         if (state.ledgerRequestId !== action.meta.requestId) return;

@@ -8,6 +8,7 @@ import { requireCompany, companyFilter } from "@/lib/company-scope";
 import { warmBillPdf } from "@/lib/bill-pdf-cache";
 import { pdfRenderBaseUrl } from "@/lib/pdf-cache";
 import { allConsignmentsBelongToCompany } from "@/lib/bill/verify-consignments";
+import { syncBillStatusAfterBillSave } from "@/lib/ledger/load-ledger";
 import { freightBillFormSchema, computeItemTotal, computeBillTotals, computeBillSummary } from "@/lib/bill/validations"
 
 function isValidObjectId(id: string) {
@@ -51,6 +52,11 @@ export async function PUT(
     const totalAmount = summary.invoiceAmount;
     const payableAmount = summary.payable;
 
+    const before = await FreightBillModel.findOne(
+      { _id: id, ...companyFilter(auth.companyId) },
+      "adjustments.advanceReceived"
+    ).lean<{ adjustments?: { advanceReceived?: number } } | null>();
+
     const updated = await FreightBillModel.findOneAndUpdate(
       { _id: id, ...companyFilter(auth.companyId) },
       { ...parsed, items, totalAmount, payableAmount },
@@ -60,6 +66,11 @@ export async function PUT(
     if (!updated) {
       return NextResponse.json({ success: false, message: "Bill not found" }, { status: 404 });
     }
+
+    // The total or advance may have changed, so refresh the bilties' payment status.
+    await syncBillStatusAfterBillSave(auth.companyId, String(updated._id), {
+      hadAdvance: (before?.adjustments?.advanceReceived ?? 0) > 0,
+    });
 
     // Build the PDF in the background so the first "open" is already instant.
     const cookieHeader = request.headers.get("cookie") ?? "";

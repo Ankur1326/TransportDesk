@@ -7,6 +7,7 @@ import { createCustomer, updateCustomer, deleteCustomer } from "@/redux/slices/c
 import {
     clearLedger,
     DEFAULT_LEDGER_FILTERS,
+    deletePayment,
     fetchCustomerSummaries,
     fetchLedger,
     type LedgerCustomerInfo,
@@ -25,11 +26,14 @@ import { OpeningBalanceField } from "@/components/parties/OpeningBalanceField";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { CUSTOMER_BALANCE_LABELS, type BalanceType } from "@/lib/opening-balance";
 import type { LedgerEntry } from "@/lib/ledger/build-ledger";
+import { formatInr } from "@/lib/ledger/format";
 import { PartyListPanel } from "@/components/ledger/PartyListPanel";
 import { LedgerHeader } from "@/components/ledger/LedgerHeader";
 import { LedgerSummaryChips } from "@/components/ledger/LedgerSummaryChips";
 import { LedgerEntryRow } from "@/components/ledger/LedgerEntryRow";
 import { LedgerEntryDrawer } from "@/components/ledger/LedgerEntryDrawer";
+import { LedgerAgeing } from "@/components/ledger/LedgerAgeing";
+import { RecordPaymentDialog, type PaymentDirection } from "@/components/ledger/RecordPaymentDialog";
 import { LedgerSkeleton } from "@/components/ledger/LedgerSkeleton";
 import { NoCustomerSelected, NoLedgerEntries } from "@/components/ledger/LedgerEmptyState";
 
@@ -51,6 +55,15 @@ export default function CustomerLedgerPage() {
     const [appliedFilters, setAppliedFilters] = useState<LedgerFilterState>(DEFAULT_LEDGER_FILTERS);
     const [openEntry, setOpenEntry] = useState<LedgerEntry | null>(null);
 
+    // Record / edit payment, and delete confirmation
+    const [paymentDialog, setPaymentDialog] = useState<{
+        direction: PaymentDirection;
+        editing: LedgerEntry | null;
+        presetBillId?: string;
+        key: number;
+    } | null>(null);
+    const [paymentToDelete, setPaymentToDelete] = useState<LedgerEntry | null>(null);
+
     // Customer add / edit / delete (moved here from the old table page)
     const [name, setName] = useState("");
     const [address, setAddress] = useState("");
@@ -70,7 +83,7 @@ export default function CustomerLedgerPage() {
 
     // ── data loading ────────────────────────────────────────────────
     const loadParties = useCallback(
-        (page: number) => { dispatch(fetchCustomerSummaries({ search, currentPage: page })); },
+        (page: number, keepCurrent = false) => { dispatch(fetchCustomerSummaries({ search, currentPage: page, keepCurrent })); },
         [dispatch, search]
     );
 
@@ -86,9 +99,10 @@ export default function CustomerLedgerPage() {
         if (selectedId) dispatch(fetchLedger({ id: selectedId, filters: appliedFilters, currentPage: 1 }));
     }, [dispatch, selectedId, appliedFilters]);
 
+    // Refetch in place: the list and ledger stay on screen until the fresh data arrives.
     const refresh = useCallback(() => {
-        loadParties(1);
-        if (selectedId) dispatch(fetchLedger({ id: selectedId, filters: appliedFilters, currentPage: 1 }));
+        loadParties(1, true);
+        if (selectedId) dispatch(fetchLedger({ id: selectedId, filters: appliedFilters, currentPage: 1, keepCurrent: true }));
     }, [dispatch, loadParties, selectedId, appliedFilters]);
 
     const selectCustomer = (id: string) => {
@@ -107,6 +121,36 @@ export default function CustomerLedgerPage() {
     const loadMoreEntries = () => {
         if (selectedId && ledger) {
             dispatch(fetchLedger({ id: selectedId, filters: appliedFilters, currentPage: ledger.pagination.currentPage + 1 }));
+        }
+    };
+
+    // ── payments ────────────────────────────────────────────────────
+    const openPaymentDialog = (direction: PaymentDirection, editing: LedgerEntry | null = null, presetBillId?: string) => {
+        setOpenEntry(null); // the drawer would otherwise sit under the dialog
+        setPaymentDialog({ direction, editing, presetBillId, key: Date.now() });
+    };
+
+    const handlePaymentSaved = (message: string) => {
+        setPaymentDialog(null);
+        toast.success(message);
+        refresh();
+    };
+
+    const askDeletePayment = (entry: LedgerEntry) => {
+        setOpenEntry(null);
+        setPaymentToDelete(entry);
+    };
+
+    const handleDeletePayment = async () => {
+        const entry = paymentToDelete;
+        setPaymentToDelete(null);
+        if (!entry) return;
+        try {
+            const result = await dispatch(deletePayment({ _id: entry.sourceId })).unwrap();
+            toast.success(result.message);
+            refresh();
+        } catch (err) {
+            toast.error(typeof err === "string" ? err : "Couldn't delete this payment.");
         }
     };
 
@@ -218,6 +262,7 @@ export default function CustomerLedgerPage() {
                             </div>
 
                             {ledger && <LedgerSummaryChips summary={ledger.summary} />}
+                            {ledger && <LedgerAgeing ageing={ledger.ageing} />}
 
                             <div className="min-h-0 flex-1 overflow-y-auto">
                                 {ledgerError && !ledger ? (
@@ -248,11 +293,20 @@ export default function CustomerLedgerPage() {
                             </div>
 
                             <div className="grid grid-cols-2 gap-3 bg-white p-3 dark:bg-neutral-900">
-                                {/* Wired up in phase 3 (RecordPaymentDialog). */}
-                                <button type="button" disabled title="Coming soon" className="h-10 cursor-not-allowed rounded-md bg-(--receivable-soft) text-sm font-semibold text-(--receivable) opacity-70">
+                                <button
+                                    type="button"
+                                    disabled={!ledger}
+                                    onClick={() => openPaymentDialog("receivable_adjustment")}
+                                    className="h-10 rounded-md bg-(--receivable-soft) text-sm font-semibold text-(--receivable) disabled:cursor-not-allowed disabled:opacity-60"
+                                >
                                     Receivable (Debit)
                                 </button>
-                                <button type="button" disabled title="Coming soon" className="h-10 cursor-not-allowed rounded-md bg-(--received-soft) text-sm font-semibold text-(--received) opacity-70">
+                                <button
+                                    type="button"
+                                    disabled={!ledger}
+                                    onClick={() => openPaymentDialog("received")}
+                                    className="h-10 rounded-md bg-(--received-soft) text-sm font-semibold text-(--received) disabled:cursor-not-allowed disabled:opacity-60"
+                                >
                                     Received (Credit)
                                 </button>
                             </div>
@@ -265,7 +319,43 @@ export default function CustomerLedgerPage() {
                 entry={openEntry}
                 billStatus={openEntry?.billId ? ledger?.billStatuses[openEntry.billId] : undefined}
                 onClose={() => setOpenEntry(null)}
+                onEdit={(entry) => openPaymentDialog(entry.source === "adjustment" ? "receivable_adjustment" : "received", entry)}
+                onDelete={askDeletePayment}
+                onRecordForBill={(billId) => openPaymentDialog("received", null, billId)}
             />
+
+            {paymentDialog && ledger && selectedId && (
+                <RecordPaymentDialog
+                    key={paymentDialog.key}
+                    customerId={selectedId}
+                    customerName={ledger.customer.name}
+                    netBalance={ledger.summary.overallNetBalance}
+                    billStatuses={ledger.billStatuses}
+                    direction={paymentDialog.direction}
+                    editing={paymentDialog.editing}
+                    presetBillId={paymentDialog.presetBillId}
+                    onClose={() => setPaymentDialog(null)}
+                    onSaved={handlePaymentSaved}
+                />
+            )}
+
+            <AlertDialog open={paymentToDelete !== null} onOpenChange={(open) => !open && setPaymentToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this {paymentToDelete?.source === "adjustment" ? "entry" : "payment"}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {paymentToDelete ? `${formatInr(paymentToDelete.amount)} will be removed. ` : ""}
+                            The balance and the paid / unpaid status of the linked bill are recalculated. This cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeletePayment} className="bg-red-600 hover:bg-red-700 text-white">
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <EditOrCreateNewModalWrapper
                 title={editing ? "Edit Customer" : "Create Customer"}

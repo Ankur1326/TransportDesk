@@ -92,6 +92,8 @@ export interface LedgerEntry {
 export interface BillStatusInfo {
   billId: string;
   billNo: string;
+  /** ISO date of the bill. */
+  billDate: string;
   totalAmount: number;
   paid: number;
   outstanding: number;
@@ -168,6 +170,7 @@ export function computeBillStatuses(
     out[String(b._id)] = {
       billId: String(b._id),
       billNo: b.billNo,
+      billDate: iso(b.billDate),
       totalAmount: round2(b.totalAmount),
       paid,
       outstanding: Math.max(0, fromPaise(paise(b.totalAmount) - paidP)),

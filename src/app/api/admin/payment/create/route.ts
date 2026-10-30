@@ -3,7 +3,7 @@ import Customer from "@/models/Customer";
 import PaymentModel from "@/models/Payment";
 import { companyFilter, requireCompanyProfile } from "@/lib/company-scope";
 import { syncBillPaymentStatus } from "@/lib/ledger/load-ledger";
-import { createPaymentSchema, resolveBillForCustomer } from "@/lib/ledger/payment-input";
+import { billOutstandingError, createPaymentSchema, resolveBillForCustomer } from "@/lib/ledger/payment-input";
 
 export async function POST(request: Request) {
   const auth = await requireCompanyProfile();
@@ -29,6 +29,8 @@ export async function POST(request: Request) {
       const bill = await resolveBillForCustomer(auth.companyId, input.billId, { _id: String(customer._id), name: customer.name });
       if (!bill.ok) return Response.json({ success: false, message: bill.message }, { status: 404 });
       billNo = bill.billNo;
+      const tooMuch = await billOutstandingError(auth.companyId, input.billId, input.amount);
+      if (tooMuch) return Response.json({ success: false, message: tooMuch }, { status: 400 });
     }
 
     const payment = await PaymentModel.create({

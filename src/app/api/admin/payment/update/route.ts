@@ -2,7 +2,7 @@ import dbConnect from "@/lib/db";
 import PaymentModel from "@/models/Payment";
 import { companyFilter, requireCompany } from "@/lib/company-scope";
 import { syncBillPaymentStatus } from "@/lib/ledger/load-ledger";
-import { resolveBillForCustomer, updatePaymentSchema } from "@/lib/ledger/payment-input";
+import { billOutstandingError, resolveBillForCustomer, updatePaymentSchema } from "@/lib/ledger/payment-input";
 
 export async function PUT(request: Request) {
   const auth = await requireCompany();
@@ -32,6 +32,8 @@ export async function PUT(request: Request) {
       });
       if (!bill.ok) return Response.json({ success: false, message: bill.message }, { status: 404 });
       billNo = bill.billNo;
+      const tooMuch = await billOutstandingError(auth.companyId, input.billId, input.amount, String(existing._id));
+      if (tooMuch) return Response.json({ success: false, message: tooMuch }, { status: 400 });
     }
 
     existing.amount = input.amount;

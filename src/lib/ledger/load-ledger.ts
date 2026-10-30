@@ -192,6 +192,57 @@ export async function loadLedgers(
 }
 
 /**
+ * What is still unpaid on one bill (total - advance - linked received payments),
+ * or null when the bill isn't one of this company's. `excludePaymentId` leaves
+ * one payment out, for editing it.
+ */
+export async function getBillOutstanding(
+  companyId: string,
+  billId: string,
+  excludePaymentId?: string
+): Promise<number | null> {
+  const scope = companyFilter(companyId);
+  const bill = await FreightBillModel.findOne(
+    { $and: [scope, { _id: billId }] },
+    "billNo billDate totalAmount items.consignmentId adjustments.advanceReceived"
+  ).lean<BillLean | null>();
+  if (!bill) return null;
+
+  const match: Record<string, unknown> = { billId, direction: "received" };
+  if (excludePaymentId) match._id = { $ne: excludePaymentId };
+  const payments = await PaymentModel.find({ $and: [scope, match] }, "direction billId amount date").lean<
+    PaymentLean[]
+  >();
+  return computeBillStatuses([toBill(bill)], payments.map(toPayment))[String(bill._id)].outstanding;
+}
+
+/**
+ * Call after a bill is created or edited. Its total or advance may have changed,
+ * so the bilties' payment status is recomputed - but only for bills that have
+ * payment activity (an advance now or before, or recorded payments), so plain
+ * unpaid bills never overwrite a status someone set by hand on a bilty.
+ * Never throws: the bill itself is already saved.
+ */
+export async function syncBillStatusAfterBillSave(
+  companyId: string,
+  billId: string,
+  opts: { hadAdvance: boolean }
+): Promise<void> {
+  try {
+    const scope = companyFilter(companyId);
+    const bill = await FreightBillModel.findOne({ $and: [scope, { _id: billId }] }, "adjustments.advanceReceived").lean<{
+      adjustments?: { advanceReceived?: number };
+    } | null>();
+    if (!bill) return;
+    const hasAdvance = (bill.adjustments?.advanceReceived ?? 0) > 0;
+    const hasPayments = Boolean(await PaymentModel.exists({ $and: [scope, { billId, direction: "received" }] }));
+    if (hasAdvance || opts.hadAdvance || hasPayments) await syncBillPaymentStatus(companyId, billId);
+  } catch (error) {
+    console.error("Error while syncing bill payment status: ", error);
+  }
+}
+
+/**
  * Recomputes a bill's status from its advance + linked payments and mirrors it
  * onto the bill's consignments (Paid / Partially Paid / Pending). Cancelled
  * bilties are left alone.

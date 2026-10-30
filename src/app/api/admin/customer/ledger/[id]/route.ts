@@ -5,6 +5,7 @@ import Customer from "@/models/Customer";
 import { companyFilter, requireCompany } from "@/lib/company-scope";
 import { isObjectId, loadLedgers } from "@/lib/ledger/load-ledger";
 import type { LedgerCustomer } from "@/lib/ledger/build-ledger";
+import { computeAgeing } from "@/lib/ledger/ageing";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,8 @@ export async function GET(request: NextRequest, { params }: Ctx) {
         summary: ledger.summary,
         entries: ledger.entries.slice(skip, skip + q.itemsPerPage),
         billStatuses: ledger.billStatuses,
+        // Open invoices by age. Unfiltered, like billStatuses.
+        ageing: computeAgeing(Object.values(ledger.billStatuses), new Date()),
         pagination: {
           currentPage: q.currentPage,
           itemsPerPage: q.itemsPerPage,

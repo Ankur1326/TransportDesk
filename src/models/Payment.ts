@@ -1,5 +1,6 @@
 import mongoose, { model, Schema, Document, Model } from "mongoose";
 import { dropStaleModel } from "@/lib/model-guard";
+import { PAYMENT_MODES, type PaymentMode } from "@/lib/ledger/payment-modes";
 
 export const PAYMENT_PARTY_TYPES = ["customer", "supplier"] as const;
 export type PaymentPartyType = (typeof PAYMENT_PARTY_TYPES)[number];
@@ -16,8 +17,7 @@ export type PaymentPartyType = (typeof PAYMENT_PARTY_TYPES)[number];
 export const PAYMENT_DIRECTIONS = ["received", "paid", "receivable_adjustment"] as const;
 export type PaymentDirection = (typeof PAYMENT_DIRECTIONS)[number];
 
-export const PAYMENT_MODES = ["Cash", "NEFT", "Cheque", "UPI", "Other"] as const;
-export type PaymentMode = (typeof PAYMENT_MODES)[number];
+export { PAYMENT_MODES, type PaymentMode };
 
 export interface IPayment extends Document {
   companyId: string;
