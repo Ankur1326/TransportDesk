@@ -71,6 +71,9 @@ export interface IFreightBill extends Document {
   /** Stored bill PDFs by variant ("default"). See src/lib/pdf-cache.ts. */
   pdfCache?: Record<string, { url: string; publicId: string; sourceUpdatedAt: string }>;
 
+  /** Optional link to the Customer. Ledger falls back to `billedTo.name` when absent. */
+  customerId?: mongoose.Types.ObjectId;
+
   companyId: string;
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -184,6 +187,8 @@ const freightBillSchema = new Schema<IFreightBill>(
 
     pdfCache: { type: Schema.Types.Mixed, default: undefined },
 
+    customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
+
     companyId: { type: String, required: [true, "companyId is required"], index: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
@@ -196,8 +201,10 @@ freightBillSchema.index({ companyId: 1, createdAt: -1 });
 freightBillSchema.index({ createdAt: -1 });
 freightBillSchema.index({ "items.consignmentId": 1 });
 freightBillSchema.index({ "billedTo.name": 1 });
+freightBillSchema.index({ companyId: 1, "billedTo.name": 1 });
+freightBillSchema.index({ companyId: 1, customerId: 1 });
 
-dropStaleModel("FreightBill", "companyId");
+dropStaleModel("FreightBill", "customerId");
 
 const FreightBillModel: Model<IFreightBill> =
   (mongoose?.models?.FreightBill as Model<IFreightBill>) || model<IFreightBill>("FreightBill", freightBillSchema);

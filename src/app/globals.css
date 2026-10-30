@@ -215,6 +215,28 @@
   }
 }
 
+
+/* Ledger (Khata) semantic colours. Never rely on colour alone: rows also show Dr / Cr text. */
+:root {
+  --receivable: #dc2626;
+  --receivable-soft: #fee2e2;
+  --received: #16a34a;
+  --received-soft: #dcfce7;
+  --ledger-edge: #1e90ff;
+  --ledger-surface: #e9edf5;
+  --ledger-card: #f2f6ff;
+}
+
+.dark {
+  --receivable: #f87171;
+  --receivable-soft: rgba(248, 113, 113, 0.16);
+  --received: #4ade80;
+  --received-soft: rgba(74, 222, 128, 0.16);
+  --ledger-edge: #60a5fa;
+  --ledger-surface: #1b2230;
+  --ledger-card: #232c3d;
+}
+
 /* =========================================================
    DARK MODE
    ========================================================= */

@@ -1,408 +1,282 @@
 'use client'
-import { useCallback, useEffect, useState, use } from "react";
-import { EditOrCreateNewModalWrapper } from "@/components/EditOrCreateNewModalWrapper";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "@/redux/store";
-import { createCustomer, fetchCustomers, updateCustomer, deleteCustomer } from "@/redux/slices/customerSlice";
 import toast from "react-hot-toast";
-import { Plus, Edit, Trash2, Eye, EyeOff, Minus } from "@/components/icons";
-import Pagination from "@/components/Pagination";
-import SearchBar from "@/components/SearchBar";
-import dynamic from "next/dynamic";
-import Table from "@/components/Table";
+import { AppDispatch, RootState } from "@/redux/store";
+import { createCustomer, updateCustomer, deleteCustomer } from "@/redux/slices/customerSlice";
+import {
+    clearLedger,
+    DEFAULT_LEDGER_FILTERS,
+    fetchCustomerSummaries,
+    fetchLedger,
+    type LedgerCustomerInfo,
+    type LedgerFilterState,
+} from "@/redux/slices/ledgerSlice";
+import { EditOrCreateNewModalWrapper } from "@/components/EditOrCreateNewModalWrapper";
 import FormInput from "@/components/FormInput";
 import FormTextarea from "@/components/FormTextarea";
-import StatusFilter from "@/components/StatusFilter";
-import { Button } from "@/components/Button";
-// import { Button } from "@/components/ui/button";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import StateAutocomplete from "@/components/StateAutocomplete";
+import { Button } from "@/components/Button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ApiErrorState } from "@/components/ui/ApiErrorState";
 import { CompanySetupNotice } from "@/components/admin/CompanySetupNotice";
-import type { ApiErrorInfo } from "@/lib/api/errors";
-import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { CompanyProfileRequiredDialog } from "@/components/admin/CompanyProfileRequiredDialog";
 import { OpeningBalanceField } from "@/components/parties/OpeningBalanceField";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { CUSTOMER_BALANCE_LABELS, type BalanceType } from "@/lib/opening-balance";
+import type { LedgerEntry } from "@/lib/ledger/build-ledger";
+import { PartyListPanel } from "@/components/ledger/PartyListPanel";
+import { LedgerHeader } from "@/components/ledger/LedgerHeader";
+import { LedgerSummaryChips } from "@/components/ledger/LedgerSummaryChips";
+import { LedgerEntryRow } from "@/components/ledger/LedgerEntryRow";
+import { LedgerEntryDrawer } from "@/components/ledger/LedgerEntryDrawer";
+import { LedgerSkeleton } from "@/components/ledger/LedgerSkeleton";
+import { NoCustomerSelected, NoLedgerEntries } from "@/components/ledger/LedgerEmptyState";
 
-export default function CustomerManagement({ params }: { params: Promise<{ role: string }> }) {
-    // Check if user can delete based on role
-    const { role } = use(params)
+type CustomerPayload = Parameters<typeof updateCustomer>[0];
+
+const filtersAreDefault = (f: LedgerFilterState) =>
+    f.from === "" && f.to === "" && f.type === "all" && f.search === "" && f.includeUnbilled;
+
+export default function CustomerLedgerPage() {
     const dispatch = useDispatch<AppDispatch>();
-    const { totalCustomers, totalPages, status, error } = useSelector((state: RootState) => state.customers);
+    const {
+        parties, partiesPage, partiesTotalPages, partiesStatus, partiesError,
+        ledger, ledgerStatus, ledgerError,
+    } = useSelector((state: RootState) => state.ledger);
 
-    // name, address, city, state, gstin, mobile
-    // Local state
-    const [name, setName] = useState<string>("");
-    const [address, setAddress] = useState<string>("");
-    const [city, setCity] = useState<string>("");
-    const [state, setState] = useState<string>("");
-    const [pincode, setPincode] = useState<string>("");
-    const [gstin, setGstin] = useState<string>("");
-    const [mobile, setMobile] = useState<string>("");
-    const [email, setEmail] = useState<string>("");
-    const [openingBalance, setOpeningBalance] = useState<string>("");
+    const [search, setSearch] = useState("");
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [filters, setFilters] = useState<LedgerFilterState>(DEFAULT_LEDGER_FILTERS);
+    const [appliedFilters, setAppliedFilters] = useState<LedgerFilterState>(DEFAULT_LEDGER_FILTERS);
+    const [openEntry, setOpenEntry] = useState<LedgerEntry | null>(null);
+
+    // Customer add / edit / delete (moved here from the old table page)
+    const [name, setName] = useState("");
+    const [address, setAddress] = useState("");
+    const [city, setCity] = useState("");
+    const [state, setState] = useState("");
+    const [pincode, setPincode] = useState("");
+    const [gstin, setGstin] = useState("");
+    const [mobile, setMobile] = useState("");
+    const [email, setEmail] = useState("");
+    const [openingBalance, setOpeningBalance] = useState("");
     const [balanceType, setBalanceType] = useState<BalanceType>("debit");
-
-    const [isModalVisible, setModalVisible] = useState<boolean>(false);
-    const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
-    const [loadingPage, setLoadingPage] = useState(true);
-    const [loadError, setLoadError] = useState<ApiErrorInfo | null>(null);
+    const [isModalVisible, setModalVisible] = useState(false);
+    const [editing, setEditing] = useState<LedgerCustomerInfo | null>(null);
+    const [isDeleteOpen, setDeleteOpen] = useState(false);
     const { settings: companySettings, hasLoaded: companyLoaded, error: companyError } = useCompanySettings();
     const [showCompanyRequired, setShowCompanyRequired] = useState(false);
-    const [content, setContent] = useState("");
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
-    const [pagesCache, setPagesCache] = useState<Record<number, any[]>>({}); // Cache to store page data
-    const [dropdownOpen, setDropdownOpen] = useState<number | null>(null);
-    const [filterQuery, setFilterQuery] = useState<any>({
-        name: "",
-    });
-    const [searchQuery, setSearchQuery] = useState({ name: "" });
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [customerToDelete, setCustomerToDelete] = useState<string | null>(null);
 
-    const customers = pagesCache[currentPage] || [];
+    // ── data loading ────────────────────────────────────────────────
+    const loadParties = useCallback(
+        (page: number) => { dispatch(fetchCustomerSummaries({ search, currentPage: page })); },
+        [dispatch, search]
+    );
+
+    useEffect(() => { loadParties(1); }, [loadParties]);
+
+    // Debounce filter changes (the bill / LR search box types fast).
+    useEffect(() => {
+        const t = setTimeout(() => setAppliedFilters(filters), 300);
+        return () => clearTimeout(t);
+    }, [filters]);
 
     useEffect(() => {
-        const fetchData = async () => {
-            if (!pagesCache[currentPage]) {
-                setLoadingPage(true);
-                setLoadError(null);
-                const response: any = await dispatch(fetchCustomers({ ...searchQuery, currentPage, itemsPerPage }));
-                if (typeof response.payload !== 'string' && response.payload?.customers) {
-                    setPagesCache((prevCache) => ({
-                        ...prevCache,
-                        [currentPage]: response?.payload?.customers
-                    }));
-                } else {
-                    console.log("Unexpected response format: ", response.payload);
-                    if (response.payload?.kind) setLoadError(response.payload as ApiErrorInfo);
-                }
-                setLoadingPage(false);
-            }
+        if (selectedId) dispatch(fetchLedger({ id: selectedId, filters: appliedFilters, currentPage: 1 }));
+    }, [dispatch, selectedId, appliedFilters]);
 
-            // Preload next and previous pages
-            preloadAdjacentPages(currentPage, itemsPerPage);
-        };
+    const refresh = useCallback(() => {
+        loadParties(1);
+        if (selectedId) dispatch(fetchLedger({ id: selectedId, filters: appliedFilters, currentPage: 1 }));
+    }, [dispatch, loadParties, selectedId, appliedFilters]);
 
-        const preloadAdjacentPages = async (currentPage: number, itemsPerPage: number) => {
-            // Preload next page if it exists
-            if (currentPage < totalPages && !pagesCache[currentPage + 1]) {
-                const nextPageResponse: any = await dispatch(fetchCustomers({ ...searchQuery, currentPage: currentPage + 1, itemsPerPage }));
-
-                if (typeof nextPageResponse.payload !== "string" && nextPageResponse.payload?.customers) {
-                    setPagesCache((prevCache) => ({
-                        ...prevCache,
-                        [currentPage + 1]: nextPageResponse?.payload?.customers
-                    }));
-                }
-            }
-        };
-
-        fetchData();
-    }, [dispatch, searchQuery, currentPage, itemsPerPage, pagesCache, totalPages]);
-
-    const handleNextPage = () => {
-        if (currentPage < totalPages) setCurrentPage(prevPage => prevPage + 1);
+    const selectCustomer = (id: string) => {
+        setSelectedId(id);
+        setFilters(DEFAULT_LEDGER_FILTERS);
+        setAppliedFilters(DEFAULT_LEDGER_FILTERS);
+        setOpenEntry(null);
     };
 
-    const handlePreviousPage = () => {
-        if (currentPage > 1) setCurrentPage(prevPage => prevPage - 1);
+    const goBack = () => {
+        setSelectedId(null);
+        setOpenEntry(null);
+        dispatch(clearLedger());
     };
 
-    const handleSearch = useCallback((searchParams?: any) => {
-        let queryToUse = filterQuery;
-
-        // Handle reset operation
-        if (searchParams && searchParams.reset) {
-            queryToUse = { name: "" }; // Clear all filters
-            setFilterQuery({ name: "" }); // Reset the filter state
-            setSearchQuery({ name: "" }); // Reset search query
-            setPagesCache({});
-            return;
+    const loadMoreEntries = () => {
+        if (selectedId && ledger) {
+            dispatch(fetchLedger({ id: selectedId, filters: appliedFilters, currentPage: ledger.pagination.currentPage + 1 }));
         }
-
-        // Handle search from table's search bar
-        if (searchParams && searchParams.search !== undefined) {
-            queryToUse = {
-                ...filterQuery,
-                name: searchParams.search
-            };
-            setFilterQuery(queryToUse); // Keep filter state in sync
-        }
-
-        setSearchQuery(queryToUse);
-        setPagesCache({});
-        setCurrentPage(1);
-    }, [filterQuery]);
-
-    const handleItemsPerPageChange = (e: any) => {
-        setPagesCache({});
-        setItemsPerPage(Number(e.target.value));
-        setCurrentPage(1);
     };
 
+    // ── customer CRUD ───────────────────────────────────────────────
     const handleCreateNewCustomer = () => {
         // No company name yet -> explain instead of opening the form (the API refuses too).
         if (companyLoaded && !companyError && !companySettings.companyName.trim()) {
             setShowCompanyRequired(true);
             return;
         }
-        setName("");
-        setAddress("")
-        setCity("")
-        setState("")
-        setPincode("")
-        setGstin("")
-        setMobile("")
-        setEmail("")
-        setOpeningBalance("")
-        setBalanceType("debit")
-        setSelectedCustomer(null);
+        setName(""); setAddress(""); setCity(""); setState(""); setPincode("");
+        setGstin(""); setMobile(""); setEmail(""); setOpeningBalance(""); setBalanceType("debit");
+        setEditing(null);
         setModalVisible(true);
     };
 
-    const handleSave = async (e: any) => {
+    const onEdit = () => {
+        const c = ledger?.customer;
+        if (!c) return;
+        setEditing(c);
+        setName(c.name); setAddress(c.address ?? ""); setCity(c.city ?? ""); setState(c.state ?? "");
+        setPincode(c.pincode ?? ""); setGstin(c.gstin ?? ""); setMobile(c.mobile ?? ""); setEmail(c.email ?? "");
+        setOpeningBalance(c.openingBalance ? String(c.openingBalance) : "");
+        setBalanceType(c.balanceType === "credit" ? "credit" : "debit");
+        setModalVisible(true);
+    };
+
+    const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const customerData = { name, address, city, state, pincode, gstin, mobile, email, openingBalance: Number(openingBalance) || 0, balanceType };
-        let response: any;
-        if (selectedCustomer) {
-            // Update existing category
-            response = await dispatch(updateCustomer({ ...selectedCustomer, ...customerData }));
-        } else {
-            // Create new category
-            response = await dispatch(createCustomer(customerData));
-        }
-
-        // Wait for the response to resolve
-        if (response && response.payload && typeof response.payload !== 'string') {
-            // Update the state to show the new/update tag immediately
-            const updatedCategories: any = selectedCustomer
-                ? customers?.map(cat => cat._id === selectedCustomer._id ? { ...cat, ...customerData } : cat)
-                : [...customers, response.payload];
-
-            setPagesCache(prevCache => ({
-                ...prevCache,
-                [currentPage]: updatedCategories
-            }));
-            setModalVisible(false);
-        }
-    };
-
-    // Handle editing an existing category
-    const onEdit = (customer: any) => {
-        setSelectedCustomer(customer);
-        setName(customer.name);
-        setAddress(customer.address);
-        setCity(customer.city);
-        setState(customer.state);
-        setPincode(customer.pincode);
-        setGstin(customer.gstin);
-        setMobile(customer.mobile);
-        setEmail(customer.email);
-        setOpeningBalance(customer.openingBalance ? String(customer.openingBalance) : "");
-        setBalanceType(customer.balanceType === "credit" ? "credit" : "debit");
-        setModalVisible(true);
-        setDropdownOpen(null);
-    };
-
-    // Handle confirming delete
-    const confirmDelete = (customerId: string) => {
-        console.log("customerId : ", customerId);
-        setCustomerToDelete(customerId);
-        setIsDeleteModalOpen(true);
-        setDropdownOpen(null);
-    };
-
-    // Actual delete function
-    const handleDelete = async () => {
-        if (!customerToDelete) return;
-
-        try {
-            const response = await dispatch(deleteCustomer(customerToDelete));
-
-            if (response?.payload && typeof response.payload !== 'string') {
-                // Remove the deleted tag from the list of tags
-                const updatedCustomer = customers.filter(con => con._id !== customerToDelete);
-
-                setPagesCache(prevCache => ({
-                    ...prevCache,
-                    [currentPage]: updatedCustomer
-                }));
-                toast.success('Successfully deleted Customer')
+        const data = { name, address, city, state, pincode, gstin, mobile, email, openingBalance: Number(openingBalance) || 0, balanceType };
+        if (editing) {
+            const payload: CustomerPayload = { ...data, _id: editing._id, createdAt: editing.createdAt, updatedAt: editing.createdAt };
+            const action = await dispatch(updateCustomer(payload));
+            if (updateCustomer.fulfilled.match(action) && action.payload) {
+                setModalVisible(false);
+                refresh();
             }
-        } catch (error: any) {
-            toast.error(error.message || "Failed to delete Customer");
-        } finally {
-            setIsDeleteModalOpen(false);
-            setCustomerToDelete(null);
+        } else {
+            const action = await dispatch(createCustomer(data));
+            if (createCustomer.fulfilled.match(action) && action.payload) {
+                setModalVisible(false);
+                loadParties(1);
+                const createdId: unknown = action.payload._id;
+                if (typeof createdId === "string") selectCustomer(createdId);
+            }
         }
     };
 
-    const filterFields = [
-        <SearchBar
-            key="name"
-            filterQuery={filterQuery}
-            setFilterQuery={setFilterQuery}
-            placeHolder="Category name..."
-            fieldName="name" // Pass the key corresponding to the filter
-        />,
-        <StatusFilter
-            key="status"
-            filterQuery={filterQuery}
-            setFilterQuery={setFilterQuery}
-        />,
-    ];
+    const handleDelete = async () => {
+        const id = selectedId;
+        setDeleteOpen(false);
+        if (!id) return;
+        const action = await dispatch(deleteCustomer(id));
+        if (deleteCustomer.fulfilled.match(action)) {
+            toast.success("Successfully deleted Customer");
+            goBack();
+            loadParties(1);
+        }
+    };
+
+    // ── render ──────────────────────────────────────────────────────
+    const entries = ledger?.entries ?? [];
+    const hasMoreEntries = ledger ? ledger.pagination.currentPage < ledger.pagination.totalPages : false;
+    const filtersActive = useMemo(() => !filtersAreDefault(appliedFilters), [appliedFilters]);
 
     return (
-        <div className="container mx-auto p-4 bg-white shadow-md dark:bg-bg_secondary">
-            {/* Header Section with Stats */}
-            <div className="mb-6">
-                <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
-                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center w-full sm:w-auto">
-                        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">Manage Customers</h2>
-                        {/* Total count badge */}
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-[#102E56]/20 text-[#102E56] dark:text-blue-400 border border-blue-200 dark:border-blue-800/30">
-                            {totalCustomers || 0} Total Customers
-                        </span>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap gap-3 justify-end">
-                        <Button
-                            // variant="default"
-                            size="sm"
-                            onClick={handleCreateNewCustomer}
-                            className="bg-[#153a69] hover:bg-[#102E56] text-white flex items-center gap-2 w-full sm:w-auto"
-                        >
-                            <Plus size={16} />
-                            <span>Add Customer</span>
-                        </Button>
-                    </div>
-                </div>
-
-            </div>
-
+        <div className="container mx-auto p-2 sm:p-4">
             <CompanyProfileRequiredDialog
                 open={showCompanyRequired}
                 action="add customers"
                 onClose={() => setShowCompanyRequired(false)}
             />
-            <CompanySetupNotice className="mb-4" />
+            <CompanySetupNotice className="mb-3" />
 
-            {loadError && customers.length === 0 && !loadingPage && (
-                <ApiErrorState
-                    error={loadError}
-                    className="mb-4"
-                    onRetry={() => { setLoadError(null); setPagesCache({}); }}
-                />
-            )}
+            <div className="flex h-[calc(100dvh-8rem)] min-h-[520px] overflow-hidden rounded-lg border border-neutral-200 bg-(--ledger-surface) dark:border-neutral-700">
+                {/* LEFT: customer list (full screen on mobile until one is chosen) */}
+                <section className={`${selectedId ? "hidden md:flex" : "flex"} w-full flex-col md:w-[38%] md:max-w-md md:border-r md:border-neutral-200 dark:md:border-neutral-700`}>
+                    <PartyListPanel
+                        parties={parties}
+                        isLoading={partiesStatus === "loading"}
+                        error={partiesError}
+                        hasMore={partiesPage < partiesTotalPages}
+                        selectedId={selectedId}
+                        onSelect={selectCustomer}
+                        onSearch={setSearch}
+                        onLoadMore={() => loadParties(partiesPage + 1)}
+                        onRetry={() => loadParties(1)}
+                        onAdd={handleCreateNewCustomer}
+                    />
+                </section>
 
-            {/* Categories Table */}
-            <Table
-                headings={["Company / Customer Name", "Address", "City", "State", "Pin Code", "Gstin", "Mobile", "Email", "Opening Balance", "Actions"]}
-                handleSearch={handleSearch}
-                data={customers}
-                isLoading={loadingPage}
-                renderCell={(item: any, key: any) => {
-                    if (key === "Company / Customer Name") return (
-                        <span className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-200 max-w-[120px] sm:max-w-full">
-                            {item?.name}
-                        </span>
-                    );
-                    if (key === "Address") return (
-                        <span className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-200 max-w-[120px] sm:max-w-full">
-                            {item?.address}
-                        </span>
-                    );
-                    if (key === "City") return (
-                        <span className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-200 max-w-[120px] sm:max-w-full">
-                            {item?.city}
-                        </span>
-                    );
-                    if (key === "State") return (
-                        <span className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-200 max-w-[120px] sm:max-w-full">
-                            {item?.state}
-                        </span>
-                    );
-                    if (key === "Pin Code") return (
-                        <span className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-200 max-w-[120px] sm:max-w-full">
-                            {item?.pincode}
-                        </span>
-                    );
-                    if (key === "Gstin") return (
-                        <span className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-200 max-w-[120px] sm:max-w-full">
-                            {item?.gstin}
-                        </span>
-                    );
-                    if (key === "Mobile") return (
-                        <span className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-200 max-w-[120px] sm:max-w-full">
-                            {item?.mobile}
-                        </span>
-                    );
-                    if (key === "Email") return (
-                        <span className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-200 max-w-[120px] sm:max-w-full">
-                            {item?.email}
-                        </span>
-                    );
-                    if (key === "Opening Balance") return (
-                        <span className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-200 max-w-[120px] sm:max-w-full">
-                            {Number(item?.openingBalance ?? 0).toFixed(2)}{" "}
-                            <span className="text-xs text-gray-500">
-                                {item?.balanceType === "credit" ? "Cr" : "Dr"}
-                            </span>
-                        </span>
-                    );
-                    if (key === "Actions") return (
-                        <div className="flex items-center space-x-1 sm:space-x-2 absolute top-3 right-3 sm:static">
-                            <button
-                                onClick={() => onEdit(item)}
-                                className="p-1 sm:p-1.5 text-gray-600 hover:text-[#DB7007] hover:bg-orange-50 rounded transition-colors dark:text-gray-300 dark:hover:text-[#DB7007] dark:hover:bg-orange-900/20"
-                                title="Edit"
-                                aria-label="Edit customer"
-                            >
-                                <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            </button>
-                            {/* Delete button only for admin */}
-                            <button
-                                onClick={() => confirmDelete(item._id)}
-                                className="p-1 sm:p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors dark:text-gray-300 dark:hover:text-red-400 dark:hover:bg-red-900/20"
-                                title="Delete"
-                                aria-label="Delete customer"
-                            >
-                                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            </button>
-                        </div>
-                    );
-                }}
-                filterFields={filterFields}
-                itemsPerPage={10}
-            />
+                {/* RIGHT: ledger */}
+                <section className={`${selectedId ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col`}>
+                    {!selectedId ? (
+                        <NoCustomerSelected />
+                    ) : (
+                        <>
+                            <div className="p-3 pb-0">
+                                <LedgerHeader
+                                    name={ledger?.customer.name ?? parties.find((p) => p._id === selectedId)?.name ?? ""}
+                                    netBalance={ledger?.summary.overallNetBalance ?? parties.find((p) => p._id === selectedId)?.netBalance ?? 0}
+                                    filters={filters}
+                                    filtersActive={filtersActive}
+                                    onFiltersChange={setFilters}
+                                    onBack={goBack}
+                                    onEdit={onEdit}
+                                    onDelete={() => setDeleteOpen(true)}
+                                />
+                            </div>
 
-            <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                totalItems={totalCustomers}
-                handlePreviousPage={handlePreviousPage}
-                handleNextPage={handleNextPage}
-                handleItemPerPageChange={handleItemsPerPageChange}
+                            {ledger && <LedgerSummaryChips summary={ledger.summary} />}
+
+                            <div className="min-h-0 flex-1 overflow-y-auto">
+                                {ledgerError && !ledger ? (
+                                    <ApiErrorState error={ledgerError} onRetry={refresh} className="m-3" />
+                                ) : ledgerStatus === "loading" && !ledger ? (
+                                    <LedgerSkeleton />
+                                ) : ledger && entries.length === 0 ? (
+                                    <NoLedgerEntries filtered={filtersActive} />
+                                ) : (
+                                    <ul>
+                                        {entries.map((entry) => (
+                                            <LedgerEntryRow
+                                                key={entry.id}
+                                                entry={entry}
+                                                selected={openEntry?.id === entry.id}
+                                                onOpen={setOpenEntry}
+                                            />
+                                        ))}
+                                    </ul>
+                                )}
+                                {hasMoreEntries && (
+                                    <div className="p-3 text-center">
+                                        <Button size="sm" variant="outline" onClick={loadMoreEntries} isLoading={ledgerStatus === "loading"}>
+                                            Load more entries
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 bg-white p-3 dark:bg-neutral-900">
+                                {/* Wired up in phase 3 (RecordPaymentDialog). */}
+                                <button type="button" disabled title="Coming soon" className="h-10 cursor-not-allowed rounded-md bg-(--receivable-soft) text-sm font-semibold text-(--receivable) opacity-70">
+                                    Receivable (Debit)
+                                </button>
+                                <button type="button" disabled title="Coming soon" className="h-10 cursor-not-allowed rounded-md bg-(--received-soft) text-sm font-semibold text-(--received) opacity-70">
+                                    Received (Credit)
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </section>
+            </div>
+
+            <LedgerEntryDrawer
+                entry={openEntry}
+                billStatus={openEntry?.billId ? ledger?.billStatuses[openEntry.billId] : undefined}
+                onClose={() => setOpenEntry(null)}
             />
 
             <EditOrCreateNewModalWrapper
-                title={selectedCustomer ? "Edit Customer" : "Create Customer"}
+                title={editing ? "Edit Customer" : "Create Customer"}
                 isVisible={isModalVisible}
                 onClose={() => setModalVisible(false)}
                 onSave={handleSave}
                 size="large"
             >
-                {/* Name Field */}
                 <div className="form-group mb-5">
                     <FormInput label="Company / Customer Name" value={name} onChange={(e) => setName(e.target.value)} required={true} placeholder="Customer Name" />
                 </div>
-
-                {/* Description Field */}
                 <div className="form-group mb-5">
                     <FormTextarea
                         label='Address'
@@ -413,7 +287,6 @@ export default function CustomerManagement({ params }: { params: Promise<{ role:
                         placeholder="Enter customer address (optional)"
                     />
                 </div>
-
                 <div className="form-group mb-5">
                     <FormInput label="City" value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" />
                 </div>
@@ -441,24 +314,19 @@ export default function CustomerManagement({ params }: { params: Promise<{ role:
                         labels={CUSTOMER_BALANCE_LABELS}
                     />
                 </div>
-
             </EditOrCreateNewModalWrapper>
 
-            {/* Delete Confirmation Modal */}
-            <AlertDialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+            <AlertDialog open={isDeleteOpen} onOpenChange={setDeleteOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the category.
+                            This action cannot be undone. This will permanently delete the customer.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setCustomerToDelete(null)}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleDelete}
-                            className="bg-red-600 hover:bg-red-700 text-white"
-                        >
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white">
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>
