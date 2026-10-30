@@ -52,6 +52,8 @@ const companySettingsSchema = new Schema<ICompanySettings>(
     quotationTerms: { type: String, default: "", maxlength: 10000 },
     lrTerms: { type: String, default: "", maxlength: 10000 },
     lrFormat: { type: String, enum: LR_FORMATS, default: DEFAULT_COMPANY_SETTINGS.lrFormat },
+    lorryHireStartNumber: { type: Number, default: 1, min: 1, max: 999999999999 },
+lorryHireTerms: { type: String, default: "", maxlength: 10000 },
     lrFormatBackgrounds: {
       type: new Schema(
         Object.fromEntries(

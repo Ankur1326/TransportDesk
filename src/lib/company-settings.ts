@@ -80,6 +80,8 @@ export interface CompanySettingsValues {
   consignmentStartNumber: number;
   invoiceTerms: string;
   quotationTerms: string;
+  lorryHireStartNumber: number;
+lorryHireTerms: string;
   lrTerms: string;
   lrFormat: LRFormat;
   lrFormatBackgrounds: Record<LRFormat, LRFormatBackground>;
@@ -120,6 +122,8 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettingsValues = {
   consignmentStartNumber: 1,
   invoiceTerms: "",
   quotationTerms: "",
+  lorryHireStartNumber: 1,
+lorryHireTerms: "",
   lrTerms: "",
   lrFormat: "classic",
   lrFormatBackgrounds: Object.fromEntries(
