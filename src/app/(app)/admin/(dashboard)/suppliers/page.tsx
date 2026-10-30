@@ -23,6 +23,7 @@ import type { ApiErrorInfo } from "@/lib/api/errors";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { CompanyProfileRequiredDialog } from "@/components/admin/CompanyProfileRequiredDialog";
 import { OpeningBalanceField } from "@/components/parties/OpeningBalanceField";
+import SupplierLedgerPanel from "@/components/lorry-hire/SupplierLedgerPanel";
 import { SUPPLIER_BALANCE_LABELS, type BalanceType } from "@/lib/opening-balance";
 
 export default function SupplierManagement({ params }: { params: Promise<{ role: string }> }) {
@@ -61,6 +62,7 @@ export default function SupplierManagement({ params }: { params: Promise<{ role:
     const [searchQuery, setSearchQuery] = useState({ name: "" });
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [supplierToDelete, setSupplierToDelete] = useState<string | null>(null);
+    const [ledgerSupplier, setLedgerSupplier] = useState<{ id: string; name: string } | null>(null);
 
     const suppliers = pagesCache[currentPage] || [];
 
@@ -357,6 +359,14 @@ export default function SupplierManagement({ params }: { params: Promise<{ role:
                     if (key === "Actions") return (
                         <div className="flex items-center space-x-1 sm:space-x-2 absolute top-3 right-3 sm:static">
                             <button
+                                onClick={() => setLedgerSupplier({ id: item._id, name: item.name })}
+                                className="px-2 py-1 text-xs font-medium text-gray-600 hover:text-[#DB7007] hover:bg-orange-50 rounded transition-colors dark:text-gray-300"
+                                title="Supplier ledger"
+                                aria-label="Open supplier ledger"
+                            >
+                                Ledger
+                            </button>
+                            <button
                                 onClick={() => onEdit(item)}
                                 className="p-1 sm:p-1.5 text-gray-600 hover:text-[#DB7007] hover:bg-orange-50 rounded transition-colors dark:text-gray-300 dark:hover:text-[#DB7007] dark:hover:bg-orange-900/20"
                                 title="Edit"
@@ -379,6 +389,14 @@ export default function SupplierManagement({ params }: { params: Promise<{ role:
                 filterFields={filterFields}
                 itemsPerPage={10}
             />
+
+            {ledgerSupplier && (
+                <SupplierLedgerPanel
+                    supplierId={ledgerSupplier.id}
+                    supplierName={ledgerSupplier.name}
+                    onClose={() => setLedgerSupplier(null)}
+                />
+            )}
 
             <Pagination
                 currentPage={currentPage}
