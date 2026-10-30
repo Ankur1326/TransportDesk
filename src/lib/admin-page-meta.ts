@@ -8,6 +8,7 @@ export const ADMIN_PAGE_TITLES: Record<string, string> = {
   "/admin/shipments": "Shipments",
   "/admin/vehicles": "Vehicles",
   "/admin/drivers": "Drivers",
+  "/admin/reports/trip-profit": "Trip Profit",
   "/admin/customers": "Customers",
   "/admin/suppliers": "Suppliers",
   "/admin/payments": "Payments",

@@ -28,6 +28,9 @@ export interface IPayment extends Document {
   billId?: mongoose.Types.ObjectId;
   billNo?: string;
   consignmentId?: mongoose.Types.ObjectId;
+  /** Set on supplier payments that mirror a lorry hire contract's payment. */
+  lorryHireId?: mongoose.Types.ObjectId;
+  lhcNo?: string;
   amount: number;
   date: Date;
   mode: PaymentMode;
@@ -49,6 +52,8 @@ const paymentSchema = new Schema<IPayment>(
     billId: { type: Schema.Types.ObjectId, ref: "FreightBill" },
     billNo: { type: String, trim: true },
     consignmentId: { type: Schema.Types.ObjectId, ref: "Consignment" },
+    lorryHireId: { type: Schema.Types.ObjectId, ref: "LorryHire" },
+    lhcNo: { type: String, trim: true },
     amount: {
       type: Number,
       required: true,
@@ -66,8 +71,9 @@ const paymentSchema = new Schema<IPayment>(
 
 paymentSchema.index({ companyId: 1, partyId: 1, date: -1 });
 paymentSchema.index({ companyId: 1, billId: 1 });
+paymentSchema.index({ companyId: 1, lorryHireId: 1 });
 
-dropStaleModel("Payment", "direction");
+dropStaleModel("Payment", "lorryHireId");
 
 const PaymentModel: Model<IPayment> =
   (mongoose?.models?.Payment as Model<IPayment>) || model<IPayment>("Payment", paymentSchema);

@@ -19,6 +19,12 @@ export async function PUT(request: Request) {
     await dbConnect();
     const existing = await PaymentModel.findOne({ $and: [companyFilter(auth.companyId), { _id: input._id }] });
     if (!existing) return Response.json({ success: false, message: "Payment not found." }, { status: 404 });
+    if (existing.lorryHireId) {
+      return Response.json(
+        { success: false, message: "This payment belongs to a lorry hire contract. Edit it from the contract." },
+        { status: 409 }
+      );
+    }
     if (input.billId && existing.direction !== "received") {
       return Response.json({ success: false, message: "Only received payments can be linked to a bill." }, { status: 400 });
     }

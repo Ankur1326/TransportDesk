@@ -119,6 +119,33 @@ export const NAVIGATION_CONFIG: Record<string, NavigationConfig> = {
       },
 
       // ─────────────────────────────────────────
+      // Fleet & reports
+      // ─────────────────────────────────────────
+      {
+        name: "Fleet",
+        items: [
+          {
+            id: "vehicles",
+            title: "vehicles",
+            icon: <Truck className="h-[18px] w-[18px]" />,
+            route: "/admin/vehicles",
+          },
+          {
+            id: "drivers",
+            title: "drivers",
+            icon: <LuUsersRound className="h-[18px] w-[18px]" />,
+            route: "/admin/drivers",
+          },
+          {
+            id: "trip-profit",
+            title: "trip profit",
+            icon: <LuReceiptText className="h-[18px] w-[18px]" />,
+            route: "/admin/reports/trip-profit",
+          },
+        ],
+      },
+
+      // ─────────────────────────────────────────
       // Account
       // ─────────────────────────────────────────
       {

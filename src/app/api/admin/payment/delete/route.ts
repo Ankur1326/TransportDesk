@@ -16,6 +16,16 @@ export async function DELETE(request: Request) {
 
   try {
     await dbConnect();
+    // Supplier payments on a lorry hire contract are managed from the contract.
+    const linked = await PaymentModel.exists({
+      $and: [companyFilter(auth.companyId), { _id: parsed.data._id, lorryHireId: { $exists: true } }],
+    });
+    if (linked) {
+      return Response.json(
+        { success: false, message: "This payment belongs to a lorry hire contract. Remove it from the contract." },
+        { status: 409 }
+      );
+    }
     const removed = await PaymentModel.findOneAndDelete({
       $and: [companyFilter(auth.companyId), { _id: parsed.data._id }],
     }).lean();

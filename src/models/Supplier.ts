@@ -16,6 +16,18 @@ export interface ISupplier extends Document {
     openingBalance: number;
     /** "debit" = Paid, "credit" = Payable. */
     balanceType: BalanceType;
+    /** Lorry hire details (optional; filled when a supplier is created from a contract). */
+    panNumber?: string;
+    supplierType?: "Broker" | "Owner";
+    defaultTdsRate?: number;
+    tdsDeclaration?: boolean;
+    bankDetails?: {
+        accountHolderName?: string;
+        bankName?: string;
+        accountNumber?: string;
+        ifscCode?: string;
+        upiId?: string;
+    };
     companyId: string;
     createdBy?: mongoose.Types.ObjectId;
     createdAt: Date;
@@ -69,6 +81,17 @@ const SupplierSchema: Schema<ISupplier> = new mongoose.Schema(
             enum: BALANCE_TYPES,
             default: "debit"
         },
+        panNumber: { type: String, default: "", uppercase: true, trim: true, maxlength: 10 },
+        supplierType: { type: String, enum: ["Broker", "Owner"], default: "Broker" },
+        defaultTdsRate: { type: Number, min: 0, max: 100 },
+        tdsDeclaration: { type: Boolean, default: false },
+        bankDetails: {
+            accountHolderName: { type: String, default: "", trim: true, maxlength: 160 },
+            bankName: { type: String, default: "", trim: true, maxlength: 160 },
+            accountNumber: { type: String, default: "", trim: true, maxlength: 34 },
+            ifscCode: { type: String, default: "", uppercase: true, trim: true, maxlength: 11 },
+            upiId: { type: String, default: "", trim: true, maxlength: 100 },
+        },
         companyId: {
             type: String,
             required: [true, "companyId is required"],
@@ -84,7 +107,7 @@ const SupplierSchema: Schema<ISupplier> = new mongoose.Schema(
 // Names are unique per company, not globally.
 SupplierSchema.index({ companyId: 1, name: 1 }, { unique: true })
 
-dropStaleModel("Supplier", "balanceType");
+dropStaleModel("Supplier", "panNumber");
 
 const Supplier: Model<ISupplier> = (mongoose?.models?.Supplier as Model<ISupplier>) || model<ISupplier>("Supplier", SupplierSchema)
 

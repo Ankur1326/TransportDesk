@@ -13,7 +13,7 @@ import {
 } from "@/lib/validations/billing";
 import type { ChargeLine } from "@/lib/charges";
 import { LR_STATUSES, type LrStatus } from "@/lib/consignment-status";
-
+import { dropStaleModel } from "@/lib/model-guard";
 // ─── Sub-document interfaces ────────────────────────────────────────────────
 
 export interface IParty {
@@ -151,6 +151,12 @@ export interface IConsignment extends Document {
 
     /** Stored LR PDFs by variant ("default", "all", ...). See src/lib/lr-pdf-cache.ts. */
     pdfCache?: Record<string, { url: string; publicId: string; sourceUpdatedAt: string }>;
+
+    /** Set while the LR is carried on a lorry hire contract. */
+    lorryHire?: {
+        lorryHireId: mongoose.Types.ObjectId;
+        lhcNo: string;
+    };
 
     companyId?: string;
     createdBy?: mongoose.Types.ObjectId;
@@ -338,6 +344,24 @@ const consignmentSchema = new Schema<IConsignment>(
 
         pdfCache: { type: Schema.Types.Mixed, default: undefined },
 
+        lorryHire: {
+            type: new Schema(
+                {
+                    lorryHireId: {
+                        type: Schema.Types.ObjectId,
+                        ref: "LorryHire",
+                        required: true,
+                    },
+                    lhcNo: {
+                        type: String,
+                        required: true,
+                    },
+                },
+                { _id: false }
+            ),
+            default: undefined,
+        },
+
         companyId: { type: String, index: true },
         createdBy: { type: Schema.Types.ObjectId, ref: "User" },
     },
@@ -353,6 +377,12 @@ consignmentSchema.index({ bookingDate: -1 });
 consignmentSchema.index({ "consignor.name": 1 });
 consignmentSchema.index({ "consignee.name": 1 });
 consignmentSchema.index({ createdAt: -1 });
+consignmentSchema.index({
+    companyId: 1,
+    "lorryHire.lorryHireId": 1,
+});
+
+dropStaleModel("Consignment", "lorryHire");
 
 const ConsignmentModel: Model<IConsignment> =
     (mongoose?.models?.Consignment as Model<IConsignment>) ||
