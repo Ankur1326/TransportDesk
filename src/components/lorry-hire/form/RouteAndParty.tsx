@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import axios from "axios";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { Combobox, type ComboboxItem } from "@/components/ui/Combobox";
@@ -28,6 +28,19 @@ function PlaceFields({ prefix, title }: { prefix: "from" | "to"; title: string }
   );
 }
 
+/** Top of the form: the contract's own identity — number, date and loading date. */
+export function LhcDetailsSection({ status }: { status?: ReactNode }) {
+  return (
+    <FormBlock id="details" title="LHC details" hint="Contract number and dates." action={status}>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <TextField name="lhcNo" label="LHC number" required upper />
+        <TextField name="lhcDate" label="LHC date" type="date" required />
+        <TextField name="loadingDate" label="Loading date" type="date" />
+      </div>
+    </FormBlock>
+  );
+}
+
 export function RouteSection() {
   const { control, setValue } = useFormContext<V>();
   const [loadingDate, transitDays] = useWatch({ control, name: ["loadingDate", "transitDays"] });
@@ -43,15 +56,12 @@ export function RouteSection() {
   }, [loadingDate, transitDays, setValue]);
 
   return (
-    <FormBlock id="route" title="Route & dates" hint="Where the truck is going and when.">
+    <FormBlock id="route" title="Route" hint="Where the truck is going.">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <PlaceFields prefix="from" title="From" />
         <PlaceFields prefix="to" title="To" />
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-5">
-        <TextField name="lhcNo" label="LHC number" required upper />
-        <TextField name="lhcDate" label="LHC date" type="date" required />
-        <TextField name="loadingDate" label="Loading date" type="date" />
+      <div className="mt-3 grid grid-cols-2 gap-3">
         <NumField name="transitDays" label="Transit days" placeholder="0" step="1" />
         <TextField name="expectedDeliveryDate" label="Expected delivery" type="date" />
       </div>

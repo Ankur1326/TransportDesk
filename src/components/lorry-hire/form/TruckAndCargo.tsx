@@ -12,17 +12,19 @@ import { LrPickerDialog } from "./LrPickerDialog";
 type V = LorryHireFormValues;
 type Last = Partial<LorryHireRecord>;
 
-const TRUCK_TYPES = ["Mini Truck (Tempo)", "Pickup", "Open Truck", "Closed Container", "Trailer", "Tanker", "Tipper"];
+const TRUCK_TYPES = ["Mini Truck (Tempo)", "Pickup", "Open Truck", "Closed Container", "Trailer", "Tanker", "Tipper", "Other"];
 
 // ─── Truck & driver ──────────────────────────────────────────────────────────
 
 export function TruckSection() {
   const { control, setValue, getValues } = useFormContext<V>();
   const [hint, setHint] = useState<Last | null>(null);
-  const [chassis, permit, insurer, licExpiry] = useWatch({
+  const [chassis, permit, insurer, licExpiry, truckType] = useWatch({
     control,
-    name: ["truck.chassisNo", "truck.permitNo", "insurance.company", "driver.licenseExpiry"],
+    name: ["truck.chassisNo", "truck.permitNo", "insurance.company", "driver.licenseExpiry", "truck.truckType"],
   });
+  // A saved or looked-up type that isn't in the list must still show as selected.
+  const truckTypeOptions = truckType && !TRUCK_TYPES.includes(truckType) ? [...TRUCK_TYPES, truckType] : TRUCK_TYPES;
 
   // Typing a known truck number offers its last driver / owner / type in one tap.
   const checkVehicle = async () => {
@@ -75,12 +77,8 @@ export function TruckSection() {
         </div>
       )}
 
-      <datalist id="lhc-truck-types">
-        {TRUCK_TYPES.map((t) => <option key={t} value={t} />)}
-      </datalist>
-
       <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <TextField name="truck.truckType" label="Truck type" list="lhc-truck-types" className="col-span-2" />
+        <SelectField name="truck.truckType" label="Truck type" placeholder="Select truck type" options={truckTypeOptions} className="col-span-2" />
         <NumField name="truck.capacity" label="Capacity" />
         <SelectField name="truck.capacityUnit" label="Unit" options={WEIGHT_UNITS} />
       </div>

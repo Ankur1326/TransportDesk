@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/Button";
-import { Truck } from "@/components/icons";
+import { Printer, Truck } from "@/components/icons";
 import type { LorryHireRecord } from "@/lib/lorry-hire/api";
 import { formatVehicleNumber } from "@/lib/lorry-hire/constants";
 import { canCancelLorryHire, canTransitionLorryHire } from "@/lib/lorry-hire/status";
@@ -18,6 +18,8 @@ export interface LorryHireCardActions {
   markInTransit: (r: LorryHireRecord) => void;
   markDelivered: (r: LorryHireRecord) => void;
   cancel: (r: LorryHireRecord) => void;
+  /** Opens the contract's PDF (stored copy when current, built once otherwise). */
+  print: (r: LorryHireRecord) => void;
 }
 
 export function LorryHireCard({ r, actions }: { r: LorryHireRecord; actions: LorryHireCardActions }) {
@@ -66,6 +68,9 @@ export function LorryHireCard({ r, actions }: { r: LorryHireRecord; actions: Lor
       {!cancelled && (
         <div className="mt-3 flex flex-wrap gap-2 border-t border-neutral-100 pt-3">
           <Link href={`/admin/lorry-hires/${r._id}`}><Button size="sm" variant="outline">Edit</Button></Link>
+          <Button size="sm" variant="outline" onClick={() => actions.print(r)}>
+            <Printer className="h-4 w-4" aria-hidden="true" /> Print
+          </Button>
           <Button size="sm" variant="outline" disabled={r.settlement.balance <= 0} onClick={() => actions.addPayment(r)}>
             Add payment
           </Button>
@@ -90,7 +95,14 @@ export function LorryHireCard({ r, actions }: { r: LorryHireRecord; actions: Lor
           </Button>
         </div>
       )}
-      {cancelled && r.cancelReason && <p className="mt-2 text-caption text-neutral-500">Reason: {r.cancelReason}</p>}
+      {cancelled && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-neutral-100 pt-3">
+          <Button size="sm" variant="outline" onClick={() => actions.print(r)}>
+            <Printer className="h-4 w-4" aria-hidden="true" /> Print
+          </Button>
+          {r.cancelReason && <p className="text-caption text-neutral-500">Reason: {r.cancelReason}</p>}
+        </div>
+      )}
     </article>
   );
 }

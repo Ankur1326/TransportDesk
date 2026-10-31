@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { ChevronLeft, ChevronRight, Search, Truck } from "@/components/icons";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ApiErrorState } from "@/components/ui/ApiErrorState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -21,6 +22,7 @@ import {
   type LorryHireRecord,
 } from "@/lib/lorry-hire/api";
 import { LORRY_HIRE_STATUSES, PAYMENT_STATUSES, type LorryHirePaymentStatus, type LorryHireStatus } from "@/lib/lorry-hire/constants";
+import { openLorryHirePdf } from "@/lib/lorry-hire/pdf-url";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
@@ -96,6 +98,7 @@ export default function LorryHiresPage() {
     markInTransit: (r) => move(r, "In Transit"),
     markDelivered: (r) => move(r, "Delivered"),
     cancel: setCancelTarget,
+    print: openLorryHirePdf,
   };
 
   const items = data?.data ?? [];
@@ -142,19 +145,16 @@ export default function LorryHiresPage() {
             startIcon={<Search className="h-4 w-4" aria-hidden="true" />}
           />
         </div>
-        <div className="flex gap-1">
-          {(["", ...PAYMENT_STATUSES] as const).map((p) => (
-            <button
-              key={p || "all"}
-              onClick={() => { setPay(p); setPage(1); }}
-              className={cn(
-                "rounded-full px-3 py-1.5 text-body-sm",
-                pay === p ? "bg-brand-100 font-medium text-brand-800" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              )}
-            >
-              {p ? `${p}${counts ? ` ${counts.byPayment[p]}` : ""}` : "Any payment"}
-            </button>
-          ))}
+        <div className="sm:w-56">
+          <Select
+            aria-label="Payment status"
+            value={pay}
+            onChange={(e) => { setPay(e.target.value as "" | LorryHirePaymentStatus); setPage(1); }}
+            options={[
+              { value: "", label: "Any payment" },
+              ...PAYMENT_STATUSES.map((p) => ({ value: p, label: `${p}${counts ? ` (${counts.byPayment[p]})` : ""}` })),
+            ]}
+          />
         </div>
       </div>
 

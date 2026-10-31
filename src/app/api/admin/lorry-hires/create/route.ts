@@ -1,10 +1,12 @@
 import mongoose from "mongoose";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import dbConnect from "@/lib/db";
 import LorryHireModel from "@/models/LorryHire";
 import { requireCompanyProfile } from "@/lib/company-scope";
+import { warmLorryHirePdf } from "@/lib/lorry-hire/pdf-cache";
+import { pdfRenderBaseUrl } from "@/lib/pdf-cache";
 import { allConsignmentsBelongToCompany } from "@/lib/bill/verify-consignments";
 import { lorryHireFormSchema, summarizeLorryHireForm } from "@/lib/lorry-hire/validations";
 import {
@@ -82,6 +84,12 @@ export async function POST(request: NextRequest) {
       )
     );
     await syncConsignmentLinks(auth.companyId, created._id as mongoose.Types.ObjectId, created.lhcNo, consignmentIds, []);
+
+    // Build the PDF in the background so the first "open" is already instant.
+    const cookieHeader = request.headers.get("cookie") ?? "";
+    const baseUrl = pdfRenderBaseUrl(request.nextUrl.origin);
+    const contractId = String(created._id);
+    after(() => warmLorryHirePdf({ id: contractId, companyId: auth.companyId, baseUrl, cookieHeader }));
 
     return NextResponse.json(
       { success: true, message: "Lorry hire contract created successfully", data: created },

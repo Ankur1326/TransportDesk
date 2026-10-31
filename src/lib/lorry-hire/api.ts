@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { PdfCacheEntry } from "@/lib/pdf-url";
 import type { LorryHireFormValues, LorryHirePaymentValues } from "./validations";
 import type {
   ChargeKind,
@@ -85,6 +86,8 @@ export interface LorryHireRecord {
     balance: number;
     paymentStatus: LorryHirePaymentStatus;
     totalPackages: number;
+    totalActualWeight?: number;
+    totalChargedWeight?: number;
   };
   payments: {
     _id: string;
@@ -104,6 +107,8 @@ export interface LorryHireRecord {
   driverSignature?: string;
   status: LorryHireStatus;
   cancelReason?: string;
+  /** Stored PDFs by variant — lets the list open a current PDF without a round trip. */
+  pdfCache?: Record<string, PdfCacheEntry>;
   createdAt: string;
   updatedAt: string;
 }

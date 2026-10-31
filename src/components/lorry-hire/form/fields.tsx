@@ -115,6 +115,7 @@ export function SelectField({
   options,
   className,
   number,
+  placeholder,
 }: {
   name: Name;
   label: string;
@@ -122,6 +123,8 @@ export function SelectField({
   className?: string;
   /** Store the chosen value as a number (e.g. GST rate). */
   number?: boolean;
+  /** Shown while nothing is chosen (the stored value is then ""). */
+  placeholder?: string;
 }) {
   const { register } = useFormContext<LorryHireFormValues>();
   const error = useFieldError(name);
@@ -130,6 +133,7 @@ export function SelectField({
       <Select
         label={label}
         error={error}
+        placeholder={placeholder}
         options={options.map((o) => ({ value: String(o), label: String(o) }))}
         {...register(name as never, number ? { valueAsNumber: true } : undefined)}
       />

@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import dbConnect from "@/lib/db";
 import LorryHireModel from "@/models/LorryHire";
 import { companyFilter, requireCompanyProfile } from "@/lib/company-scope";
+import { warmLorryHirePdf } from "@/lib/lorry-hire/pdf-cache";
+import { pdfRenderBaseUrl } from "@/lib/pdf-cache";
 import { allConsignmentsBelongToCompany } from "@/lib/bill/verify-consignments";
 import { lorryHireFormSchema } from "@/lib/lorry-hire/validations";
 import {
@@ -95,6 +97,12 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
     if (hasPayments) {
       await refreshMirrors(auth.companyId, updated._id, { lhcNo: updated.lhcNo, partyName: updated.supplier.name });
     }
+
+    // Re-build the PDF in the background so the next "open" is already instant.
+    const cookieHeader = request.headers.get("cookie") ?? "";
+    const baseUrl = pdfRenderBaseUrl(request.nextUrl.origin);
+    const contractId = String(updated._id);
+    after(() => warmLorryHirePdf({ id: contractId, companyId: auth.companyId, baseUrl, cookieHeader }));
 
     return NextResponse.json({ success: true, message: "Lorry hire contract updated successfully", data: updated });
   } catch (error) {

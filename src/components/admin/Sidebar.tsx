@@ -300,11 +300,11 @@ export default function Sidebar({
             </div>
 
             {/* Footer tagline */}
-            <div className="shrink-0 border-t border-neutral-200 px-4 py-3 dark:border-brand-800">
+            {/* <div className="shrink-0 border-t border-neutral-200 px-4 py-3 dark:border-brand-800">
                 <p className="text-caption leading-snug text-neutral-400 dark:text-neutral-500">
                     Reliable freight & logistics
                 </p>
-            </div>
+            </div> */}
         </aside>
     );
 }

@@ -151,4 +151,4 @@ export const fail = (message: string, status: number) => NextResponse.json({ suc
 export const DUPLICATE_LHC_MESSAGE = "That LHC number already exists — refresh and try again.";
 
 /** Fields the list / detail APIs never send (large or internal). */
-export const LIST_EXCLUDE = "-driverSignature -pdfCache -statusHistory";
+export const LIST_EXCLUDE = "-driverSignature -statusHistory";
