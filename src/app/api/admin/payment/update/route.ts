@@ -17,7 +17,7 @@ export async function PUT(request: Request) {
 
   try {
     await dbConnect();
-    const existing = await PaymentModel.findOne({ $and: [companyFilter(auth.companyId), { _id: input._id }] });
+    const existing = await PaymentModel.findOne({ $and: [companyFilter(auth.companyId), { _id: input._id, partyType: "customer" }] });
     if (!existing) return Response.json({ success: false, message: "Payment not found." }, { status: 404 });
     if (existing.lorryHireId) {
       return Response.json(

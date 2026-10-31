@@ -11,7 +11,10 @@ export function LedgerFilters({
   value,
   onChange,
   onClose,
+  showUnbilled,
 }: {
+  /** Customers only: bilties not yet on a bill. */
+  showUnbilled: boolean;
   value: LedgerFilterState;
   onChange: (next: LedgerFilterState) => void;
   onClose: () => void;
@@ -33,6 +36,7 @@ export function LedgerFilters({
           <input type="date" className={field} value={value.to} min={value.from || undefined} onChange={(e) => set("to", e.target.value)} />
         </label>
       </div>
+      {showUnbilled && (
       <label className="flex items-start gap-2 text-sm text-neutral-700 dark:text-neutral-200">
         <input
           type="checkbox"
@@ -45,6 +49,7 @@ export function LedgerFilters({
           <span className="block text-xs text-neutral-500">Bilties not yet on a bill count as receivable.</span>
         </span>
       </label>
+      )}
       <div className="flex justify-between">
         <Button size="sm" variant="ghost" onClick={() => onChange(DEFAULT_LEDGER_FILTERS)}>
           Reset all

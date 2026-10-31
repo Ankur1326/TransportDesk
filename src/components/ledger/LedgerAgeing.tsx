@@ -10,18 +10,18 @@ const BAR: Record<AgeingBucket["key"], string> = {
   "90+": "bg-(--receivable)",
 };
 
-export function LedgerAgeing({ ageing }: { ageing: Ageing }) {
+export function LedgerAgeing({ ageing, docPlural = "invoices" }: { ageing: Ageing; docPlural?: string }) {
   if (ageing.total <= 0) return null;
   return (
     <section
-      aria-label="Open invoices by age"
+      aria-label={`Open ${docPlural} by age`}
       className="mx-3 mt-3 rounded-xl border border-(--ledger-line) bg-(--ledger-card) px-3 py-2.5"
     >
       <p
         className="flex items-center justify-between text-[11px] font-medium text-neutral-500"
         title="Counted from each bill's date. The opening balance and advances not applied to a bill are not included."
       >
-        <span>Open invoices by age</span>
+        <span>Open {docPlural} by age</span>
         <span className="font-semibold text-neutral-700 dark:text-neutral-200">{formatInr(ageing.total)} due</span>
       </p>
       <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-(--ledger-surface)" role="img" aria-label="Share of dues by age">

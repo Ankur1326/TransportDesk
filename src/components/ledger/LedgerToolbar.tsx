@@ -4,18 +4,13 @@ import { SlidersHorizontal } from "@/components/ledger/ledger-icons";
 import { useEffect, useRef, useState } from "react";
 import { Search } from "@/components/icons";
 import { cn } from "@/lib/utils";
-import type { LedgerTypeFilter } from "@/lib/ledger/build-ledger";
+import { PARTY_CONFIG, type PartyKind } from "@/lib/ledger/party-kind";
 import { activePeriod, periodRange, PERIODS } from "@/lib/ledger/periods";
 import { LedgerFilters } from "@/components/ledger/LedgerFilters";
 import type { LedgerFilterState } from "@/redux/slices/ledgerSlice";
 
-const TYPES: { key: LedgerTypeFilter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "receivable", label: "Receivable" },
-  { key: "received", label: "Received" },
-];
-
 interface LedgerToolbarProps {
+  kind: PartyKind;
   value: LedgerFilterState;
   /** Any filter differs from the default. */
   active: boolean;
@@ -34,7 +29,8 @@ const chip = (on: boolean) =>
       : "border-(--ledger-line) bg-(--ledger-card) text-neutral-600 hover:bg-(--ledger-surface) dark:text-neutral-300"
   );
 
-export function LedgerToolbar({ value, active, onChange, showBalance, balanceAvailable, onShowBalanceChange }: LedgerToolbarProps) {
+export function LedgerToolbar({ kind, value, active, onChange, showBalance, balanceAvailable, onShowBalanceChange }: LedgerToolbarProps) {
+  const cfg = PARTY_CONFIG[kind];
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const period = activePeriod(value.from, value.to);
@@ -71,7 +67,7 @@ export function LedgerToolbar({ value, active, onChange, showBalance, balanceAva
 
       <div className="flex flex-wrap items-center gap-2">
         <div role="group" aria-label="Entry type" className="flex rounded-lg bg-(--ledger-surface) p-0.5 ring-1 ring-inset ring-(--ledger-line)">
-          {TYPES.map((t) => (
+          {cfg.typeFilters.map((t) => (
             <button
               key={t.key}
               type="button"
@@ -96,8 +92,8 @@ export function LedgerToolbar({ value, active, onChange, showBalance, balanceAva
             value={value.search}
             onChange={(e) => onChange({ ...value, search: e.target.value })}
             maxLength={100}
-            placeholder="Bill or LR number"
-            aria-label="Search by bill or LR number"
+            placeholder={cfg.searchPlaceholder}
+            aria-label={`Search by ${cfg.searchPlaceholder.toLowerCase()}`}
             className="h-9 w-full rounded-lg border border-(--ledger-line) bg-(--ledger-card) pl-8 pr-2 text-sm outline-none focus:border-(--ledger-edge)"
           />
         </div>
@@ -126,7 +122,7 @@ export function LedgerToolbar({ value, active, onChange, showBalance, balanceAva
             <SlidersHorizontal size={16} />
             {active && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-(--ledger-edge) ring-2 ring-(--ledger-card)" />}
           </button>
-          {open && <LedgerFilters value={value} onChange={onChange} onClose={() => setOpen(false)} />}
+          {open && <LedgerFilters value={value} onChange={onChange} onClose={() => setOpen(false)} showUnbilled={kind === "customer"} />}
         </div>
       </div>
     </div>

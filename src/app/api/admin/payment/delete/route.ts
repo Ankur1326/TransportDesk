@@ -27,7 +27,7 @@ export async function DELETE(request: Request) {
       );
     }
     const removed = await PaymentModel.findOneAndDelete({
-      $and: [companyFilter(auth.companyId), { _id: parsed.data._id }],
+      $and: [companyFilter(auth.companyId), { _id: parsed.data._id, partyType: "customer" }],
     }).lean();
     if (!removed) return Response.json({ success: false, message: "Payment not found." }, { status: 404 });
 

@@ -1,6 +1,8 @@
 import { getCompanyDocumentInfo, type CompanySettingsValues } from "@/lib/company-settings";
 import type { Statement } from "@/lib/ledger/build-ledger";
 import { formatInr, formatLedgerDate } from "@/lib/ledger/format";
+import { isIncreaseSide } from "@/lib/ledger/build-ledger";
+import { PARTY_CONFIG, type PartyKind } from "@/lib/ledger/party-kind";
 
 export interface StatementCustomer {
   name: string;
@@ -13,6 +15,7 @@ export interface StatementCustomer {
 }
 
 interface LedgerStatementSheetProps {
+  kind: PartyKind;
   company: CompanySettingsValues;
   customer: StatementCustomer;
   statement: Statement;
@@ -23,16 +26,17 @@ interface LedgerStatementSheetProps {
   generatedOn: string;
 }
 
-/** Dr / Cr suffix so the sign never depends on colour (or on a minus sign) alone. */
-const drCr = (n: number) => (n > 0 ? "Dr" : n < 0 ? "Cr" : "");
-const balanceText = (n: number) => `${formatInr(n)} ${drCr(n)}`.trim();
 
 /**
  * Printable customer statement. A pure function of its props — no hooks — so
  * the server-rendered print page (src/app/(print)/admin/statement/[id]) can
  * feed it straight to headless Chromium, which runs with JavaScript off.
  */
-export function LedgerStatementSheet({ company, customer, statement, from, to, includeUnbilled, generatedOn }: LedgerStatementSheetProps) {
+export function LedgerStatementSheet({ kind, company, customer, statement, from, to, includeUnbilled, generatedOn }: LedgerStatementSheetProps) {
+  const cfg = PARTY_CONFIG[kind];
+  /** Dr / Cr suffix so the sign never depends on colour (or on a minus sign) alone. */
+  const balanceText = (n: number) =>
+    `${formatInr(n)} ${n > 0 ? cfg.net.positiveCode : n < 0 ? cfg.net.negativeCode : ""}`.trim();
   const info = getCompanyDocumentInfo(company);
   const companyAddress = [company.addressLine, company.city, company.state, company.pinCode, company.country]
     .filter(Boolean)
@@ -72,12 +76,12 @@ export function LedgerStatementSheet({ company, customer, statement, from, to, i
       </header>
 
       <div className="mt-3 bg-slate-800 px-3 py-1.5 text-center text-sm font-bold tracking-wide text-white">
-        STATEMENT OF ACCOUNT
+        STATEMENT OF ACCOUNT{kind === "supplier" ? " (SUPPLIER)" : ""}
       </div>
 
       <section className="mt-3 flex justify-between gap-6">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase text-slate-500">Customer</p>
+          <p className="text-[11px] font-semibold uppercase text-slate-500">{cfg.singular}</p>
           <p className="text-sm font-bold">{customer.name}</p>
           {customerAddress && <p className="text-slate-700">{customerAddress}</p>}
           {customer.gstin && <p className="text-slate-700">GSTIN: {customer.gstin}</p>}
@@ -87,7 +91,7 @@ export function LedgerStatementSheet({ company, customer, statement, from, to, i
           <p className="text-[11px] font-semibold uppercase text-slate-500">Period</p>
           <p className="font-semibold">{period}</p>
           <p className="text-slate-600">Generated on {generatedOn}</p>
-          {!includeUnbilled && <p className="text-slate-600">Unbilled bilties excluded</p>}
+          {kind === "customer" && !includeUnbilled && <p className="text-slate-600">Unbilled bilties excluded</p>}
         </div>
       </section>
 
@@ -96,8 +100,8 @@ export function LedgerStatementSheet({ company, customer, statement, from, to, i
           <tr className="bg-slate-100 text-left text-[11px] uppercase text-slate-600">
             <th className="border border-slate-300 px-2 py-1.5">Date</th>
             <th className="border border-slate-300 px-2 py-1.5">Particulars</th>
-            <th className="border border-slate-300 px-2 py-1.5 text-right">Receivable (Dr)</th>
-            <th className="border border-slate-300 px-2 py-1.5 text-right">Received (Cr)</th>
+            <th className="border border-slate-300 px-2 py-1.5 text-right">{cfg.increase.short} ({cfg.increase.code})</th>
+            <th className="border border-slate-300 px-2 py-1.5 text-right">{cfg.decrease.short} ({cfg.decrease.code})</th>
             <th className="border border-slate-300 px-2 py-1.5 text-right">Balance</th>
           </tr>
         </thead>
@@ -131,10 +135,10 @@ export function LedgerStatementSheet({ company, customer, statement, from, to, i
                   {detail && <span className="block text-[11px] text-slate-600">{detail}</span>}
                 </td>
                 <td className="border border-slate-300 px-2 py-1 text-right">
-                  {entry.side === "receivable" ? formatInr(entry.amount) : ""}
+                  {isIncreaseSide(entry.side) ? formatInr(entry.amount) : ""}
                 </td>
                 <td className="border border-slate-300 px-2 py-1 text-right">
-                  {entry.side === "received" ? formatInr(entry.amount) : ""}
+                  {!isIncreaseSide(entry.side) ? formatInr(entry.amount) : ""}
                 </td>
                 <td className="whitespace-nowrap border border-slate-300 px-2 py-1 text-right">{balanceText(balance)}</td>
               </tr>
@@ -145,24 +149,27 @@ export function LedgerStatementSheet({ company, customer, statement, from, to, i
 
       <section className="stmt-totals mt-3 ml-auto w-72 text-[12px]">
         <div className="flex justify-between border-b border-slate-300 py-1">
-          <span>Total Receivable (Dr)</span>
+          <span>Total {cfg.increase.short} ({cfg.increase.code})</span>
           <span className="font-semibold">{formatInr(statement.totalReceivable)}</span>
         </div>
         <div className="flex justify-between border-b border-slate-300 py-1">
-          <span>Total Received (Cr)</span>
+          <span>Total {cfg.decrease.short} ({cfg.decrease.code})</span>
           <span className="font-semibold">{formatInr(statement.totalReceived)}</span>
         </div>
         <div className="flex justify-between bg-slate-800 px-2 py-1.5 text-white">
           <span className="font-bold">Closing Balance</span>
           <span className="font-bold">
             {balanceText(statement.closingBalance)}
-            {statement.closingBalance > 0 ? " (Receivable)" : statement.closingBalance < 0 ? " (Advance)" : " (Settled)"}
+            {statement.closingBalance > 0 ? ` (${cfg.net.positiveStatus})` : statement.closingBalance < 0 ? ` (${cfg.net.negativeStatus})` : " (Settled)"}
           </span>
         </div>
       </section>
 
       <p className="mt-6 text-center text-[10px] text-slate-500">
-        Dr = amount the customer owes us · Cr = amount received or advance. This is a computer-generated statement.
+        {kind === "customer"
+          ? "Dr = amount the customer owes us · Cr = amount received or advance."
+          : "Cr = amount we owe the supplier · Dr = amount we paid or advance paid."}{" "}
+        This is a computer-generated statement.
       </p>
     </div>
   );

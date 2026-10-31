@@ -13,12 +13,12 @@ function Empty({ icon, title, description, action }: { icon: React.ReactNode; ti
   );
 }
 
-export function NoCustomerSelected() {
+export function NoCustomerSelected({ noun = "customer", docs = "bills" }: { noun?: string; docs?: string }) {
   return (
     <Empty
       icon={<Users size={26} />}
-      title="Select a customer"
-      description="Choose someone from the list to see their bills, payments and balance."
+      title={`Select a ${noun}`}
+      description={`Choose someone from the list to see their ${docs}, payments and balance.`}
     />
   );
 }
@@ -28,7 +28,7 @@ export function NoLedgerEntries({ filtered, onClear }: { filtered: boolean; onCl
     <Empty
       icon={<FileText size={26} />}
       title="No entries yet"
-      description={filtered ? "Nothing matches these filters." : "Bills and payments for this customer will appear here."}
+      description={filtered ? "Nothing matches these filters." : "Bills, contracts and payments will appear here."}
       action={
         filtered && onClear ? (
           <button type="button" onClick={onClear} className="mt-2 text-sm font-medium text-(--ledger-edge) hover:underline">

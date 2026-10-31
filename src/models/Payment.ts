@@ -6,15 +6,17 @@ export const PAYMENT_PARTY_TYPES = ["customer", "supplier"] as const;
 export type PaymentPartyType = (typeof PAYMENT_PARTY_TYPES)[number];
 
 /**
- * "received"              customer paid us (credit) / reserved for suppliers: "paid"
- * "receivable_adjustment" manual "Receivable (Debit)" entry.
+ * "received"              customer paid us (credit).
+ * "receivable_adjustment" manual customer "Receivable (Debit)" entry.
+ * "paid"                  we paid a supplier (debit).
+ * "payable_adjustment"    manual supplier "Payable (Credit)" entry (detention, penalty, ...).
  *
  * Why not a separate LedgerAdjustment model: both are dated, party-scoped money
  * movements with the same fields (amount, mode, reference, remark) and the same
  * indexes. One collection keeps ledger loading to a single query and lets
- * suppliers reuse it later with direction "paid".
+ * suppliers share it via partyType "supplier".
  */
-export const PAYMENT_DIRECTIONS = ["received", "paid", "receivable_adjustment"] as const;
+export const PAYMENT_DIRECTIONS = ["received", "paid", "receivable_adjustment", "payable_adjustment"] as const;
 export type PaymentDirection = (typeof PAYMENT_DIRECTIONS)[number];
 
 export { PAYMENT_MODES, type PaymentMode };
@@ -27,6 +29,9 @@ export interface IPayment extends Document {
   direction: PaymentDirection;
   billId?: mongoose.Types.ObjectId;
   billNo?: string;
+  /** Supplier payments: the lorry hire contract this payment settles. */
+  contractId?: mongoose.Types.ObjectId;
+  contractNo?: string;
   consignmentId?: mongoose.Types.ObjectId;
   /** Set on supplier payments that mirror a lorry hire contract's payment. */
   lorryHireId?: mongoose.Types.ObjectId;
@@ -51,6 +56,8 @@ const paymentSchema = new Schema<IPayment>(
     direction: { type: String, enum: PAYMENT_DIRECTIONS, required: true, default: "received" },
     billId: { type: Schema.Types.ObjectId, ref: "FreightBill" },
     billNo: { type: String, trim: true },
+    contractId: { type: Schema.Types.ObjectId, ref: "LorryHireContract" },
+    contractNo: { type: String, trim: true },
     consignmentId: { type: Schema.Types.ObjectId, ref: "Consignment" },
     lorryHireId: { type: Schema.Types.ObjectId, ref: "LorryHire" },
     lhcNo: { type: String, trim: true },
@@ -71,9 +78,9 @@ const paymentSchema = new Schema<IPayment>(
 
 paymentSchema.index({ companyId: 1, partyId: 1, date: -1 });
 paymentSchema.index({ companyId: 1, billId: 1 });
-paymentSchema.index({ companyId: 1, lorryHireId: 1 });
+paymentSchema.index({ companyId: 1, contractId: 1 });
 
-dropStaleModel("Payment", "lorryHireId");
+dropStaleModel("Payment", "contractId");
 
 const PaymentModel: Model<IPayment> =
   (mongoose?.models?.Payment as Model<IPayment>) || model<IPayment>("Payment", paymentSchema);

@@ -225,6 +225,10 @@
   --received-soft: #e3f6ea;
   --partial: #b45309;
   --partial-soft: #fdf1d6;
+  --payable: #c2410c;
+  --payable-soft: #ffedd5;
+  --paid: #15803d;
+  --paid-soft: #e3f6ea;
   --ledger-edge: #4f46e5;
   --ledger-accent-soft: #eceefd;
   --ledger-surface: #f4f6fb;
@@ -245,6 +249,10 @@
   --received-soft: rgba(74, 222, 128, 0.14);
   --partial: #fbbf24;
   --partial-soft: rgba(251, 191, 36, 0.14);
+  --payable: #fb923c;
+  --payable-soft: rgba(251, 146, 60, 0.16);
+  --paid: #4ade80;
+  --paid-soft: rgba(74, 222, 128, 0.14);
   --ledger-edge: #818cf8;
   --ledger-accent-soft: rgba(129, 140, 248, 0.16);
   --ledger-surface: #0f1420;

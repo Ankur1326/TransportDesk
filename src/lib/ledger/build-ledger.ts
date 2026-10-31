@@ -1,10 +1,17 @@
 /**
- * Pure customer-ledger maths. NO database access: callers load the rows and
+ * Pure ledger maths for customers AND suppliers. NO database access: callers load the rows and
  * pass them in. Every money calculation lives here (paise-safe, 2 decimals).
  */
 import type { BalanceType } from "@/lib/opening-balance";
 
-export type LedgerSide = "receivable" | "received";
+/**
+ * Customer ledger: receivable (they owe us, Dr) raises the balance, received (Cr) lowers it.
+ * Supplier ledger: payable (we owe them, Cr) raises the balance, paid (Dr) lowers it.
+ * Either way netBalance = (sum of raising entries) - (sum of lowering entries).
+ */
+export type LedgerSide = "receivable" | "received" | "payable" | "paid";
+/** The side that raises the net balance (receivable for customers, payable for suppliers). */
+export const isIncreaseSide = (side: LedgerSide): boolean => side === "receivable" || side === "payable";
 export type LedgerSource =
   | "opening"
   | "bill"
@@ -12,9 +19,11 @@ export type LedgerSource =
   | "payment"
   | "adjustment"
   | "bilty_receipt"
-  | "unbilled_bilty";
+  | "unbilled_bilty"
+  | "contract"
+  | "contract_advance";
 export type BillStatus = "Unpaid" | "Partial" | "Paid";
-export type LedgerTypeFilter = "all" | "receivable" | "received";
+export type LedgerTypeFilter = "all" | "receivable" | "received" | "payable" | "paid";
 
 export interface LedgerCustomer {
   _id: string;
@@ -39,7 +48,7 @@ export interface LedgerBill {
 
 export interface LedgerPayment {
   _id: string;
-  direction: "received" | "paid" | "receivable_adjustment";
+  direction: "received" | "paid" | "receivable_adjustment" | "payable_adjustment";
   billId?: string | null;
   billNo?: string;
   amount: number;
@@ -85,6 +94,8 @@ export interface LedgerEntry {
   source: LedgerSource;
   sourceId: string;
   billId?: string;
+  /** Supplier ledger: the lorry hire contract this entry belongs to. */
+  contractId?: string;
   consignmentId?: string;
   meta: Record<string, unknown>;
 }
@@ -102,7 +113,9 @@ export interface BillStatusInfo {
 
 export interface LedgerSummary {
   entries: number;
+  /** Total of the RAISING side: receivable for a customer, payable for a supplier. */
   totalReceivable: number;
+  /** Total of the LOWERING side: received for a customer, paid for a supplier. */
   totalReceived: number;
   netBalance: number;
   /** Net balance with no date / type / search filter applied. */
@@ -117,8 +130,8 @@ export interface LedgerResult {
 
 // ─── money helpers ──────────────────────────────────────────────────────────
 export const round2 = (n: number): number => Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
-const paise = (n: number): number => Math.round((Number.isFinite(n) ? n : 0) * 100);
-const fromPaise = (p: number): number => p / 100;
+export const paise = (n: number): number => Math.round((Number.isFinite(n) ? n : 0) * 100);
+export const fromPaise = (p: number): number => p / 100;
 
 /** Parses the string `payment.receivedMoney`; returns 0 for NaN / <= 0. */
 export function parseMoney(value: string | undefined | null): number {
@@ -180,7 +193,7 @@ export function computeBillStatuses(
   return out;
 }
 
-const iso = (d: Date | string): string => {
+export const iso = (d: Date | string): string => {
   const t = new Date(d);
   return Number.isNaN(t.getTime()) ? new Date(0).toISOString() : t.toISOString();
 };
@@ -264,7 +277,7 @@ export function buildLedger(input: {
   for (const b of bills) runningPaid.set(String(b._id), paise(b.advanceReceived));
   const sortedPayments = [...payments].sort((a, z) => new Date(a.date).getTime() - new Date(z.date).getTime());
   for (const p of sortedPayments) {
-    if (p.direction === "paid") continue; // supplier-side, not a customer entry
+    if (p.direction === "paid" || p.direction === "payable_adjustment") continue; // supplier-side, not a customer entry
     const billId = p.billId ? String(p.billId) : undefined;
     const bill = billId ? billById.get(billId) : undefined;
     if (p.direction === "receivable_adjustment") {
@@ -348,6 +361,18 @@ export function buildLedger(input: {
     }
   }
 
+  return finalizeLedger(all, statuses, opts);
+}
+
+/**
+ * Sorts, filters and totals a complete entry list. Shared by the customer and
+ * supplier builders so both screens apply identical rules.
+ */
+export function finalizeLedger(
+  all: LedgerEntry[],
+  statuses: Record<string, BillStatusInfo>,
+  opts: LedgerOptions
+): LedgerResult {
   // newest first; same date: later-created kinds (received) first
   const order = new Map(all.map((e, i) => [e.id, i]));
   all.sort((a, z) => z.date.localeCompare(a.date) || (order.get(z.id) ?? 0) - (order.get(a.id) ?? 0));
@@ -356,7 +381,7 @@ export function buildLedger(input: {
     let r = 0;
     let c = 0;
     for (const e of list) {
-      if (e.side === "receivable") r += paise(e.amount);
+      if (isIncreaseSide(e.side)) r += paise(e.amount);
       else c += paise(e.amount);
     }
     return { r, c };
@@ -374,7 +399,7 @@ export function buildLedger(input: {
     if (type !== "all" && e.side !== type) return false;
     if (q) {
       const items = (e.meta.items as { cnsNo: string }[] | undefined) ?? [];
-      const hay = [e.refNo, e.label, ...items.map((i) => i.cnsNo)].join(" ").toLowerCase();
+      const hay = [e.refNo, e.label, String(e.meta.vehicleNo ?? ""), ...items.map((i) => i.cnsNo)].join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -397,7 +422,7 @@ export function buildLedger(input: {
 // ─── statement ──────────────────────────────────────────────────────────────
 export interface StatementRow {
   entry: LedgerEntry;
-  /** Running balance after this entry. > 0 = customer owes us (Dr), < 0 = advance (Cr). */
+  /** Running balance after this entry. > 0 = the party owes us (customer) / we owe the party (supplier). */
   balance: number;
 }
 
@@ -436,14 +461,14 @@ export function buildStatement(
   for (const entry of chronological) {
     const t = new Date(entry.date).getTime();
     if (toT !== null && t > toT) continue;
-    const signed = entry.side === "receivable" ? paise(entry.amount) : -paise(entry.amount);
+    const signed = isIncreaseSide(entry.side) ? paise(entry.amount) : -paise(entry.amount);
     if (fromT !== null && t < fromT) {
       bf += signed;
       running += signed;
       continue;
     }
     running += signed;
-    if (entry.side === "receivable") r += paise(entry.amount);
+    if (isIncreaseSide(entry.side)) r += paise(entry.amount);
     else c += paise(entry.amount);
     rows.push({ entry, balance: fromPaise(running) });
   }
@@ -467,7 +492,7 @@ export function runningBalances(entriesNewestFirst: LedgerEntry[], overallNetBal
   let running = paise(overallNetBalance);
   return entriesNewestFirst.map((entry) => {
     const after = running;
-    running -= entry.side === "receivable" ? paise(entry.amount) : -paise(entry.amount);
+    running -= isIncreaseSide(entry.side) ? paise(entry.amount) : -paise(entry.amount);
     return fromPaise(after);
   });
 }

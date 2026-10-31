@@ -8,20 +8,23 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { cn } from "@/lib/utils";
 import type { AppDispatch } from "@/redux/store";
 import { allocatePayment, createPayment, updatePayment, type PaymentFields } from "@/redux/slices/ledgerSlice";
-import type { BillStatusInfo, LedgerEntry } from "@/lib/ledger/build-ledger";
+import { isIncreaseSide, type BillStatusInfo, type LedgerEntry } from "@/lib/ledger/build-ledger";
+import { PARTY_CONFIG, type PartyKind } from "@/lib/ledger/party-kind";
 import { planAllocation, sortOldestFirst } from "@/lib/ledger/allocate";
 import { formatInr, formatLedgerDate } from "@/lib/ledger/format";
 import { PAYMENT_MODES, type PaymentMode } from "@/lib/ledger/payment-modes";
 
-export type PaymentDirection = "received" | "receivable_adjustment";
+/** received / paid LOWER the balance; receivable_adjustment / payable_adjustment RAISE it. */
+export type PaymentDirection = "received" | "receivable_adjustment" | "paid" | "payable_adjustment";
 type Apply = "auto" | "bill" | "none";
 
 interface Props {
-  customerId: string;
-  customerName: string;
-  /** Unfiltered net balance before this change (> 0 means the customer owes us). */
+  kind: PartyKind;
+  partyId: string;
+  partyName: string;
+  /** Unfiltered net balance before this change (> 0: the customer owes us / we owe the supplier). */
   netBalance: number;
-  /** Every bill of this customer, keyed by id (unfiltered). */
+  /** Every bill (customer) or contract (supplier) of this party, keyed by id (unfiltered). */
   billStatuses: Record<string, BillStatusInfo>;
   direction: PaymentDirection;
   /** Set to edit an existing payment / manual debit instead of creating one. */
@@ -48,16 +51,18 @@ const metaText = (e: LedgerEntry | null, key: string): string => {
 };
 
 /** "₹X receivable (Dr)" / "₹X advance (Cr)" / "Settled". */
-function describeNet(net: number): string {
+function describeNet(net: number, kind: PartyKind): string {
   const n = round2(net);
-  if (n > 0) return `${formatInr(n)} receivable (Dr)`;
-  if (n < 0) return `${formatInr(n)} advance (Cr)`;
+  const c = PARTY_CONFIG[kind].net;
+  if (n > 0) return `${formatInr(n)} ${c.positiveStatus.toLowerCase()} (${c.positiveCode})`;
+  if (n < 0) return `${formatInr(n)} ${c.negativeStatus.toLowerCase()} (${c.negativeCode})`;
   return "Settled (₹0)";
 }
 
 export function RecordPaymentDialog({
-  customerId,
-  customerName,
+  kind,
+  partyId,
+  partyName,
   netBalance,
   billStatuses,
   direction,
@@ -68,11 +73,14 @@ export function RecordPaymentDialog({
 }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const amountRef = useRef<HTMLInputElement>(null);
-  const isReceived = direction === "received";
+  const cfg = PARTY_CONFIG[kind];
+  const doc = cfg.docWord.toLowerCase();
+  // "Payment" = money moving (received / paid). The other direction is a manual entry that raises the balance.
+  const isReceived = direction === "received" || direction === "paid";
 
   // The payment being edited no longer counts against its own bill, so that
   // bill's room is its outstanding plus this payment's amount.
-  const editingBillId = editing?.billId;
+  const editingBillId = editing?.billId ?? editing?.contractId;
   const roomOf = (b: BillStatusInfo): number =>
     round2(b.outstanding + (editing && editingBillId === b.billId ? editing.amount : 0));
 
@@ -99,11 +107,11 @@ export function RecordPaymentDialog({
   const [remark, setRemark] = useState(() => metaText(editing, "remark"));
   const [apply, setApply] = useState<Apply>(() => {
     if (!isReceived) return "none";
-    if (editing) return editing.billId ? "bill" : "none";
+    if (editing) return editingBillId ? "bill" : "none";
     if (presetBillId) return "bill";
     return openBills.length > 0 ? "auto" : "none";
   });
-  const [billId, setBillId] = useState(() => (editing?.billId ?? presetBillId ?? ""));
+  const [billId, setBillId] = useState(() => (editingBillId ?? presetBillId ?? ""));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -116,19 +124,19 @@ export function RecordPaymentDialog({
   // Live problem with the bill choice (shown while typing, blocks saving).
   let billProblem = "";
   if (isReceived && apply === "bill") {
-    if (!chosen) billProblem = billId ? "That bill has nothing left to pay." : "Choose a bill, or record it without one.";
+    if (!chosen) billProblem = billId ? `That ${doc} has nothing left to pay.` : `Choose a ${doc}, or record it without one.`;
     else if (amountOk && Math.round(amountNum * 100) > Math.round(chosen.room * 100)) {
-      billProblem = `This bill has only ${formatInr(chosen.room)} outstanding. Lower the amount, or use auto-apply to keep the extra as an advance.`;
+      billProblem = `This ${doc} has only ${formatInr(chosen.room)} outstanding. Lower the amount, or use auto-apply to keep the extra as an advance.`;
     }
   }
 
   // Net balance after saving. Editing first undoes the old amount.
-  const base = editing ? (editing.side === "received" ? netBalance + editing.amount : netBalance - editing.amount) : netBalance;
+  const base = editing ? (!isIncreaseSide(editing.side) ? netBalance + editing.amount : netBalance - editing.amount) : netBalance;
   const netAfter = amountOk ? round2(base + (isReceived ? -amountNum : amountNum)) : null;
 
   const title = editing
-    ? isReceived ? "Edit payment" : "Edit receivable entry"
-    : isReceived ? "Received (Credit)" : "Receivable (Debit)";
+    ? isReceived ? "Edit payment" : `Edit ${cfg.increase.short.toLowerCase()} entry`
+    : isReceived ? cfg.decrease.label : cfg.increase.label;
 
   const fillAmount = () => {
     const v = apply === "bill" && chosen ? chosen.room : apply === "auto" ? totalDue : 0;
@@ -155,12 +163,12 @@ export function RecordPaymentDialog({
       let message: string;
       if (editing) {
         message = (
-          await dispatch(updatePayment({ ...fields, _id: editing.sourceId, billId: apply === "bill" ? billId : null })).unwrap()
+          await dispatch(updatePayment({ kind, ...fields, _id: editing.sourceId, billId: apply === "bill" ? billId : null })).unwrap()
         ).message;
       } else if (!isReceived) {
-        message = (await dispatch(createPayment({ ...fields, partyId: customerId, direction })).unwrap()).message;
+        message = (await dispatch(createPayment({ kind, ...fields, partyId, direction })).unwrap()).message;
       } else if (apply === "auto") {
-        const r = await dispatch(allocatePayment({ ...fields, partyId: customerId })).unwrap();
+        const r = await dispatch(allocatePayment({ kind, ...fields, partyId })).unwrap();
         const bills = r.allocations.map((a) => a.billNo).join(", ");
         message = r.allocations.length
           ? `Applied to ${bills}${r.unapplied > 0 ? `; ${formatInr(r.unapplied)} kept as advance` : ""}.`
@@ -168,7 +176,7 @@ export function RecordPaymentDialog({
       } else {
         message = (
           await dispatch(
-            createPayment({ ...fields, partyId: customerId, direction, billId: apply === "bill" ? billId : null })
+            createPayment({ kind, ...fields, partyId, direction, billId: apply === "bill" ? billId : null })
           ).unwrap()
         ).message;
       }
@@ -203,7 +211,7 @@ export function RecordPaymentDialog({
               aria-hidden="true"
               className={cn(
                 "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                isReceived ? "bg-(--received-soft) text-(--received)" : "bg-(--receivable-soft) text-(--receivable)"
+                isReceived ? cfg.decrease.softText : cfg.increase.softText
               )}
             >
               {isReceived ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
@@ -211,8 +219,8 @@ export function RecordPaymentDialog({
             <div className="text-left">
               <DialogTitle>{title}</DialogTitle>
               <DialogDescription>
-                {customerName}
-                {!isReceived && !editing && " · an amount owed that is not on a bill"}
+                {partyName}
+                {!isReceived && !editing && ` · an amount that is not on a ${doc}`}
               </DialogDescription>
             </div>
           </div>
@@ -247,29 +255,29 @@ export function RecordPaymentDialog({
           {isReceived && (editing || openBills.length > 0) && (
             <fieldset className="space-y-2">
               <legend className="mb-1 text-xs font-medium text-neutral-600 dark:text-neutral-300">Apply to</legend>
-              {canAutoApply && radio("auto", "Oldest invoices first", "Spreads the amount across open bills; any extra stays as an advance.")}
-              {(openBills.length > 0 || editing) && radio("bill", "One bill")}
+              {canAutoApply && radio("auto", `Oldest ${cfg.docPlural} first`, `Spreads the amount across open ${cfg.docPlural}; any extra stays as an advance.`)}
+              {(openBills.length > 0 || editing) && radio("bill", `One ${doc}`)}
               {apply === "bill" && (
                 <select
                   className={field}
                   value={billId}
                   onChange={(e) => setBillId(e.target.value)}
-                  aria-label="Bill"
+                  aria-label={cfg.docWord}
                   aria-invalid={Boolean(billProblem)}
                 >
-                  <option value="">Select a bill…</option>
+                  <option value="">Select a {doc}…</option>
                   {billChoices.map((b) => (
                     <option key={b.billId} value={b.billId}>
-                      Invoice {b.billNo} · {formatLedgerDate(b.billDate)} · due {formatInr(b.room)}
+                      {cfg.docWord} {b.billNo} · {formatLedgerDate(b.billDate)} · due {formatInr(b.room)}
                     </option>
                   ))}
                 </select>
               )}
-              {radio("none", "No bill", "Kept as an advance on the customer's account.")}
+              {radio("none", `No ${doc}`, "Kept as an advance on the account.")}
 
               {(apply === "auto" || (apply === "bill" && chosen)) && (
                 <button type="button" onClick={fillAmount} className="text-xs font-medium text-(--ledger-edge) hover:underline">
-                  Fill {apply === "auto" ? `total due (${formatInr(totalDue)})` : `bill due (${formatInr(chosen?.room ?? 0)})`}
+                  Fill {apply === "auto" ? `total due (${formatInr(totalDue)})` : `${doc} due (${formatInr(chosen?.room ?? 0)})`}
                 </button>
               )}
             </fieldset>
@@ -279,13 +287,13 @@ export function RecordPaymentDialog({
             <div aria-live="polite" className="space-y-1 rounded-lg bg-(--ledger-surface) p-3 text-xs">
               {plan.allocations.map((a) => (
                 <p key={a.billId} className="flex justify-between">
-                  <span>Invoice {a.billNo}</span>
+                  <span>{cfg.docWord} {a.billNo}</span>
                   <span className="font-semibold tabular-nums text-(--received)">{formatInr(a.amount)}</span>
                 </p>
               ))}
               {plan.unapplied > 0 && (
                 <p className="flex justify-between">
-                  <span>Advance (no open invoice left)</span>
+                  <span>Advance (no open {doc} left)</span>
                   <span className="font-semibold tabular-nums text-(--received)">{formatInr(plan.unapplied)}</span>
                 </p>
               )}
@@ -328,12 +336,12 @@ export function RecordPaymentDialog({
             <div aria-live="polite" className="flex items-center justify-between rounded-xl bg-(--ledger-surface) px-3 py-2.5 text-xs">
               <span>
                 <span className="block text-neutral-500">Now</span>
-                <b className="text-sm">{describeNet(netBalance)}</b>
+                <b className="text-sm">{describeNet(netBalance, kind)}</b>
               </span>
               <span aria-hidden="true" className="text-neutral-400">→</span>
               <span className="text-right">
                 <span className="block text-neutral-500">After saving</span>
-                <b className={cn("text-sm", netAfter > 0 ? "text-(--receivable)" : "text-(--received)")}>{describeNet(netAfter)}</b>
+                <b className={cn("text-sm", netAfter > 0 ? cfg.net.positiveText : cfg.net.negativeText)}>{describeNet(netAfter, kind)}</b>
               </span>
             </div>
           )}

@@ -9,10 +9,12 @@ import type { BillStatusInfo, LedgerEntry } from "@/lib/ledger/build-ledger";
 import { formatInr, formatLedgerDate } from "@/lib/ledger/format";
 import { billPdfPath } from "@/lib/bill-pdf-url";
 import { entryTitle } from "@/components/ledger/LedgerEntryRow";
+import { isIncreaseSide } from "@/lib/ledger/build-ledger";
+import { sideStyle } from "@/lib/ledger/party-kind";
 
 interface BillItemMeta {
   cnsNo: string;
-  freightAmt: number;
+  freightAmt?: number;
 }
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
@@ -30,6 +32,8 @@ export function LedgerEntryDrawer({
   onEdit,
   onDelete,
   onRecordForBill,
+  onEditContract,
+  onDeleteContract,
 }: {
   entry: LedgerEntry | null;
   billStatus?: BillStatusInfo;
@@ -37,7 +41,11 @@ export function LedgerEntryDrawer({
   /** Payments and manual debits only. */
   onEdit: (entry: LedgerEntry) => void;
   onDelete: (entry: LedgerEntry) => void;
-  onRecordForBill: (billId: string) => void;
+  /** Bill id (customer) or contract id (supplier). */
+  onRecordForBill: (docId: string) => void;
+  /** Supplier contract entries only. */
+  onEditContract?: (entry: LedgerEntry) => void;
+  onDeleteContract?: (entry: LedgerEntry) => void;
 }) {
   useEffect(() => {
     if (!entry) return;
@@ -47,18 +55,35 @@ export function LedgerEntryDrawer({
   }, [entry, onClose]);
 
   if (!entry) return null;
-  const receivable = entry.side === "receivable";
+  const receivable = isIncreaseSide(entry.side); // raises the balance (receivable / payable)
+  const style = sideStyle(entry.side);
+  const isContract = entry.source === "contract";
+  const docId = entry.billId ?? entry.contractId;
   const editable = entry.source === "payment" || entry.source === "adjustment";
-  const canRecordForBill = entry.source === "bill" && Boolean(entry.billId) && (billStatus?.outstanding ?? 0) > 0;
+  const canRecordForBill =
+    (entry.source === "bill" || isContract) && Boolean(docId) && (billStatus?.outstanding ?? 0) > 0;
   const items = Array.isArray(entry.meta.items) ? (entry.meta.items as BillItemMeta[]) : [];
+  const money = (key: string): string => {
+    const v = entry.meta[key];
+    return typeof v === "number" && v > 0 ? formatInr(v) : "";
+  };
   const details: [string, string][] = [
     ["Date", formatLedgerDate(entry.date)],
+    ...(isContract
+      ? ([
+          ["Vehicle", str(entry.meta.vehicleNo)],
+          ["Hire amount", money("hireAmount")],
+          ["Other charges", money("otherCharges")],
+          ["Deductions", money("deductions")],
+          ["TDS withheld (not paid in cash)", money("tdsAmount")],
+        ] as [string, string][])
+      : []),
     ["Mode", str(entry.meta.mode)],
     ["UTR / Reference", str(entry.meta.reference)],
     ["MR number", str(entry.meta.mrNumber)],
     ["Remark", str(entry.meta.remark)],
   ].filter((row): row is [string, string] => row[1] !== "");
-  const Icon = receivable ? (entry.type === "Invoice" || entry.type === "Bilty" ? FileText : ArrowUpRight) : ArrowDownLeft;
+  const Icon = receivable ? (entry.type === "Invoice" || entry.type === "Bilty" || entry.type === "Contract" ? FileText : ArrowUpRight) : ArrowDownLeft;
   const paidPct = billStatus && billStatus.totalAmount > 0 ? Math.min(100, (billStatus.paid / billStatus.totalAmount) * 100) : 0;
 
   return (
@@ -75,7 +100,7 @@ export function LedgerEntryDrawer({
             aria-hidden="true"
             className={cn(
               "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
-              receivable ? "bg-(--receivable-soft) text-(--receivable)" : "bg-(--received-soft) text-(--received)"
+              style.softText
             )}
           >
             <Icon size={20} />
@@ -90,11 +115,11 @@ export function LedgerEntryDrawer({
         </div>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
-          <div className={cn("rounded-2xl p-4", receivable ? "bg-(--receivable-soft)" : "bg-(--received-soft)")}>
+          <div className={cn("rounded-2xl p-4", style.soft)}>
             <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
-              {receivable ? "Receivable (Dr)" : "Received (Cr)"}
+              {style.short} ({style.code})
             </p>
-            <p className={cn("mt-0.5 text-3xl font-bold tabular-nums", receivable ? "text-(--receivable)" : "text-(--received)")}>
+            <p className={cn("mt-0.5 text-3xl font-bold tabular-nums", style.text)}>
               {formatInr(entry.amount)}
             </p>
           </div>
@@ -114,7 +139,7 @@ export function LedgerEntryDrawer({
                 >
                   {billStatus.status}
                 </span>
-                <span className="text-xs text-neutral-500">Bill total {formatInr(billStatus.totalAmount)}</span>
+                <span className="text-xs text-neutral-500">{isContract || entry.contractId ? "Contract" : "Bill"} total {formatInr(billStatus.totalAmount)}</span>
               </div>
               <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-(--ledger-surface)" aria-hidden="true">
                 <div className="h-full rounded-full bg-(--received)" style={{ width: `${paidPct}%` }} />
@@ -128,12 +153,12 @@ export function LedgerEntryDrawer({
 
           {items.length > 0 && (
             <section>
-              <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-500">Bilties on this bill</h4>
+              <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-500">{isContract ? "LR numbers on this contract" : "Bilties on this bill"}</h4>
               <ul className="divide-y divide-(--ledger-line) rounded-xl border border-(--ledger-line)">
                 {items.map((it) => (
                   <li key={it.cnsNo} className="flex items-center justify-between px-3 py-2 text-sm">
                     <span>LR {it.cnsNo}</span>
-                    <span className="tabular-nums">{formatInr(it.freightAmt)}</span>
+                    {typeof it.freightAmt === "number" && <span className="tabular-nums">{formatInr(it.freightAmt)}</span>}
                   </li>
                 ))}
               </ul>
@@ -156,14 +181,24 @@ export function LedgerEntryDrawer({
 
         <div className="space-y-2 border-t border-(--ledger-line) p-4">
           {canRecordForBill && (
-            <Button className="w-full" onClick={() => onRecordForBill(entry.billId as string)}>
-              Record payment for this bill
+            <Button className="w-full" onClick={() => onRecordForBill(docId as string)}>
+              {isContract ? "Record payment for this contract" : "Record payment for this bill"}
             </Button>
           )}
           {entry.billId && (
             <Button className="w-full" variant="outline" onClick={() => window.open(billPdfPath(entry.billId as string), "_blank", "noopener")}>
               <FileText size={16} aria-hidden="true" /> Open bill PDF
             </Button>
+          )}
+          {isContract && onEditContract && onDeleteContract && (
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" onClick={() => onEditContract(entry)}>
+                <Pencil size={16} aria-hidden="true" /> Edit contract
+              </Button>
+              <Button variant="outline" className="text-(--receivable)" onClick={() => onDeleteContract(entry)}>
+                <Trash2 size={16} aria-hidden="true" /> Delete
+              </Button>
+            </div>
           )}
           {editable && (
             <div className="grid grid-cols-2 gap-2">

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { PARTY_CONFIG, type PartyKind } from "@/lib/ledger/party-kind";
 
 /** Same name -> same colour, so a customer is recognisable at a glance. Colours come from tokens. */
 const hash = (s: string): number => {
@@ -33,16 +34,17 @@ export function LedgerAvatar({ name, className }: { name: string; className?: st
 }
 
 /** Dr / Cr / Settled pill. Text plus colour, never colour alone. */
-export function BalancePill({ net, className }: { net: number; className?: string }) {
+export function BalancePill({ net, kind = "customer", className }: { net: number; kind?: PartyKind; className?: string }) {
+  const cfg = PARTY_CONFIG[kind];
   const tone =
     net > 0
-      ? "bg-(--receivable-soft) text-(--receivable)"
+      ? cfg.increase.softText
       : net < 0
-        ? "bg-(--received-soft) text-(--received)"
+        ? cfg.decrease.softText
         : "bg-neutral-100 text-neutral-500 dark:bg-white/10 dark:text-neutral-300";
   return (
     <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none", tone, className)}>
-      {net > 0 ? "Dr" : net < 0 ? "Cr" : "Nil"}
+      {net > 0 ? cfg.net.positiveCode : net < 0 ? cfg.net.negativeCode : "Nil"}
     </span>
   );
 }

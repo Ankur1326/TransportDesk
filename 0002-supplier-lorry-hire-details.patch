@@ -1,0 +1,1600 @@
+From 7f52877b7fab4c6a9b4923cb876331a459fe7f2b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 31 Oct 2026 08:48:06 +0000
+Subject: [PATCH] feat(supplier): save and edit lorry hire details (type, PAN,
+ default TDS, declaration, bank)
+
+- Supplier create/update/delete logic moved to lib/supplier/service.ts (thin routes, same responses)
+- Shared validator lib/supplier/extras.ts; older clients never wipe the new fields
+- Case-insensitive duplicate names; rename refreshes ledger party names; delete blocked while a live contract uses the supplier
+- Suppliers page: Type/PAN columns and a Lorry hire details section in the modal
+- LHC form: a saved 194C(6) declaration starts the contract at 0% TDS
+- Extract companyFilter into lib/company-filter.ts (re-exported) so data code is testable
+- Tests: unit + MongoDB integration (skipped without TEST_MONGODB_URI)
+---
+ docs/lorry-hire/supplier-update.md            |  19 ++
+ .../admin/(dashboard)/suppliers/page.tsx      |  39 ++-
+ src/app/api/admin/supplier/create/route.ts    |  86 +-----
+ src/app/api/admin/supplier/delete/route.ts    |  63 +----
+ src/app/api/admin/supplier/get/route.ts       |   7 +-
+ src/app/api/admin/supplier/update/route.ts    | 110 +-------
+ .../lorry-hire/SupplierLorryHireFields.tsx    | 153 +++++++++++
+ .../lorry-hire/form/RouteAndParty.tsx         |   7 +-
+ src/lib/company-filter.ts                     |  20 ++
+ src/lib/company-scope.ts                      |  16 +-
+ src/lib/supplier/__tests__/extras.test.ts     |  72 +++++
+ src/lib/supplier/__tests__/form.test.ts       |  69 +++++
+ .../supplier/__tests__/service.int.test.ts    | 250 ++++++++++++++++++
+ src/lib/supplier/extras.ts                    | 112 ++++++++
+ src/lib/supplier/form.ts                      |  56 ++++
+ src/lib/supplier/service.ts                   | 215 +++++++++++++++
+ src/redux/slices/supplierSlice.ts             |   8 +
+ 17 files changed, 1057 insertions(+), 245 deletions(-)
+ create mode 100644 docs/lorry-hire/supplier-update.md
+ create mode 100644 src/components/lorry-hire/SupplierLorryHireFields.tsx
+ create mode 100644 src/lib/company-filter.ts
+ create mode 100644 src/lib/supplier/__tests__/extras.test.ts
+ create mode 100644 src/lib/supplier/__tests__/form.test.ts
+ create mode 100644 src/lib/supplier/__tests__/service.int.test.ts
+ create mode 100644 src/lib/supplier/extras.ts
+ create mode 100644 src/lib/supplier/form.ts
+ create mode 100644 src/lib/supplier/service.ts
+
+diff --git a/docs/lorry-hire/supplier-update.md b/docs/lorry-hire/supplier-update.md
+new file mode 100644
+index 0000000..38bacc4
+--- /dev/null
++++ b/docs/lorry-hire/supplier-update.md
+@@ -0,0 +1,19 @@
++# Supplier update — lorry hire details
++
++Depends on: the `Supplier` model fields already on `main` (`supplierType`, `panNumber`, `defaultTdsRate`, `tdsDeclaration`, `bankDetails`).
++
++Why: the lorry hire form already reads these from a saved supplier to pre-fill itself, but nothing could set them — the Suppliers routes and modal ignored them, so they only got a PAN/type when auto-created from a contract.
++
++Scope
++1. `lib/supplier/extras.ts` — shared (client + server) parser/validator for the new fields. Only keys present in a request are applied, so an older client never wipes them; a blank default TDS clears it. A 194C(6) declaration requires a valid PAN.
++2. `lib/supplier/service.ts` — create / update / delete logic; routes in `app/api/admin/supplier/*` are now thin wrappers (same response shapes; create/update still answer 200 for the Redux slice).
++   - Duplicate names are matched case-insensitively (same rule the lorry hire form uses to link a typed supplier).
++   - Renaming refreshes the party name on the supplier's ledger `Payment` rows. Issued contracts keep the name they were issued with.
++   - A supplier with active (non-cancelled) contracts can't be deleted (409).
++3. `GET /api/admin/supplier/get` also searches PAN and accepts `supplierType=Broker|Owner` (suppliers without a type count as Broker).
++4. Suppliers page: Type + PAN columns and a "Lorry hire details" section in the modal (`components/lorry-hire/SupplierLorryHireFields.tsx`) with a suggested TDS rate, declaration checkbox and bank details. Form mapping lives in `lib/supplier/form.ts`.
++5. Lorry hire form: picking a supplier with a saved 194C(6) declaration (and a valid PAN) starts the contract at 0% TDS.
++6. `lib/company-filter.ts` — `companyFilter` moved out of `company-scope.ts` (re-exported, no behaviour change) so data-layer code can be imported and tested without next-auth.
++
++Tests: `npm test`. The integration tests in `lib/supplier/__tests__/service.int.test.ts` need a MongoDB and are skipped unless `TEST_MONGODB_URI` is set, e.g.
++`TEST_MONGODB_URI=mongodb://127.0.0.1:27017 npm test` (each run uses a throw-away database).
+diff --git a/src/app/(app)/admin/(dashboard)/suppliers/page.tsx b/src/app/(app)/admin/(dashboard)/suppliers/page.tsx
+index 1c0a20f..5b4c3b5 100644
+--- a/src/app/(app)/admin/(dashboard)/suppliers/page.tsx
++++ b/src/app/(app)/admin/(dashboard)/suppliers/page.tsx
+@@ -24,6 +24,10 @@ import { useCompanySettings } from "@/hooks/useCompanySettings";
+ import { CompanyProfileRequiredDialog } from "@/components/admin/CompanyProfileRequiredDialog";
+ import { OpeningBalanceField } from "@/components/parties/OpeningBalanceField";
+ import SupplierLedgerPanel from "@/components/lorry-hire/SupplierLedgerPanel";
++import { SupplierLorryHireFields } from "@/components/lorry-hire/SupplierLorryHireFields";
++import { Badge } from "@/components/ui/Badge";
++import { checkDeclaration, parseSupplierExtras } from "@/lib/supplier/extras";
++import { EMPTY_LORRY_HIRE_FORM, toExtrasPayload, toLorryHireForm, type SupplierLorryHireForm } from "@/lib/supplier/form";
+ import { SUPPLIER_BALANCE_LABELS, type BalanceType } from "@/lib/opening-balance";
+ 
+ export default function SupplierManagement({ params }: { params: Promise<{ role: string }> }) {
+@@ -44,6 +48,8 @@ export default function SupplierManagement({ params }: { params: Promise<{ role:
+     const [email, setEmail] = useState<string>("");
+     const [openingBalance, setOpeningBalance] = useState<string>("");
+     const [balanceType, setBalanceType] = useState<BalanceType>("debit");
++    // Lorry hire details: Broker/Owner, PAN, default TDS, 194C(6) declaration, bank.
++    const [lorryHire, setLorryHire] = useState<SupplierLorryHireForm>(EMPTY_LORRY_HIRE_FORM);
+ 
+     const [isModalVisible, setModalVisible] = useState<boolean>(false);
+     const [selectedSupplier, setSelectedSupplier] = useState<any | null>(null);
+@@ -161,13 +167,27 @@ export default function SupplierManagement({ params }: { params: Promise<{ role:
+         setEmail("")
+         setOpeningBalance("")
+         setBalanceType("debit")
++        setLorryHire(toLorryHireForm(null));
+         setSelectedSupplier(null);
+         setModalVisible(true);
+     };
+ 
+     const handleSave = async (e: any) => {
+         e.preventDefault();
+-        const supplierData = { name, address, city, state, pincode, gstin, mobile, email, openingBalance: Number(openingBalance) || 0, balanceType };
++        // Same rules as the API, so mistakes are caught before the request is sent.
++        const lorryHirePayload = toExtrasPayload(lorryHire);
++        const checked = parseSupplierExtras(lorryHirePayload);
++        if (!checked.ok) {
++            toast.error(checked.message);
++            return;
++        }
++        const declarationError = checkDeclaration({ declaration: lorryHire.tdsDeclaration, pan: lorryHirePayload.panNumber });
++        if (declarationError) {
++            toast.error(declarationError);
++            return;
++        }
++
++        const supplierData = { name, address, city, state, pincode, gstin, mobile, email, openingBalance: Number(openingBalance) || 0, balanceType, ...lorryHirePayload };
+         let response: any;
+         if (selectedSupplier) {
+             // Update existing category
+@@ -181,7 +201,7 @@ export default function SupplierManagement({ params }: { params: Promise<{ role:
+         if (response && response.payload && typeof response.payload !== 'string') {
+             // Update the state to show the new/update tag immediately
+             const updatedCategories: any = selectedSupplier
+-                ? suppliers?.map(cat => cat._id === selectedSupplier._id ? { ...cat, ...supplierData } : cat)
++                ? suppliers?.map(cat => cat._id === selectedSupplier._id ? response.payload : cat)
+                 : [...suppliers, response.payload];
+ 
+             setPagesCache(prevCache => ({
+@@ -205,6 +225,7 @@ export default function SupplierManagement({ params }: { params: Promise<{ role:
+         setEmail(supplier.email);
+         setOpeningBalance(supplier.openingBalance ? String(supplier.openingBalance) : "");
+         setBalanceType(supplier.balanceType === "credit" ? "credit" : "debit");
++        setLorryHire(toLorryHireForm(supplier));
+         setModalVisible(true);
+         setDropdownOpen(null);
+     };
+@@ -303,7 +324,7 @@ export default function SupplierManagement({ params }: { params: Promise<{ role:
+ 
+             {/* Categories Table */}
+             <Table
+-                headings={["Company / Supplier Name", "Address", "City", "State", "Pin Code", "Gstin", "Mobile", "Email", "Opening Balance", "Actions"]}
++                headings={["Company / Supplier Name", "Type", "Address", "City", "State", "Pin Code", "Gstin", "PAN", "Mobile", "Email", "Opening Balance", "Actions"]}
+                 handleSearch={handleSearch}
+                 data={suppliers}
+                 isLoading={loadingPage}
+@@ -313,6 +334,16 @@ export default function SupplierManagement({ params }: { params: Promise<{ role:
+                             {item?.name}
+                         </span>
+                     );
++                    if (key === "Type") return (
++                        <Badge variant={item?.supplierType === "Owner" ? "brand" : "neutral"}>
++                            {item?.supplierType === "Owner" ? "Owner" : "Broker"}
++                        </Badge>
++                    );
++                    if (key === "PAN") return (
++                        <span className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-200 max-w-[120px] sm:max-w-full">
++                            {item?.panNumber}
++                        </span>
++                    );
+                     if (key === "Address") return (
+                         <span className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-gray-200 max-w-[120px] sm:max-w-full">
+                             {item?.address}
+@@ -460,6 +491,8 @@ export default function SupplierManagement({ params }: { params: Promise<{ role:
+                     />
+                 </div>
+ 
++                <SupplierLorryHireFields value={lorryHire} onChange={setLorryHire} />
++
+             </EditOrCreateNewModalWrapper>
+ 
+             {/* Delete Confirmation Modal */}
+diff --git a/src/app/api/admin/supplier/create/route.ts b/src/app/api/admin/supplier/create/route.ts
+index bcb802b..cc719fc 100644
+--- a/src/app/api/admin/supplier/create/route.ts
++++ b/src/app/api/admin/supplier/create/route.ts
+@@ -1,87 +1,25 @@
+-import dbConnect from "@/lib/db";
+-import Supplier from "@/models/Supplier";
+-import { requireCompanyProfile, companyFilter } from "@/lib/company-scope";
+-import { dropLegacyUniqueIndex } from "@/lib/legacy-indexes";
+-import { parseOpeningBalance } from "@/lib/opening-balance";
+-// import { getSession } from "next-auth/react";
++import { requireCompanyProfile } from "@/lib/company-scope";
++import { createSupplierRecord } from "@/lib/supplier/service";
+ 
++/** POST /api/admin/supplier/create */
+ export async function POST(request: Request) {
+     const auth = await requireCompanyProfile();
+     if (!auth.ok) return auth.response;
+ 
+-    await dbConnect();
+-    await dropLegacyUniqueIndex(Supplier, "name");
+-
+     try {
+-        const { name, address, city = "", state = "", pincode = "", gstin = "", mobile, email, openingBalance, balanceType } = await request.json();
+-        // console.log(name, address, city, state, pincode, gstin, mobile, email);
+-
+-        // Fixing validation to check for undefined for isActive
+-        if (!name) {
+-            return Response.json(
+-                {
+-                    success: false,
+-                    message: "Supplier name is required."
+-                },
+-                {
+-                    status: 400
+-                }
+-            );
+-        }
+-
+-        const balance = parseOpeningBalance(openingBalance, balanceType);
+-        if (!balance.ok) {
+-            return Response.json({ success: false, message: balance.message }, { status: 400 });
+-        }
+-
+-        // Check if the category already exists by name
+-        const existingSupplier = await Supplier.findOne({ name, ...companyFilter(auth.companyId) });
+-        console.log("existingSupplier : ", existingSupplier);
+-
+-        if (existingSupplier) {
+-            return Response.json(
+-                {
+-                    success: true,
+-                    message: "Supplier with this name already exists",
+-                },
+-                { status: 400 }
+-            )
+-        }
+-
+-        const newSupplier = new Supplier({
+-            name, address, city, state, pincode, gstin, mobile, email,
+-            openingBalance: balance.openingBalance,
+-            balanceType: balance.balanceType,
+-            // Server-controlled — never taken from the request body.
+-            companyId: auth.companyId,
+-            createdBy: auth.userId,
+-        });
+-
+-        // Save the new category to the database
+-        await newSupplier.save();
+-
++        const body: unknown = await request.json().catch(() => null);
++        const result = await createSupplierRecord({ companyId: auth.companyId, userId: auth.userId }, body);
+         return Response.json(
+-            {
+-                success: true,
+-                message: "New Supplier tag created successfully",
+-                data: newSupplier,
+-            },
+-            {
+-                status: 200
+-            }
++            result.ok
++                ? { success: true, message: result.message, data: result.data }
++                : { success: false, message: result.message },
++            { status: result.status }
+         );
+-
+     } catch (error) {
+         console.log("Error while creating new Supplier : ", error);
+         return Response.json(
+-            {
+-                success: false,
+-                message: "Internal server error while creating new Supplier",
+-                error
+-            },
+-            {
+-                status: 500
+-            }
++            { success: false, message: "Internal server error while creating new Supplier" },
++            { status: 500 }
+         );
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/src/app/api/admin/supplier/delete/route.ts b/src/app/api/admin/supplier/delete/route.ts
+index 4fb89a2..7d0672b 100644
+--- a/src/app/api/admin/supplier/delete/route.ts
++++ b/src/app/api/admin/supplier/delete/route.ts
+@@ -1,66 +1,23 @@
+-import dbConnect from "@/lib/db";
+-import Supplier from "@/models/Supplier";
+-import { requireCompany, companyFilter } from "@/lib/company-scope";
+-// import { getSession } from "next-auth/react";
++import { requireCompany } from "@/lib/company-scope";
++import { deleteSupplierRecord } from "@/lib/supplier/service";
+ 
++/** DELETE /api/admin/supplier/delete  — body: { _id } */
+ export async function DELETE(request: Request) {
+     const auth = await requireCompany();
+     if (!auth.ok) return auth.response;
+ 
+-    await dbConnect();
+-
+     try {
+-        const data = await request.json();
+-        const supplierId = data._id
+-
+-        // Fixing validation to check for undefined for isActive
+-        if (!supplierId) {
+-            return Response.json(
+-                {
+-                    success: false,
+-                    message: "Supplier ID is required."
+-                },
+-                {
+-                    status: 400
+-                }
+-            );
+-        }
+-
+-        const result = await Supplier.deleteOne({ _id: supplierId, ...companyFilter(auth.companyId) });
+-
+-        if (result.deletedCount === 0) {
+-            return Response.json(
+-                {
+-                    success: false,
+-                    message: "Supplier not found.",
+-                },
+-                {
+-                    status: 404,
+-                }
+-            );
+-        }
+-
++        const body = (await request.json().catch(() => null)) as { _id?: unknown } | null;
++        const result = await deleteSupplierRecord({ companyId: auth.companyId, userId: auth.userId }, body?._id);
+         return Response.json(
+-            {
+-                success: true,
+-                message: "Supplier deleted successfully.",
+-            },
+-            {
+-                status: 200,
+-            }
++            { success: result.ok, message: result.message },
++            { status: result.status }
+         );
+-
+     } catch (error) {
+         console.log("Error while deleting Supplier : ", error);
+         return Response.json(
+-            {
+-                success: false,
+-                message: "Internal server error while Supplier",
+-                error
+-            },
+-            {
+-                status: 500
+-            }
++            { success: false, message: "Internal server error while deleting Supplier" },
++            { status: 500 }
+         );
+     }
+-} 
+\ No newline at end of file
++}
+diff --git a/src/app/api/admin/supplier/get/route.ts b/src/app/api/admin/supplier/get/route.ts
+index 0d43f6a..2b63c1f 100644
+--- a/src/app/api/admin/supplier/get/route.ts
++++ b/src/app/api/admin/supplier/get/route.ts
+@@ -23,10 +23,15 @@ export async function GET(request: Request) {
+     // Free-text search across the fields people actually type
+     if (search) {
+       const rx = { $regex: escapeRegex(search), $options: "i" };
+-      filter.$or = [{ name: rx }, { city: rx }, { state: rx }, { gstin: rx }, { mobile: rx }];
++      filter.$or = [{ name: rx }, { city: rx }, { state: rx }, { gstin: rx }, { mobile: rx }, { panNumber: rx }];
+     }
+     if (name) filter.name = { $regex: escapeRegex(name), $options: "i" };
+     if (state) filter.state = { $regex: escapeRegex(state), $options: "i" };
++    // Broker / Owner (lorry hire). Anything else is ignored.
++    const supplierType = (searchParams.get("supplierType") || "").trim();
++    // Suppliers saved before the field existed have no type and count as Broker.
++    if (supplierType === "Owner") filter.supplierType = "Owner";
++    else if (supplierType === "Broker") filter.supplierType = { $ne: "Owner" };
+ 
+     // Always limit to the signed-in company ($and so it can't clash with the search $or).
+     const scoped = { $and: [companyFilter(auth.companyId), filter] };
+diff --git a/src/app/api/admin/supplier/update/route.ts b/src/app/api/admin/supplier/update/route.ts
+index c6688c9..95a14b7 100644
+--- a/src/app/api/admin/supplier/update/route.ts
++++ b/src/app/api/admin/supplier/update/route.ts
+@@ -1,111 +1,25 @@
+-import dbConnect from "@/lib/db";
+-import Supplier from "@/models/Supplier";
+-import { requireCompany, companyFilter } from "@/lib/company-scope";
+-import { parseOpeningBalance } from "@/lib/opening-balance";
+-// import { getSession } from "next-auth/react";
++import { requireCompany } from "@/lib/company-scope";
++import { updateSupplierRecord } from "@/lib/supplier/service";
+ 
++/** PUT /api/admin/supplier/update */
+ export async function PUT(request: Request) {
+     const auth = await requireCompany();
+     if (!auth.ok) return auth.response;
+ 
+-    await dbConnect();
+-
+-    // const session = await getSession({ request })
+-
+-    // if (!session) {
+-    //     return Response.json(
+-    //         {
+-    //             success: false,
+-    //             message: "Unauthorized. Please log in."
+-    //         },
+-    //         {
+-    //             status: 401
+-    //         }
+-    //     );
+-    // }
+-
+-    // Check if the user has admin role
+-    // if (session.user?.role !== "transporter") {
+-    //     return res.status(403).json({ error: "Forbidden. You do not have permission to perform this action." });
+-    // }
+-
+     try {
+-        const { _id, name, address, city, state, pincode, gstin, mobile, email, openingBalance, balanceType } = await request.json();
+-
+-        const supplierId = _id;
+-
+-        if (!supplierId) {
+-            return Response.json(
+-                {
+-                    success: false,
+-                    message: "supplierId is required",
+-                },
+-                {
+-                    status: 400,
+-                }
+-            );
+-        }
+-
+-        const balance = parseOpeningBalance(openingBalance, balanceType);
+-        if (!balance.ok) {
+-            return Response.json({ success: false, message: balance.message }, { status: 400 });
+-        }
+-
+-        // Check if the new name is already taken
+-        const existingSupplier: any = await Supplier.findOne({ name, ...companyFilter(auth.companyId) });
+-        if (existingSupplier && existingSupplier._id.toString() !== supplierId) {
+-            return Response.json(
+-                {
+-                    success: false,
+-                    message: "Supplier with this name already exists",
+-                },
+-                {
+-                    status: 400,
+-                }
+-            );
+-        }
+-
+-        // Find the category by ID and update it
+-        const updatedSupplier = await Supplier.findOneAndUpdate(
+-            { _id: supplierId, ...companyFilter(auth.companyId) },
+-            { name, address, city, state, pincode, gstin, mobile, email, openingBalance: balance.openingBalance, balanceType: balance.balanceType },
+-            { new: true, runValidators: true }
+-        );
+-
+-        if (!updatedSupplier) {
+-            return Response.json(
+-                {
+-                    success: false,
+-                    message: "Supplier not found",
+-                },
+-                {
+-                    status: 404
+-                }
+-            );
+-        }
+-
++        const body: unknown = await request.json().catch(() => null);
++        const result = await updateSupplierRecord({ companyId: auth.companyId, userId: auth.userId }, body);
+         return Response.json(
+-            {
+-                success: true,
+-                message: "Supplier updated successfully",
+-                data: updatedSupplier
+-            },
+-            {
+-                status: 200
+-            }
++            result.ok
++                ? { success: true, message: result.message, data: result.data }
++                : { success: false, message: result.message },
++            { status: result.status }
+         );
+-
+     } catch (error) {
+         console.log("Error while updating Supplier : ", error);
+         return Response.json(
+-            {
+-                success: false,
+-                message: "Internal server error while Updating Supplier",
+-                error
+-            },
+-            {
+-                status: 500
+-            }
++            { success: false, message: "Internal server error while Updating Supplier" },
++            { status: 500 }
+         );
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/src/components/lorry-hire/SupplierLorryHireFields.tsx b/src/components/lorry-hire/SupplierLorryHireFields.tsx
+new file mode 100644
+index 0000000..b1acd4a
+--- /dev/null
++++ b/src/components/lorry-hire/SupplierLorryHireFields.tsx
+@@ -0,0 +1,153 @@
++"use client";
++
++import FormInput from "@/components/FormInput";
++import { suggestTdsRate } from "@/lib/lorry-hire/calculations";
++import { IFSC_REGEX, PAN_REGEX, SUPPLIER_TYPES } from "@/lib/lorry-hire/constants";
++import type { SupplierLorryHireForm } from "@/lib/supplier/form";
++
++interface Props {
++  value: SupplierLorryHireForm;
++  onChange: (next: SupplierLorryHireForm) => void;
++}
++
++const HELP = "text-xs text-gray-500 dark:text-text_secondary";
++const ERROR = "mt-1 text-xs text-red-600";
++
++/**
++ * "Lorry hire details" block of the Supplier modal: Broker/Owner, PAN, default
++ * TDS, 194C(6) declaration and bank details. These pre-fill the lorry hire
++ * contract form when this supplier is picked.
++ */
++export function SupplierLorryHireFields({ value, onChange }: Props) {
++  const set = <K extends keyof SupplierLorryHireForm>(key: K, v: SupplierLorryHireForm[K]) =>
++    onChange({ ...value, [key]: v });
++  const setBank = (key: keyof SupplierLorryHireForm["bank"], v: string) =>
++    onChange({ ...value, bank: { ...value.bank, [key]: v } });
++
++  const pan = value.panNumber.trim().toUpperCase();
++  const panInvalid = pan !== "" && !PAN_REGEX.test(pan);
++  const ifsc = value.bank.ifscCode.trim().toUpperCase();
++  const ifscInvalid = ifsc !== "" && !IFSC_REGEX.test(ifsc);
++
++  const suggestion = suggestTdsRate({ pan, hasDeclaration: value.tdsDeclaration });
++  const current = value.defaultTdsRate.trim();
++  const usingSuggestion = current !== "" && Number(current) === suggestion.rate;
++
++  return (
++    <section aria-labelledby="supplier-lh-heading" className="mt-2 border-t border-gray-200 pt-5 dark:border-border_secondary">
++      <h3 id="supplier-lh-heading" className="text-sm font-semibold text-gray-800 dark:text-gray-200">
++        Lorry hire details
++      </h3>
++      <p className={`${HELP} mb-4`}>Used to pre-fill lorry hire contracts when you pick this supplier.</p>
++
++      <div className="form-group mb-5">
++        <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-text_secondary">Supplier type</span>
++        <div role="tablist" aria-label="Supplier type" className="flex">
++          {SUPPLIER_TYPES.map((t) => {
++            const active = value.supplierType === t;
++            return (
++              <button
++                key={t}
++                type="button"
++                role="tab"
++                aria-selected={active}
++                onClick={() => set("supplierType", t)}
++                className={`flex-1 border-b-2 px-4 py-2 text-sm font-semibold transition-colors ${
++                  active
++                    ? "border-red-500 bg-white text-red-500 dark:bg-transparent"
++                    : "border-transparent bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
++                }`}
++              >
++                {t === "Broker" ? "Broker (agent)" : "Owner (truck owner)"}
++              </button>
++            );
++          })}
++        </div>
++      </div>
++
++      <div className="form-group mb-5">
++        <FormInput
++          label="PAN"
++          value={value.panNumber}
++          onChange={(e) => set("panNumber", e.target.value.toUpperCase())}
++          placeholder="ABCDE1234F"
++        />
++        {panInvalid && <p className={ERROR}>PAN must look like ABCDE1234F.</p>}
++      </div>
++
++      <div className="form-group mb-5">
++        <FormInput
++          label="Default TDS %"
++          type="number"
++          min={0}
++          max={100}
++          value={value.defaultTdsRate}
++          onChange={(e) => set("defaultTdsRate", e.target.value)}
++          placeholder="e.g. 1"
++        />
++        <p className={`${HELP} mt-1`}>
++          Suggested: <strong>{suggestion.rate}%</strong> — {suggestion.reason}{" "}
++          {!usingSuggestion && (
++            <button
++              type="button"
++              onClick={() => set("defaultTdsRate", String(suggestion.rate))}
++              className="font-semibold text-[#DB7007] hover:underline"
++            >
++              Use {suggestion.rate}%
++            </button>
++          )}
++        </p>
++        <p className={HELP}>Only a suggestion — confirm the rate with your accountant.</p>
++      </div>
++
++      <div className="form-group mb-5">
++        <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-text_secondary">
++          <input
++            type="checkbox"
++            checked={value.tdsDeclaration}
++            onChange={(e) => set("tdsDeclaration", e.target.checked)}
++            className="mt-0.5 h-4 w-4 rounded border-gray-400"
++          />
++          <span>
++            Received a Section 194C(6) declaration (owns up to 10 goods carriages)
++            <span className={`${HELP} block`}>Needs a valid PAN. Contracts for this supplier start at 0% TDS.</span>
++          </span>
++        </label>
++        {value.tdsDeclaration && !PAN_REGEX.test(pan) && (
++          <p className={ERROR}>Add the supplier&apos;s valid PAN above to use a declaration.</p>
++        )}
++      </div>
++
++      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Bank (for paying this supplier)</p>
++      <div className="form-group mb-5">
++        <FormInput
++          label="Account holder name"
++          value={value.bank.accountHolderName}
++          onChange={(e) => setBank("accountHolderName", e.target.value)}
++        />
++      </div>
++      <div className="form-group mb-5">
++        <FormInput label="Bank name" value={value.bank.bankName} onChange={(e) => setBank("bankName", e.target.value)} />
++      </div>
++      <div className="form-group mb-5">
++        <FormInput
++          label="Account number"
++          value={value.bank.accountNumber}
++          onChange={(e) => setBank("accountNumber", e.target.value.replace(/\s/g, ""))}
++        />
++      </div>
++      <div className="form-group mb-5">
++        <FormInput
++          label="IFSC code"
++          value={value.bank.ifscCode}
++          onChange={(e) => setBank("ifscCode", e.target.value.toUpperCase())}
++          placeholder="HDFC0001234"
++        />
++        {ifscInvalid && <p className={ERROR}>IFSC must look like HDFC0001234.</p>}
++      </div>
++      <div className="form-group mb-2">
++        <FormInput label="UPI ID" value={value.bank.upiId} onChange={(e) => setBank("upiId", e.target.value)} placeholder="name@bank" />
++      </div>
++    </section>
++  );
++}
+diff --git a/src/components/lorry-hire/form/RouteAndParty.tsx b/src/components/lorry-hire/form/RouteAndParty.tsx
+index 09eced6..47d709c 100644
+--- a/src/components/lorry-hire/form/RouteAndParty.tsx
++++ b/src/components/lorry-hire/form/RouteAndParty.tsx
+@@ -4,7 +4,7 @@ import axios from "axios";
+ import { Controller, useFormContext, useWatch } from "react-hook-form";
+ import { Combobox, type ComboboxItem } from "@/components/ui/Combobox";
+ import StateAutocomplete from "@/components/StateAutocomplete";
+-import { LOAD_TYPES, SUPPLIER_TYPES } from "@/lib/lorry-hire/constants";
++import { LOAD_TYPES, PAN_REGEX, SUPPLIER_TYPES } from "@/lib/lorry-hire/constants";
+ import type { LorryHireFormValues } from "@/lib/lorry-hire/validations";
+ import { CheckField, FormBlock, MoreDetails, NumField, SelectField, TextField } from "./fields";
+ 
+@@ -87,6 +87,7 @@ interface SupplierOption {
+   panNumber?: string;
+   supplierType?: "Broker" | "Owner";
+   defaultTdsRate?: number;
++  tdsDeclaration?: boolean;
+   bankDetails?: { accountHolderName?: string; bankName?: string; accountNumber?: string; ifscCode?: string; upiId?: string };
+ }
+ 
+@@ -145,7 +146,9 @@ export function PartySection() {
+       mobile: s.mobile ?? "",
+     }, opt);
+     if (s.bankDetails) setValue("bank", { accountHolderName: "", bankName: "", accountNumber: "", ifscCode: "", upiId: "", ...s.bankDetails }, opt);
+-    if (typeof s.defaultTdsRate === "number") setValue("tax.tdsRate", s.defaultTdsRate, opt);
++    // A saved 194C(6) declaration (with PAN) means no TDS; otherwise use the supplier's default.
++    if (s.tdsDeclaration && PAN_REGEX.test((s.panNumber ?? "").toUpperCase())) setValue("tax.tdsRate", 0, opt);
++    else if (typeof s.defaultTdsRate === "number") setValue("tax.tdsRate", s.defaultTdsRate, opt);
+   };
+ 
+   const hasMore = Boolean(getValues("supplier.address") || getValues("supplier.city") || getValues("supplier.pincode") || bankAcc);
+diff --git a/src/lib/company-filter.ts b/src/lib/company-filter.ts
+new file mode 100644
+index 0000000..070d9ff
+--- /dev/null
++++ b/src/lib/company-filter.ts
+@@ -0,0 +1,20 @@
++/**
++ * Company scoping for Mongo queries. Kept free of auth / Next imports so
++ * data-layer code (and its tests) can use it without pulling in next-auth.
++ * `@/lib/company-scope` re-exports everything here, so existing imports are unchanged.
++ */
++
++/**
++ * When true, documents that have no `companyId` stay visible to EVERY company.
++ * That is a data leak between tenants, so it is off. Run
++ * `scripts/backfill-company-id.mjs` once to attach old customers / bills /
++ * consignments to their company.
++ */
++export const ALLOW_LEGACY_UNSCOPED = false;
++
++/** Mongo filter limiting a query to one company's documents. */
++export function companyFilter(companyId: string): Record<string, unknown> {
++  return ALLOW_LEGACY_UNSCOPED
++    ? { $or: [{ companyId }, { companyId: { $exists: false } }, { companyId: null }, { companyId: "" }] }
++    : { companyId };
++}
+diff --git a/src/lib/company-scope.ts b/src/lib/company-scope.ts
+index 54af79b..dc5a47a 100644
+--- a/src/lib/company-scope.ts
++++ b/src/lib/company-scope.ts
+@@ -2,14 +2,9 @@ import { NextResponse } from "next/server";
+ import { resolveCompanyAuth } from "@/lib/company-auth";
+ import dbConnect from "@/lib/db";
+ import CompanySettings from "@/models/CompanySettings";
++import { ALLOW_LEGACY_UNSCOPED, companyFilter } from "@/lib/company-filter";
+ 
+-/**
+- * When true, documents that have no `companyId` stay visible to EVERY company.
+- * That is a data leak between tenants, so it is off. Run
+- * `scripts/backfill-company-id.mjs` once to attach old customers / bills /
+- * consignments to their company.
+- */
+-export const ALLOW_LEGACY_UNSCOPED = false;
++export { ALLOW_LEGACY_UNSCOPED, companyFilter };
+ 
+ export type CompanyAuth =
+   | { ok: true; companyId: string; userId: string }
+@@ -52,13 +47,6 @@ export async function requireCompany(): Promise<CompanyAuth> {
+   }
+ }
+ 
+-/** Mongo filter limiting a query to one company's documents. */
+-export function companyFilter(companyId: string): Record<string, unknown> {
+-  return ALLOW_LEGACY_UNSCOPED
+-    ? { $or: [{ companyId }, { companyId: { $exists: false } }, { companyId: null }, { companyId: "" }] }
+-    : { companyId };
+-}
+-
+ /**
+  * Like requireCompany(), but also refuses (403 COMPANY_PROFILE_REQUIRED) until
+  * the company has saved a company name in Settings. Use on every route that
+diff --git a/src/lib/supplier/__tests__/extras.test.ts b/src/lib/supplier/__tests__/extras.test.ts
+new file mode 100644
+index 0000000..cf316c3
+--- /dev/null
++++ b/src/lib/supplier/__tests__/extras.test.ts
+@@ -0,0 +1,72 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++
++import { checkDeclaration, parseSupplierExtras } from "../extras";
++
++const ok = (body: unknown) => {
++  const r = parseSupplierExtras(body);
++  assert.equal(r.ok, true, JSON.stringify(r));
++  return r.ok ? r.values : {};
++};
++const err = (body: unknown) => {
++  const r = parseSupplierExtras(body);
++  assert.equal(r.ok, false);
++  return r.ok ? "" : r.message;
++};
++
++test("an older client that sends none of the fields produces an empty result (nothing gets wiped)", () => {
++  assert.deepEqual(ok({ name: "ABC", city: "Surat" }), {});
++  assert.deepEqual(ok(null), {});
++  assert.deepEqual(ok(undefined), {});
++});
++
++test("valid values are normalised", () => {
++  const v = ok({
++    supplierType: "Owner",
++    panNumber: " abcpe1234f ",
++    defaultTdsRate: "1.234",
++    tdsDeclaration: true,
++    bankDetails: { accountNumber: "123456789012", ifscCode: "hdfc0001234", upiId: "raj@okhdfc" },
++  });
++  assert.equal(v.supplierType, "Owner");
++  assert.equal(v.panNumber, "ABCPE1234F");
++  assert.equal(v.defaultTdsRate, 1.23);
++  assert.equal(v.tdsDeclaration, true);
++  assert.equal(v.bankDetails?.ifscCode, "HDFC0001234");
++  assert.equal(v.bankDetails?.accountHolderName, ""); // missing bank keys default to blank
++});
++
++test("blank PAN is allowed and means 'clear it'; null PAN too", () => {
++  assert.equal(ok({ panNumber: "" }).panNumber, "");
++  assert.equal(ok({ panNumber: null }).panNumber, "");
++});
++
++test("blank default TDS means 'clear it'", () => {
++  assert.equal(ok({ defaultTdsRate: "" }).defaultTdsRate, null);
++  assert.equal(ok({ defaultTdsRate: null }).defaultTdsRate, null);
++  assert.equal(ok({ defaultTdsRate: 0 }).defaultTdsRate, 0);
++});
++
++test("a blank type or bank block is 'not provided', not an error", () => {
++  assert.deepEqual(ok({ supplierType: "", bankDetails: null }), {});
++});
++
++test("bad values are rejected with a clear message", () => {
++  assert.match(err({ panNumber: "BAD" }), /PAN/);
++  assert.match(err({ defaultTdsRate: 101 }), /between 0 and 100/);
++  assert.match(err({ defaultTdsRate: -1 }), /between 0 and 100/);
++  assert.match(err({ defaultTdsRate: "abc" }), /between 0 and 100/);
++  assert.match(err({ supplierType: "Agent" }), /Broker or Owner/);
++  assert.match(err({ tdsDeclaration: "yes" }), /true or false/);
++  assert.match(err({ bankDetails: { ifscCode: "NOPE" } }), /IFSC/);
++  assert.match(err({ bankDetails: { accountNumber: "12" } }), /account number/);
++  assert.match(err({ bankDetails: { upiId: "nobank" } }), /UPI/);
++});
++
++test("a 194C(6) declaration needs a valid PAN", () => {
++  assert.equal(checkDeclaration({ declaration: false, pan: "" }), null);
++  assert.equal(checkDeclaration({ declaration: true, pan: "ABCPE1234F" }), null);
++  assert.equal(checkDeclaration({ declaration: true, pan: "abcpe1234f" }), null);
++  assert.match(checkDeclaration({ declaration: true, pan: "" }) ?? "", /valid PAN/);
++  assert.match(checkDeclaration({ declaration: true, pan: "BAD" }) ?? "", /valid PAN/);
++});
+diff --git a/src/lib/supplier/__tests__/form.test.ts b/src/lib/supplier/__tests__/form.test.ts
+new file mode 100644
+index 0000000..4005e74
+--- /dev/null
++++ b/src/lib/supplier/__tests__/form.test.ts
+@@ -0,0 +1,69 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++
++import { checkDeclaration, parseSupplierExtras } from "../extras";
++import { EMPTY_LORRY_HIRE_FORM, toExtrasPayload, toLorryHireForm } from "../form";
++
++test("a supplier from before these fields existed maps to sensible blanks", () => {
++  const f = toLorryHireForm({ supplierType: undefined, panNumber: undefined });
++  assert.equal(f.supplierType, "Broker");
++  assert.equal(f.panNumber, "");
++  assert.equal(f.defaultTdsRate, "");
++  assert.equal(f.tdsDeclaration, false);
++  assert.deepEqual(f.bank, EMPTY_LORRY_HIRE_FORM.bank);
++  assert.deepEqual(toLorryHireForm(null), EMPTY_LORRY_HIRE_FORM);
++});
++
++test("a saved supplier maps to form text, and a TDS of 0 is kept (not treated as blank)", () => {
++  const f = toLorryHireForm({
++    supplierType: "Owner",
++    panNumber: "ABCPE1234F",
++    defaultTdsRate: 0,
++    tdsDeclaration: true,
++    bankDetails: { bankName: "HDFC", accountNumber: "123456789012" },
++  });
++  assert.equal(f.supplierType, "Owner");
++  assert.equal(f.defaultTdsRate, "0");
++  assert.equal(f.bank.bankName, "HDFC");
++  assert.equal(f.bank.ifscCode, ""); // missing bank keys are blank, never undefined
++});
++
++test("form -> payload: blank TDS becomes null (clear), values are normalised", () => {
++  const blank = toExtrasPayload({ ...EMPTY_LORRY_HIRE_FORM });
++  assert.equal(blank.defaultTdsRate, null);
++  assert.equal(blank.panNumber, "");
++
++  const p = toExtrasPayload({
++    ...EMPTY_LORRY_HIRE_FORM,
++    panNumber: " abcpe1234f ",
++    defaultTdsRate: "1",
++    bank: { ...EMPTY_LORRY_HIRE_FORM.bank, ifscCode: "hdfc0001234" },
++  });
++  assert.equal(p.panNumber, "ABCPE1234F");
++  assert.equal(p.defaultTdsRate, 1);
++  assert.equal(p.bankDetails.ifscCode, "HDFC0001234");
++});
++
++test("an untouched (empty) form always produces a payload the API accepts", () => {
++  const r = parseSupplierExtras(toExtrasPayload({ ...EMPTY_LORRY_HIRE_FORM }));
++  assert.equal(r.ok, true);
++  assert.equal(checkDeclaration({ declaration: false, pan: "" }), null);
++});
++
++test("round trip: saved supplier -> form -> payload is accepted and unchanged", () => {
++  const saved = {
++    supplierType: "Owner",
++    panNumber: "ABCCE1234F",
++    defaultTdsRate: 2,
++    tdsDeclaration: false,
++    bankDetails: { accountHolderName: "X", bankName: "SBI", accountNumber: "1234567890", ifscCode: "SBIN0001234", upiId: "x@sbi" },
++  };
++  const payload = toExtrasPayload(toLorryHireForm(saved));
++  const r = parseSupplierExtras(payload);
++  assert.equal(r.ok, true);
++  if (r.ok) {
++    assert.equal(r.values.panNumber, saved.panNumber);
++    assert.equal(r.values.defaultTdsRate, 2);
++    assert.deepEqual(r.values.bankDetails, saved.bankDetails);
++  }
++});
+diff --git a/src/lib/supplier/__tests__/service.int.test.ts b/src/lib/supplier/__tests__/service.int.test.ts
+new file mode 100644
+index 0000000..7ec3f0e
+--- /dev/null
++++ b/src/lib/supplier/__tests__/service.int.test.ts
+@@ -0,0 +1,250 @@
++/**
++ * Integration tests against a real MongoDB. Skipped unless TEST_MONGODB_URI is
++ * set, e.g.  TEST_MONGODB_URI=mongodb://127.0.0.1:27017 npm test
++ * Each run uses its own throw-away database, dropped at the end.
++ */
++import { after, before, test } from "node:test";
++import assert from "node:assert/strict";
++import mongoose from "mongoose";
++
++const URI = process.env.TEST_MONGODB_URI;
++const skip = URI ? false : "set TEST_MONGODB_URI to run the supplier integration tests";
++
++// Real user ids are ObjectIds (Supplier.createdBy is one).
++const A = { companyId: "company-a", userId: new mongoose.Types.ObjectId().toString() };
++const B = { companyId: "company-b", userId: new mongoose.Types.ObjectId().toString() };
++
++type Svc = typeof import("../service");
++let svc: Svc;
++let Supplier: typeof import("@/models/Supplier").default;
++let LorryHire: typeof import("@/models/LorryHire").default;
++let Payment: typeof import("@/models/Payment").default;
++
++before(async () => {
++  if (!URI) return;
++  process.env.MONGODB_URI = URI;
++  process.env.MONGODB_DB_NAME = `supplier_test_${Date.now()}`;
++  svc = await import("../service");
++  Supplier = (await import("@/models/Supplier")).default;
++  LorryHire = (await import("@/models/LorryHire")).default;
++  Payment = (await import("@/models/Payment")).default;
++  const { default: dbConnect } = await import("@/lib/db");
++  await dbConnect();
++  await Promise.all([Supplier.init(), LorryHire.init(), Payment.init()]);
++});
++
++after(async () => {
++  if (!URI) return;
++  await mongoose.connection.dropDatabase();
++  await mongoose.disconnect();
++});
++
++const create = async (ctx = A, body: Record<string, unknown> = {}) => {
++  const r = await svc.createSupplierRecord(ctx, { name: `Supplier ${Math.random().toString(36).slice(2, 8)}`, ...body });
++  return r;
++};
++const created = async (ctx = A, body: Record<string, unknown> = {}) => {
++  const r = await create(ctx, body);
++  assert.equal(r.ok, true, r.message);
++  return r.ok ? (r.data as unknown as { _id: mongoose.Types.ObjectId; name: string }) : (undefined as never);
++};
++
++const contract = (supplierId: mongoose.Types.ObjectId, status: string, companyId = A.companyId) =>
++  LorryHire.create({
++    lhcNo: `LHC/${Math.floor(Math.random() * 1e9)}`,
++    lhcDate: new Date(),
++    from: { location: "Surat" },
++    to: { location: "Nagpur" },
++    supplier: { supplierId, name: "x" },
++    truck: { vehicleNumber: "MH23AU6718" },
++    status,
++    companyId,
++  });
++
++test("create: saves the lorry hire details", { skip }, async () => {
++  const r = await create(A, {
++    name: "Shree Roadlines",
++    supplierType: "Owner",
++    panNumber: "abcpe1234f",
++    defaultTdsRate: 1,
++    tdsDeclaration: true,
++    bankDetails: { accountHolderName: "Shree", bankName: "HDFC", accountNumber: "123456789012", ifscCode: "hdfc0001234", upiId: "shree@okhdfc" },
++  });
++  assert.equal(r.ok, true);
++  assert.equal(r.status, 200); // the Redux slice checks for exactly 200
++  const s = await Supplier.findOne({ name: "Shree Roadlines", companyId: A.companyId }).lean();
++  assert.equal(s?.supplierType, "Owner");
++  assert.equal(s?.panNumber, "ABCPE1234F");
++  assert.equal(s?.defaultTdsRate, 1);
++  assert.equal(s?.tdsDeclaration, true);
++  assert.equal(s?.bankDetails?.ifscCode, "HDFC0001234");
++  assert.equal(String(s?.createdBy), A.userId); // taken from the session, never the body
++});
++
++test("create: an older client (no new fields) still works and gets defaults", { skip }, async () => {
++  const s = await created(A, { name: "Old Client Roadways", city: "Surat", openingBalance: 500, balanceType: "credit" });
++  const doc = await Supplier.findById(s._id).lean();
++  assert.equal(doc?.supplierType, "Broker");
++  assert.equal(doc?.panNumber, "");
++  assert.equal(doc?.tdsDeclaration, false);
++  assert.equal(doc?.defaultTdsRate, undefined);
++  assert.equal(doc?.openingBalance, 500);
++  assert.equal(doc?.balanceType, "credit");
++});
++
++test("create: rejects bad input", { skip }, async () => {
++  const cases: [Record<string, unknown>, RegExp][] = [
++    [{ name: "  " }, /name is required/i],
++    [{ panNumber: "BAD" }, /PAN/],
++    [{ defaultTdsRate: 150 }, /between 0 and 100/],
++    [{ bankDetails: { ifscCode: "X" } }, /IFSC/],
++    [{ tdsDeclaration: true }, /needs the supplier's valid PAN/],
++    [{ openingBalance: -5 }, /Opening balance/],
++  ];
++  for (const [body, re] of cases) {
++    const r = await create(A, body);
++    assert.equal(r.ok, false, JSON.stringify(body));
++    assert.equal(r.status, 400);
++    assert.match(r.message, re);
++  }
++});
++
++test("create: duplicate names are caught case-insensitively, but only within a company", { skip }, async () => {
++  await created(A, { name: "Case Roadlines" });
++  const dup = await create(A, { name: "case ROADLINES" });
++  assert.equal(dup.ok, false);
++  assert.equal(dup.status, 400);
++  assert.match(dup.message, /already exists/);
++
++  const otherCompany = await create(B, { name: "Case Roadlines" });
++  assert.equal(otherCompany.ok, true);
++});
++
++test("update: an older client that omits the new fields does NOT wipe them", { skip }, async () => {
++  const s = await created(A, {
++    name: "Keep Me Transport",
++    supplierType: "Owner",
++    panNumber: "ABCPE1234F",
++    defaultTdsRate: 2,
++    tdsDeclaration: true,
++    bankDetails: { accountNumber: "999988887777", ifscCode: "HDFC0001234" },
++  });
++  const r = await svc.updateSupplierRecord(A, { _id: String(s._id), name: "Keep Me Transport", city: "Pune", openingBalance: 10, balanceType: "debit" });
++  assert.equal(r.ok, true, r.message);
++  const doc = await Supplier.findById(s._id).lean();
++  assert.equal(doc?.city, "Pune");
++  assert.equal(doc?.supplierType, "Owner");
++  assert.equal(doc?.panNumber, "ABCPE1234F");
++  assert.equal(doc?.defaultTdsRate, 2);
++  assert.equal(doc?.tdsDeclaration, true);
++  assert.equal(doc?.bankDetails?.accountNumber, "999988887777");
++});
++
++test("update: sets, changes and clears the lorry hire details", { skip }, async () => {
++  const s = await created(A, { name: "Change Me Carriers" });
++  const id = String(s._id);
++
++  let r = await svc.updateSupplierRecord(A, {
++    _id: id, name: "Change Me Carriers", supplierType: "Owner", panNumber: "abcce1234f", defaultTdsRate: "2",
++    bankDetails: { accountHolderName: "CMC", bankName: "SBI", accountNumber: "1234567890", ifscCode: "sbin0001234", upiId: "" },
++  });
++  assert.equal(r.ok, true, r.message);
++  let doc = await Supplier.findById(id).lean();
++  assert.equal(doc?.panNumber, "ABCCE1234F");
++  assert.equal(doc?.defaultTdsRate, 2);
++  assert.equal(doc?.bankDetails?.ifscCode, "SBIN0001234");
++
++  r = await svc.updateSupplierRecord(A, { _id: id, name: "Change Me Carriers", defaultTdsRate: "", panNumber: "" });
++  assert.equal(r.ok, true, r.message);
++  doc = await Supplier.findById(id).lean();
++  assert.equal(doc?.defaultTdsRate, undefined); // cleared
++  assert.equal(doc?.panNumber, "");
++  assert.equal(doc?.supplierType, "Owner"); // untouched
++});
++
++test("update: the declaration is checked against the PAN the supplier will have", { skip }, async () => {
++  const s = await created(A, { name: "Declaration Co", panNumber: "ABCPE1234F", tdsDeclaration: true });
++  const id = String(s._id);
++
++  // Removing the PAN while the declaration stays on is refused...
++  let r = await svc.updateSupplierRecord(A, { _id: id, name: "Declaration Co", panNumber: "" });
++  assert.equal(r.ok, false);
++  assert.match(r.message, /valid PAN/);
++  // ...but removing both together is fine.
++  r = await svc.updateSupplierRecord(A, { _id: id, name: "Declaration Co", panNumber: "", tdsDeclaration: false });
++  assert.equal(r.ok, true, r.message);
++});
++
++test("update: renaming rejects duplicates, allows a case-only change", { skip }, async () => {
++  await created(A, { name: "Taken Name" });
++  const s = await created(A, { name: "Rename Source" });
++  const id = String(s._id);
++
++  let r = await svc.updateSupplierRecord(A, { _id: id, name: "taken name" });
++  assert.equal(r.ok, false);
++  assert.match(r.message, /already exists/);
++
++  r = await svc.updateSupplierRecord(A, { _id: id, name: "RENAME SOURCE" });
++  assert.equal(r.ok, true, r.message);
++  assert.equal((await Supplier.findById(id).lean())?.name, "RENAME SOURCE");
++});
++
++test("update: renaming refreshes the supplier-ledger party name", { skip }, async () => {
++  const s = await created(A, { name: "Ledger Rename Old" });
++  await Payment.create({
++    companyId: A.companyId, partyType: "supplier", partyId: s._id, partyName: "Ledger Rename Old",
++    direction: "paid", amount: 100, date: new Date(), mode: "Cash",
++  });
++  const unrelated = await Payment.create({
++    companyId: A.companyId, partyType: "customer", partyId: s._id, partyName: "Should Stay",
++    direction: "received", amount: 50, date: new Date(), mode: "Cash",
++  });
++
++  const r = await svc.updateSupplierRecord(A, { _id: String(s._id), name: "Ledger Rename New" });
++  assert.equal(r.ok, true, r.message);
++  assert.equal((await Payment.findOne({ partyId: s._id, partyType: "supplier" }).lean())?.partyName, "Ledger Rename New");
++  assert.equal((await Payment.findById(unrelated._id).lean())?.partyName, "Should Stay");
++});
++
++test("update: another company's supplier is not found; bad ids are rejected", { skip }, async () => {
++  const s = await created(A, { name: "Tenant Guard" });
++  const r = await svc.updateSupplierRecord(B, { _id: String(s._id), name: "Hijacked" });
++  assert.equal(r.ok, false);
++  assert.equal(r.status, 404);
++  assert.equal((await Supplier.findById(s._id).lean())?.name, "Tenant Guard");
++
++  assert.equal((await svc.updateSupplierRecord(A, { name: "x" })).status, 400);
++  assert.equal((await svc.updateSupplierRecord(A, { _id: "nope", name: "x" })).status, 400);
++});
++
++test("delete: blocked while a live contract uses the supplier, allowed once it is cancelled", { skip }, async () => {
++  const s = await created(A, { name: "Delete Guard" });
++  const hire = await contract(s._id, "Hired");
++
++  let r = await svc.deleteSupplierRecord(A, String(s._id));
++  assert.equal(r.ok, false);
++  assert.equal(r.status, 409);
++  assert.match(r.message, /1 lorry hire contract/);
++  assert.ok(await Supplier.exists({ _id: s._id }));
++
++  await LorryHire.updateOne({ _id: hire._id }, { $set: { status: "Cancelled" } });
++  r = await svc.deleteSupplierRecord(A, String(s._id));
++  assert.equal(r.ok, true, r.message);
++  assert.equal(await Supplier.exists({ _id: s._id }), null);
++});
++
++test("delete: other company, unknown and invalid ids", { skip }, async () => {
++  const s = await created(A, { name: "Delete Tenant" });
++  assert.equal((await svc.deleteSupplierRecord(B, String(s._id))).status, 404);
++  assert.ok(await Supplier.exists({ _id: s._id }));
++  assert.equal((await svc.deleteSupplierRecord(A, new mongoose.Types.ObjectId().toString())).status, 404);
++  assert.equal((await svc.deleteSupplierRecord(A, "bad")).status, 400);
++  assert.equal((await svc.deleteSupplierRecord(A, undefined)).status, 400);
++});
++
++test("delete: another company's contracts don't block", { skip }, async () => {
++  const s = await created(A, { name: "Cross Tenant Contract" });
++  await contract(s._id, "Hired", B.companyId); // same id, wrong company — must be ignored
++  const r = await svc.deleteSupplierRecord(A, String(s._id));
++  assert.equal(r.ok, true, r.message);
++});
+diff --git a/src/lib/supplier/extras.ts b/src/lib/supplier/extras.ts
+new file mode 100644
+index 0000000..594723d
+--- /dev/null
++++ b/src/lib/supplier/extras.ts
+@@ -0,0 +1,112 @@
++/**
++ * The lorry-hire details on a Supplier: Broker / Owner, PAN, default TDS %,
++ * 194C(6) declaration and bank details.
++ *
++ * Browser-safe (zod only) — the Suppliers form and the API share these rules.
++ *
++ * Only keys that are PRESENT in the input appear in the result. That matters on
++ * update: an older client that doesn't send these fields must never wipe them.
++ * `defaultTdsRate: null` means "clear it" (the field was emptied).
++ */
++import { z } from "zod";
++
++import { IFSC_REGEX, PAN_REGEX, SUPPLIER_TYPES, type SupplierType } from "@/lib/lorry-hire/constants";
++
++export interface SupplierBank {
++  accountHolderName: string;
++  bankName: string;
++  accountNumber: string;
++  ifscCode: string;
++  upiId: string;
++}
++
++export interface SupplierExtras {
++  supplierType?: SupplierType;
++  panNumber?: string;
++  /** null = clear the saved default. */
++  defaultTdsRate?: number | null;
++  tdsDeclaration?: boolean;
++  bankDetails?: SupplierBank;
++}
++
++const EXTRA_KEYS = ["supplierType", "panNumber", "defaultTdsRate", "tdsDeclaration", "bankDetails"] as const;
++
++const bankSchema = z.object({
++  accountHolderName: z.string().trim().max(160).default(""),
++  bankName: z.string().trim().max(160).default(""),
++  accountNumber: z
++    .string()
++    .trim()
++    .max(34)
++    .default("")
++    .refine((v) => v === "" || /^[A-Za-z0-9]{6,34}$/.test(v), { message: "Bank account number should be 6–34 letters or digits." }),
++  ifscCode: z
++    .string()
++    .trim()
++    .toUpperCase()
++    .max(11)
++    .default("")
++    .refine((v) => v === "" || IFSC_REGEX.test(v), { message: "IFSC must look like HDFC0001234." }),
++  upiId: z
++    .string()
++    .trim()
++    .max(100)
++    .default("")
++    .refine((v) => v === "" || /^[\w.\-]+@[A-Za-z][A-Za-z0-9.]*$/.test(v), { message: "UPI ID must look like name@bank." }),
++});
++
++const schema = z.object({
++  supplierType: z.enum(SUPPLIER_TYPES, { message: "Supplier type must be Broker or Owner." }),
++  panNumber: z
++    .string()
++    .trim()
++    .toUpperCase()
++    .refine((v) => v === "" || PAN_REGEX.test(v), { message: "PAN must look like ABCDE1234F." }),
++  defaultTdsRate: z
++    .union([z.number(), z.string(), z.null()])
++    .transform((v, ctx) => {
++      if (v === null || (typeof v === "string" && v.trim() === "")) return null;
++      const n = Number(v);
++      if (!Number.isFinite(n) || n < 0 || n > 100) {
++        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Default TDS must be between 0 and 100." });
++        return z.NEVER;
++      }
++      return Math.round(n * 100) / 100;
++    }),
++  tdsDeclaration: z.boolean({ message: "Declaration must be true or false." }),
++  bankDetails: bankSchema,
++});
++
++export function parseSupplierExtras(body: unknown): { ok: true; values: SupplierExtras } | { ok: false; message: string } {
++  const source = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
++  const present: Record<string, unknown> = {};
++  for (const key of EXTRA_KEYS) {
++    if (source[key] !== undefined) present[key] = source[key];
++  }
++
++  const values: SupplierExtras = {};
++  for (const key of EXTRA_KEYS) {
++    if (!(key in present)) continue;
++    // A null/blank bank block or type is "not provided", not an error.
++    if ((key === "bankDetails" || key === "supplierType") && (present[key] === null || present[key] === "")) continue;
++    if (key === "panNumber" && present[key] === null) {
++      values.panNumber = "";
++      continue;
++    }
++    const result = schema.shape[key].safeParse(present[key]);
++    if (!result.success) return { ok: false, message: result.error.issues[0]?.message ?? "Invalid supplier details." };
++    (values as Record<string, unknown>)[key] = result.data;
++  }
++  return { ok: true, values };
++}
++
++/** A declaration only counts with a valid PAN — returns an error message, or null when fine. */
++export function checkDeclaration(opts: { declaration?: boolean; pan?: string }): string | null {
++  if (opts.declaration && !PAN_REGEX.test((opts.pan ?? "").trim().toUpperCase())) {
++    return "A 194C(6) declaration needs the supplier's valid PAN.";
++  }
++  return null;
++}
++
++/** Everything blank — what the form shows for a supplier with no lorry-hire details yet. */
++export const EMPTY_BANK: SupplierBank = { accountHolderName: "", bankName: "", accountNumber: "", ifscCode: "", upiId: "" };
+diff --git a/src/lib/supplier/form.ts b/src/lib/supplier/form.ts
+new file mode 100644
+index 0000000..a9c6ba1
+--- /dev/null
++++ b/src/lib/supplier/form.ts
+@@ -0,0 +1,56 @@
++/**
++ * Form-state helpers for the lorry-hire section of the Supplier modal.
++ * Pure and browser-safe: saved supplier <-> form fields <-> request payload.
++ */
++import type { SupplierType } from "@/lib/lorry-hire/constants";
++
++import { EMPTY_BANK, type SupplierBank } from "./extras";
++
++export interface SupplierLorryHireForm {
++  supplierType: SupplierType;
++  panNumber: string;
++  /** Text so the user can clear it; "" means no default. */
++  defaultTdsRate: string;
++  tdsDeclaration: boolean;
++  bank: SupplierBank;
++}
++
++export const EMPTY_LORRY_HIRE_FORM: SupplierLorryHireForm = {
++  supplierType: "Broker",
++  panNumber: "",
++  defaultTdsRate: "",
++  tdsDeclaration: false,
++  bank: { ...EMPTY_BANK },
++};
++
++/** A saved supplier (possibly from before these fields existed) -> form state. */
++export function toLorryHireForm(
++  s?: {
++    supplierType?: string;
++    panNumber?: string;
++    defaultTdsRate?: number | null;
++    tdsDeclaration?: boolean;
++    bankDetails?: Partial<SupplierBank> | null;
++  } | null
++): SupplierLorryHireForm {
++  if (!s) return { ...EMPTY_LORRY_HIRE_FORM, bank: { ...EMPTY_BANK } };
++  return {
++    supplierType: s.supplierType === "Owner" ? "Owner" : "Broker",
++    panNumber: s.panNumber ?? "",
++    defaultTdsRate: typeof s.defaultTdsRate === "number" ? String(s.defaultTdsRate) : "",
++    tdsDeclaration: !!s.tdsDeclaration,
++    bank: { ...EMPTY_BANK, ...(s.bankDetails ?? {}) },
++  };
++}
++
++/** Form state -> the fields sent to the API. A blank default TDS is sent as null so it clears. */
++export function toExtrasPayload(f: SupplierLorryHireForm) {
++  const rate = f.defaultTdsRate.trim();
++  return {
++    supplierType: f.supplierType,
++    panNumber: f.panNumber.trim().toUpperCase(),
++    defaultTdsRate: rate === "" ? null : Number(rate),
++    tdsDeclaration: f.tdsDeclaration,
++    bankDetails: { ...f.bank, ifscCode: f.bank.ifscCode.trim().toUpperCase() },
++  };
++}
+diff --git a/src/lib/supplier/service.ts b/src/lib/supplier/service.ts
+new file mode 100644
+index 0000000..161b06b
+--- /dev/null
++++ b/src/lib/supplier/service.ts
+@@ -0,0 +1,215 @@
++/**
++ * Supplier create / update / delete — the logic behind /api/admin/supplier/*.
++ * Server-only. The routes stay thin (auth -> JSON -> here -> respond) so every
++ * rule can be tested against a real database.
++ *
++ * What this adds on top of the original routes
++ *  - Saves and validates the lorry-hire details (Broker/Owner, PAN, default TDS %,
++ *    194C(6) declaration, bank). Fields an older client doesn't send are left alone.
++ *  - Duplicate names are matched case-insensitively — the same rule the lorry hire
++ *    form uses to link a typed supplier to a saved one — so "ABC Roadlines" and
++ *    "abc roadlines" can't both exist.
++ *  - Renaming a supplier refreshes the party name on its supplier-ledger payment rows.
++ *  - A supplier with active (non-cancelled) lorry hire contracts can't be deleted.
++ */
++import mongoose from "mongoose";
++
++import { companyFilter } from "@/lib/company-filter";
++import dbConnect from "@/lib/db";
++import { dropLegacyUniqueIndex } from "@/lib/legacy-indexes";
++import { parseOpeningBalance } from "@/lib/opening-balance";
++import LorryHireModel from "@/models/LorryHire";
++import PaymentModel from "@/models/Payment";
++import Supplier, { type ISupplier } from "@/models/Supplier";
++
++import { checkDeclaration, parseSupplierExtras } from "./extras";
++
++export interface SupplierContext {
++  companyId: string;
++  userId: string;
++}
++
++export type SupplierResult<T = ISupplier> =
++  | { ok: true; status: number; message: string; data?: T }
++  | { ok: false; status: number; message: string };
++
++const fail = (status: number, message: string): SupplierResult<never> => ({ ok: false, status, message });
++
++/** Case-insensitive exact matching for names (same collation the ledger code uses). */
++const CI = { locale: "en", strength: 2 } as const;
++
++const isDuplicateKey = (error: unknown): boolean =>
++  !!error && typeof error === "object" && (error as { code?: number }).code === 11000;
++
++const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
++
++type SupplierLean = ISupplier & { _id: mongoose.Types.ObjectId };
++
++const findByName = (ctx: SupplierContext, name: string, excludeId?: string) =>
++  Supplier.findOne({
++    $and: [companyFilter(ctx.companyId), { name }, ...(excludeId ? [{ _id: { $ne: excludeId } }] : [])],
++  })
++    .collation(CI)
++    .select("_id")
++    .lean();
++
++// ─── Create ──────────────────────────────────────────────────────────────────
++
++export async function createSupplierRecord(ctx: SupplierContext, body: unknown): Promise<SupplierResult> {
++  const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
++
++  const name = str(b.name);
++  if (!name) return fail(400, "Supplier name is required.");
++
++  const balance = parseOpeningBalance(b.openingBalance, b.balanceType);
++  if (!balance.ok) return fail(400, balance.message);
++
++  const extras = parseSupplierExtras(b);
++  if (!extras.ok) return fail(400, extras.message);
++  const x = extras.values;
++
++  const declarationError = checkDeclaration({ declaration: x.tdsDeclaration, pan: x.panNumber });
++  if (declarationError) return fail(400, declarationError);
++
++  await dbConnect();
++  await dropLegacyUniqueIndex(Supplier, "name");
++
++  if (await findByName(ctx, name)) return fail(400, "Supplier with this name already exists");
++
++  try {
++    const created = await Supplier.create({
++      name,
++      address: str(b.address),
++      city: str(b.city),
++      state: str(b.state),
++      pincode: str(b.pincode),
++      gstin: str(b.gstin),
++      mobile: str(b.mobile) || null,
++      email: str(b.email),
++      openingBalance: balance.openingBalance,
++      balanceType: balance.balanceType,
++      ...(x.supplierType ? { supplierType: x.supplierType } : {}),
++      ...(x.panNumber !== undefined ? { panNumber: x.panNumber } : {}),
++      ...(typeof x.defaultTdsRate === "number" ? { defaultTdsRate: x.defaultTdsRate } : {}),
++      ...(x.tdsDeclaration !== undefined ? { tdsDeclaration: x.tdsDeclaration } : {}),
++      ...(x.bankDetails ? { bankDetails: x.bankDetails } : {}),
++      // Server-controlled — never taken from the request body.
++      companyId: ctx.companyId,
++      createdBy: ctx.userId,
++    });
++    return { ok: true, status: 200, message: "New Supplier tag created successfully", data: created };
++  } catch (error) {
++    if (isDuplicateKey(error)) return fail(400, "Supplier with this name already exists");
++    if (error instanceof mongoose.Error.ValidationError) return fail(400, error.message);
++    throw error;
++  }
++}
++
++// ─── Update ──────────────────────────────────────────────────────────────────
++
++export async function updateSupplierRecord(ctx: SupplierContext, body: unknown): Promise<SupplierResult> {
++  const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
++
++  const id = typeof b._id === "string" ? b._id : "";
++  if (!id) return fail(400, "supplierId is required");
++  if (!mongoose.Types.ObjectId.isValid(id)) return fail(400, "Invalid supplier id");
++
++  const balance = parseOpeningBalance(b.openingBalance, b.balanceType);
++  if (!balance.ok) return fail(400, balance.message);
++
++  const extras = parseSupplierExtras(b);
++  if (!extras.ok) return fail(400, extras.message);
++  const x = extras.values;
++
++  await dbConnect();
++  const current = await Supplier.findOne({ _id: id, ...companyFilter(ctx.companyId) }).lean<SupplierLean>();
++  if (!current) return fail(404, "Supplier not found");
++
++  const name = b.name === undefined ? current.name : str(b.name);
++  if (!name) return fail(400, "Supplier name is required.");
++  if (name.toLowerCase() !== current.name.toLowerCase() && (await findByName(ctx, name, id))) {
++    return fail(400, "Supplier with this name already exists");
++  }
++
++  // The declaration is judged against the PAN the supplier will have AFTER this save.
++  const declarationError = checkDeclaration({
++    declaration: x.tdsDeclaration ?? current.tdsDeclaration,
++    pan: x.panNumber ?? current.panNumber,
++  });
++  if (declarationError) return fail(400, declarationError);
++
++  const $set: Record<string, unknown> = {
++    name,
++    openingBalance: balance.openingBalance,
++    balanceType: balance.balanceType,
++  };
++  // Plain text fields: only touched when the client sent them.
++  for (const key of ["address", "city", "state", "pincode", "gstin", "email"] as const) {
++    if (b[key] !== undefined) $set[key] = str(b[key]);
++  }
++  if (b.mobile !== undefined) $set.mobile = str(b.mobile) || null;
++
++  if (x.supplierType) $set.supplierType = x.supplierType;
++  if (x.panNumber !== undefined) $set.panNumber = x.panNumber;
++  if (typeof x.defaultTdsRate === "number") $set.defaultTdsRate = x.defaultTdsRate;
++  if (x.tdsDeclaration !== undefined) $set.tdsDeclaration = x.tdsDeclaration;
++  if (x.bankDetails) $set.bankDetails = x.bankDetails;
++
++  const update: Record<string, unknown> = { $set };
++  if (x.defaultTdsRate === null) update.$unset = { defaultTdsRate: "" };
++
++  let updated: SupplierLean | null;
++  try {
++    updated = await Supplier.findOneAndUpdate({ _id: id, ...companyFilter(ctx.companyId) }, update, {
++      new: true,
++      runValidators: true,
++    }).lean<SupplierLean>();
++  } catch (error) {
++    if (isDuplicateKey(error)) return fail(400, "Supplier with this name already exists");
++    if (error instanceof mongoose.Error.ValidationError) return fail(400, error.message);
++    throw error;
++  }
++  if (!updated) return fail(404, "Supplier not found");
++
++  // Keep the ledger's party name in step. The contracts keep the name they were issued with.
++  if (updated.name !== current.name) {
++    try {
++      await PaymentModel.updateMany(
++        { $and: [companyFilter(ctx.companyId), { partyType: "supplier", partyId: updated._id }] },
++        { $set: { partyName: updated.name } }
++      );
++    } catch (error) {
++      console.error("Supplier rename: couldn't refresh ledger party names", error);
++    }
++  }
++
++  return { ok: true, status: 200, message: "Supplier updated successfully", data: updated };
++}
++
++// ─── Delete ──────────────────────────────────────────────────────────────────
++
++export async function deleteSupplierRecord(ctx: SupplierContext, supplierId: unknown): Promise<SupplierResult> {
++  if (typeof supplierId !== "string" || !supplierId) return fail(400, "Supplier ID is required.");
++  if (!mongoose.Types.ObjectId.isValid(supplierId)) return fail(400, "Invalid supplier id");
++
++  await dbConnect();
++
++  // Cancelled contracts are history and don't block; anything live does.
++  const active = await LorryHireModel.countDocuments({
++    ...companyFilter(ctx.companyId),
++    "supplier.supplierId": new mongoose.Types.ObjectId(supplierId),
++    status: { $ne: "Cancelled" },
++  });
++  if (active > 0) {
++    return fail(
++      409,
++      `This supplier is on ${active} lorry hire contract${active === 1 ? "" : "s"}. Cancel or reassign ${
++        active === 1 ? "it" : "them"
++      } before deleting the supplier.`
++    );
++  }
++
++  const result = await Supplier.deleteOne({ _id: supplierId, ...companyFilter(ctx.companyId) });
++  if (result.deletedCount === 0) return fail(404, "Supplier not found.");
++  return { ok: true, status: 200, message: "Supplier deleted successfully." };
++}
+diff --git a/src/redux/slices/supplierSlice.ts b/src/redux/slices/supplierSlice.ts
+index 3fbc5e6..bda36cf 100644
+--- a/src/redux/slices/supplierSlice.ts
++++ b/src/redux/slices/supplierSlice.ts
+@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
+ import { setLoading } from "./loadingSlice";
+ import { getApiErrorInfo } from "@/lib/api/errors";
+ import type { BalanceType } from "@/lib/opening-balance";
++import type { SupplierBank } from "@/lib/supplier/extras";
+ 
+ // name, address, city, state, gstin, mobile
+ interface Supplier {
+@@ -18,6 +19,13 @@ interface Supplier {
+     email: string;
+     openingBalance: number;
+     balanceType: BalanceType;
++    /** Lorry hire details. Optional: suppliers saved earlier don't have them. */
++    supplierType?: "Broker" | "Owner";
++    panNumber?: string;
++    /** null clears the saved default when sent to the API. */
++    defaultTdsRate?: number | null;
++    tdsDeclaration?: boolean;
++    bankDetails?: SupplierBank;
+     createdAt: string;
+     updatedAt: string;
+ }
+-- 
+2.43.0
+

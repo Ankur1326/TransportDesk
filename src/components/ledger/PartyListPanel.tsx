@@ -10,8 +10,10 @@ import type { PartySummary } from "@/redux/slices/ledgerSlice";
 import { formatInr } from "@/lib/ledger/format";
 import { PartyListSkeleton } from "@/components/ledger/LedgerSkeleton";
 import { BalancePill, LedgerAvatar } from "@/components/ledger/LedgerAvatar";
+import { PARTY_CONFIG, type PartyKind } from "@/lib/ledger/party-kind";
 
 interface PartyListPanelProps {
+  kind: PartyKind;
   parties: PartySummary[];
   /** Total customers matching the search (all pages). */
   total: number;
@@ -27,6 +29,7 @@ interface PartyListPanelProps {
 }
 
 export function PartyListPanel({
+  kind,
   parties,
   total,
   isLoading,
@@ -39,6 +42,7 @@ export function PartyListPanel({
   onRetry,
   onAdd,
 }: PartyListPanelProps) {
+  const cfg = PARTY_CONFIG[kind];
   const [text, setText] = useState("");
 
   // Debounce 300ms.
@@ -51,7 +55,7 @@ export function PartyListPanel({
     <div className="flex h-full min-h-0 flex-col bg-(--ledger-card)">
       <div className="px-4 pb-2 pt-4">
         <div className="flex items-baseline justify-between">
-          <h1 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">Customers</h1>
+          <h1 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">{cfg.plural}</h1>
           {total > 0 && <span className="text-xs text-neutral-500">{total} {total === 1 ? "party" : "parties"}</span>}
         </div>
         <div className="relative mt-3">
@@ -61,7 +65,7 @@ export function PartyListPanel({
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Search name, mobile or GSTIN"
-            aria-label="Search customers"
+            aria-label={`Search ${cfg.plural.toLowerCase()}`}
             className="h-10 w-full rounded-full border border-(--ledger-line) bg-(--ledger-surface) pl-9 pr-9 text-sm outline-none transition focus:border-(--ledger-edge) focus:ring-2 focus:ring-(--ledger-accent-soft) [&::-webkit-search-cancel-button]:appearance-none"
           />
           {text && (
@@ -84,13 +88,13 @@ export function PartyListPanel({
           <PartyListSkeleton />
         ) : parties.length === 0 ? (
           <p className="p-6 text-center text-sm text-neutral-500">
-            {text ? "No customer matches your search." : "No customers yet. Add your first one below."}
+            {text ? `No ${cfg.noun} matches your search.` : `No ${cfg.plural.toLowerCase()} yet. Add your first one below.`}
           </p>
         ) : (
           <ul className="space-y-0.5">
             {parties.map((p) => {
               const selected = p._id === selectedId;
-              const tone = p.netBalance > 0 ? "text-(--receivable)" : p.netBalance < 0 ? "text-(--received)" : "text-neutral-500";
+              const tone = p.netBalance > 0 ? cfg.net.positiveText : p.netBalance < 0 ? cfg.net.negativeText : "text-neutral-500";
               return (
                 <li key={p._id}>
                   <button
@@ -111,7 +115,7 @@ export function PartyListPanel({
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-1">
                       <span className={cn("text-sm font-semibold tabular-nums", tone)}>{formatInr(p.netBalance)}</span>
-                      <BalancePill net={p.netBalance} />
+                      <BalancePill net={p.netBalance} kind={kind} />
                     </span>
                   </button>
                 </li>
@@ -130,7 +134,7 @@ export function PartyListPanel({
 
       <div className="border-t border-(--ledger-line) p-3">
         <Button className="w-full" onClick={onAdd}>
-          <Plus size={16} aria-hidden="true" /> Add customer
+          <Plus size={16} aria-hidden="true" /> Add {cfg.noun}
         </Button>
       </div>
     </div>

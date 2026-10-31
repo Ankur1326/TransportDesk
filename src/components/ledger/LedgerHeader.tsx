@@ -1,13 +1,15 @@
 "use client";
 
-import { BellRing, Download, Ellipsis } from "@/components/ledger/ledger-icons";
+import { Banknote, BellRing, Download, Ellipsis, FilePlus } from "@/components/ledger/ledger-icons";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, MessageCircle, Phone } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { formatInr, formatLedgerDate } from "@/lib/ledger/format";
 import { BalancePill, LedgerAvatar } from "@/components/ledger/LedgerAvatar";
+import { PARTY_CONFIG, type PartyKind } from "@/lib/ledger/party-kind";
 
 interface LedgerHeaderProps {
+  kind: PartyKind;
   name: string;
   mobile?: string | null;
   gstin?: string;
@@ -21,7 +23,12 @@ interface LedgerHeaderProps {
   onDelete: () => void;
   onDownloadStatement: () => void;
   onShareStatement: () => void;
+  /** Customers only: ask them to pay. */
   onSendReminder: () => void;
+  /** Suppliers only: opens the Paid (Debit) dialog. */
+  onPayNow: () => void;
+  /** Suppliers only: add a lorry hire contract. */
+  onAddContract: () => void;
   /** True while a statement is being prepared (entries disable to stop double clicks). */
   statementBusy: boolean;
 }
@@ -30,6 +37,7 @@ const iconBtn =
   "inline-flex h-9 items-center gap-1.5 rounded-lg border border-(--ledger-line) bg-(--ledger-card) px-3 text-xs font-medium text-neutral-700 transition hover:bg-(--ledger-surface) disabled:cursor-wait disabled:opacity-50 dark:text-neutral-200";
 
 export function LedgerHeader({
+  kind,
   name,
   mobile,
   gstin,
@@ -42,8 +50,11 @@ export function LedgerHeader({
   onDownloadStatement,
   onShareStatement,
   onSendReminder,
+  onPayNow,
+  onAddContract,
   statementBusy,
 }: LedgerHeaderProps) {
+  const cfg = PARTY_CONFIG[kind];
   const [menuOpen, setMenuOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -63,8 +74,8 @@ export function LedgerHeader({
 
   const owes = netBalance > 0;
   const advance = netBalance < 0;
-  const status = owes ? "Receivable" : advance ? "Advance" : "Settled";
-  const tone = owes ? "text-(--receivable)" : "text-(--received)";
+  const status = owes ? cfg.net.positiveStatus : advance ? cfg.net.negativeStatus : "Settled";
+  const tone = owes ? cfg.net.positiveText : cfg.net.negativeText;
   const item = "block w-full px-4 py-2 text-left text-sm hover:bg-(--ledger-surface) disabled:opacity-50";
   const meta = [mobile, gstin && `GSTIN ${gstin}`, city].filter(Boolean).join("  ·  ");
 
@@ -102,7 +113,7 @@ export function LedgerHeader({
               className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-xl border border-(--ledger-line) bg-(--ledger-card) py-1 shadow-lg"
             >
               <button role="menuitem" className={item} onClick={() => { setMenuOpen(false); onEdit(); }}>
-                Edit customer
+                Edit {cfg.noun}
               </button>
               <button role="menuitem" className={item} disabled={statementBusy} onClick={() => { setMenuOpen(false); onDownloadStatement(); }}>
                 Download statement (PDF)
@@ -112,7 +123,7 @@ export function LedgerHeader({
               </button>
               <div className="my-1 border-t border-(--ledger-line)" />
               <button role="menuitem" className={cn(item, "text-(--receivable)")} onClick={() => { setMenuOpen(false); onDelete(); }}>
-                Delete customer
+                Delete {cfg.noun}
               </button>
             </div>
           )}
@@ -124,17 +135,27 @@ export function LedgerHeader({
           <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Net balance</p>
           <p className="mt-0.5 flex items-center gap-2">
             <span className={cn("text-3xl font-bold tabular-nums tracking-tight", tone)}>{formatInr(netBalance)}</span>
-            <BalancePill net={netBalance} className="text-xs" />
+            <BalancePill net={netBalance} kind={kind} className="text-xs" />
           </p>
           <p className="mt-0.5 text-xs text-neutral-500">
             {status}
-            {owes ? " · customer owes you" : advance ? " · customer has paid ahead" : " · nothing pending"}
+            {owes ? ` · ${cfg.net.positiveHint}` : advance ? ` · ${cfg.net.negativeHint}` : " · nothing pending"}
             {lastEntryDate ? ` · last entry ${formatLedgerDate(lastEntryDate)}` : ""}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {owes && (
+          {kind === "supplier" && (
+            <button type="button" onClick={onAddContract} className={iconBtn} aria-label="Add lorry hire contract">
+              <FilePlus size={15} aria-hidden="true" /> Contract
+            </button>
+          )}
+          {kind === "supplier" && owes && (
+            <button type="button" onClick={onPayNow} className={iconBtn} aria-label="Record a payment to this supplier">
+              <Banknote size={15} aria-hidden="true" /> Pay now
+            </button>
+          )}
+          {kind === "customer" && owes && (
             <button type="button" onClick={onSendReminder} className={iconBtn} aria-label="Send payment reminder on WhatsApp">
               <BellRing size={15} aria-hidden="true" /> Remind
             </button>

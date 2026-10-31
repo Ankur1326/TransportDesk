@@ -1,22 +1,27 @@
 import { openStoredPdf } from "@/lib/pdf-url";
 import type { LedgerFilterState } from "@/redux/slices/ledgerSlice";
+import { PARTY_CONFIG, type PartyKind } from "@/lib/ledger/party-kind";
 
 /** The part of the ledger filters a statement honours (it is always complete: no type / search filter). */
 export type StatementRange = Pick<LedgerFilterState, "from" | "to" | "includeUnbilled">;
 
-/** Relative URL of a customer's statement PDF, e.g. `/api/admin/customer/ledger/<id>/statement?from=...`. */
-export function statementPdfPath(customerId: string, range: StatementRange, opts?: { download?: boolean }): string {
+/** Relative URL of a party's statement PDF, e.g. `/api/admin/customer/ledger/<id>/statement?from=...`. */
+export function statementPdfPath(
+  customerId: string,
+  range: StatementRange,
+  opts?: { download?: boolean; kind?: PartyKind }
+): string {
   const params = new URLSearchParams();
   if (range.from) params.set("from", range.from);
   if (range.to) params.set("to", range.to);
   params.set("includeUnbilled", String(range.includeUnbilled));
   if (opts?.download) params.set("download", "1");
-  return `/api/admin/customer/ledger/${encodeURIComponent(customerId)}/statement?${params.toString()}`;
+  return `${PARTY_CONFIG[opts?.kind ?? "customer"].apiBase}/ledger/${encodeURIComponent(customerId)}/statement?${params.toString()}`;
 }
 
 /** Opens the statement in a new tab (spinner first, then the PDF). Statements are built fresh, never stored. */
-export const openStatementPdf = (customerId: string, range: StatementRange) =>
-  openStoredPdf({ _id: customerId }, { routePath: statementPdfPath(customerId, range), label: "statement" });
+export const openStatementPdf = (customerId: string, range: StatementRange, kind: PartyKind = "customer") =>
+  openStoredPdf({ _id: customerId }, { routePath: statementPdfPath(customerId, range, { kind }), label: "statement" });
 
 /** 10-digit Indian mobile -> 91XXXXXXXXXX for wa.me; null when it can't be a number. */
 export function whatsappNumber(mobile: string | null | undefined): string | null {
@@ -32,6 +37,7 @@ export const whatsappLink = (mobile: string | null | undefined, text: string): s
 };
 
 export interface ShareStatementInput {
+  kind?: PartyKind;
   customerId: string;
   customerName: string;
   mobile: string | null | undefined;
@@ -47,7 +53,7 @@ export interface ShareStatementInput {
  * The PDF is never put on a public link: it is private financial data.
  */
 export async function shareStatementOnWhatsApp(input: ShareStatementInput): Promise<"shared" | "downloaded"> {
-  const res = await fetch(statementPdfPath(input.customerId, input.range, { download: true }), { credentials: "same-origin" });
+  const res = await fetch(statementPdfPath(input.customerId, input.range, { download: true, kind: input.kind }), { credentials: "same-origin" });
   if (!res.ok || !(res.headers.get("content-type") ?? "").includes("application/pdf")) {
     throw new Error("Couldn't prepare the statement. Please try again.");
   }

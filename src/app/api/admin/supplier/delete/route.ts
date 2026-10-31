@@ -1,6 +1,8 @@
 import dbConnect from "@/lib/db";
 import Supplier from "@/models/Supplier";
 import { requireCompany, companyFilter } from "@/lib/company-scope";
+import LorryHireContractModel from "@/models/LorryHireContract";
+import PaymentModel from "@/models/Payment";
 // import { getSession } from "next-auth/react";
 
 export async function DELETE(request: Request) {
@@ -23,6 +25,19 @@ export async function DELETE(request: Request) {
                 {
                     status: 400
                 }
+            );
+        }
+
+        // A supplier with contracts or payments would leave orphaned ledger rows.
+        const scope = companyFilter(auth.companyId);
+        const [hasContracts, hasPayments] = await Promise.all([
+            LorryHireContractModel.exists({ $and: [scope, { supplierId }] }),
+            PaymentModel.exists({ $and: [scope, { partyType: "supplier", partyId: supplierId }] }),
+        ]);
+        if (hasContracts || hasPayments) {
+            return Response.json(
+                { success: false, message: "This supplier has contracts or payments. Delete those first." },
+                { status: 409 }
             );
         }
 

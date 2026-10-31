@@ -66,6 +66,7 @@ export default async function StatementSheetPage({ params, searchParams }: Props
       {query.toolbar === "1" && <PrintToolbar title={`Statement ${customer.name}`} />}
       <div className="mx-auto max-w-4xl p-8 print:max-w-none print:p-0">
         <LedgerStatementSheet
+          kind="customer"
           company={settings}
           customer={{
             name: doc.name,

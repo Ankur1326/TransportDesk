@@ -1,6 +1,8 @@
 import type { LedgerEntry } from "@/lib/ledger/build-ledger";
 import { formatInr } from "@/lib/ledger/format";
 import { LedgerEntryRow } from "@/components/ledger/LedgerEntryRow";
+import { isIncreaseSide } from "@/lib/ledger/build-ledger";
+import { PARTY_CONFIG, type PartyKind } from "@/lib/ledger/party-kind";
 
 interface Group {
   key: string;
@@ -29,12 +31,14 @@ function groupByMonth(entries: LedgerEntry[]): Group[] {
  * whole month is loaded: while more pages remain, the last group may be cut off.
  */
 export function LedgerEntryList({
+  kind,
   entries,
   openId,
   balances,
   hasMore,
   onOpen,
 }: {
+  kind: PartyKind;
   entries: LedgerEntry[];
   openId: string | null;
   /** Running balance per entry (same order), or null to hide. */
@@ -43,6 +47,7 @@ export function LedgerEntryList({
   onOpen: (entry: LedgerEntry) => void;
 }) {
   const groups = groupByMonth(entries);
+  const { increase, decrease } = PARTY_CONFIG[kind];
   return (
     <div className="px-1 pb-2">
       {groups.map((g, gi) => {
@@ -50,7 +55,7 @@ export function LedgerEntryList({
         let dr = 0;
         let cr = 0;
         for (const { entry } of g.items) {
-          if (entry.side === "receivable") dr += Math.round(entry.amount * 100);
+          if (isIncreaseSide(entry.side)) dr += Math.round(entry.amount * 100);
           else cr += Math.round(entry.amount * 100);
         }
         return (
@@ -59,9 +64,9 @@ export function LedgerEntryList({
               <span>{g.label}</span>
               {complete && (
                 <span className="font-medium normal-case tracking-normal tabular-nums">
-                  <span className="text-(--receivable)">Dr {formatInr(dr / 100)}</span>
+                  <span className={increase.text}>{increase.code} {formatInr(dr / 100)}</span>
                   <span className="mx-1.5 text-neutral-300">|</span>
-                  <span className="text-(--received)">Cr {formatInr(cr / 100)}</span>
+                  <span className={decrease.text}>{decrease.code} {formatInr(cr / 100)}</span>
                 </span>
               )}
             </h3>
