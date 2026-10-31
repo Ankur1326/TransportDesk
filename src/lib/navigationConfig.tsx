@@ -94,6 +94,26 @@ export const NAVIGATION_CONFIG: Record<string, NavigationConfig> = {
               },
             ],
           },
+          {
+            id: "truck-hiring",
+            title: "Truck Hiring",
+            icon: <Truck className="h-[18px] w-[18px]" />,
+            route: "/admin/lorry-hires",
+            childItems: [
+              {
+                id: "all-lorry-hires",
+                title: "List Contracts",
+                icon: <LuReceiptText className="h-4 w-4" />,
+                route: "/admin/lorry-hires",
+              },
+              {
+                id: "create-lorry-hire",
+                title: "New Contract",
+                icon: <LuFilePlus2 className="h-4 w-4" />,
+                route: "/admin/lorry-hires/new",
+              },
+            ],
+          },
         ],
       },
 
