@@ -1,8 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import toast from "react-hot-toast";
-import { ChevronLeft, ChevronRight, Plus, Search, Truck } from "@/components/icons";
+import { ChevronLeft, ChevronRight, Search, Truck } from "@/components/icons";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -111,9 +110,6 @@ export default function LorryHiresPage() {
           <h1 className="text-h3 font-semibold text-neutral-900">Lorry Hire Contracts</h1>
           <p className="text-body-sm text-neutral-500">Trucks you&apos;ve hired from brokers and owners.</p>
         </div>
-        <Link href="/admin/lorry-hires/new">
-          <Button><Plus className="h-4 w-4" aria-hidden="true" /> New contract</Button>
-        </Link>
       </div>
 
       <CompanySetupNotice />

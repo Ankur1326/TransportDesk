@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType } from "react";
-import { FilePlus2, List, Plus, Receipt } from "@/components/icons";
+import { FilePlus2, List, Plus, Receipt, Truck } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 interface TopBarTab {
@@ -37,6 +37,13 @@ export const TOP_BAR_GROUPS: TopBarGroup[] = [
       { label: "Create Bill", href: "/admin/billing/new", icon: FilePlus2 },
     ],
   },
+  {
+    label: "Lorry hire navigation",
+    tabs: [
+      { label: "List Contracts", href: "/admin/lorry-hires", icon: List },
+      { label: "New Contract", href: "/admin/lorry-hires/new", icon: Truck },
+    ],
+  },
 ];
 
 const matches = (pathname: string, href: string) =>
@@ -57,6 +64,11 @@ export function GlobalTopBar() {
   const group = TOP_BAR_GROUPS.find((g) => g.tabs.some((t) => matches(pathname, t.href)));
   if (!group) return null;
 
+  // Most specific tab wins, so "/admin/lorry-hires/new" doesn't also light up "/admin/lorry-hires".
+  const activeHref = group.tabs
+    .filter((t) => matches(pathname, t.href))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
   return (
     <nav
       aria-label={group.label}
@@ -69,7 +81,7 @@ export function GlobalTopBar() {
         )}
       >
         {group.tabs.map((tab, index) => {
-          const isActive = matches(pathname, tab.href);
+          const isActive = tab.href === activeHref;
           const Icon = tab.icon;
 
           const className = cn(
