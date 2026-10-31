@@ -35,7 +35,7 @@ export function LorryHireActionsBar({
   const balance = s.balance;
   return (
     <div className="sticky bottom-0 z-10 -mx-3 mt-3 border-t border-neutral-200 bg-white/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/80 print:hidden">
-      <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-body-sm lg:hidden">
           <span className="text-neutral-500">Net {inr(net)}</span>
           <span className={cn("ml-3 font-semibold tabular-nums", balance > 0 ? "text-error-700" : "text-success-700")}>Balance {inr(balance)}</span>

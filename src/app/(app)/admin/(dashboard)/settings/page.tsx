@@ -33,7 +33,7 @@ const TABS = [
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
-type TextSettingKey = Exclude<keyof CompanySettingsValues, "consignmentStartNumber" | "accountType" | "lrFormat" | "lrFormatBackgrounds" | "chargeDefinitions" | "fieldVisibility">;
+type TextSettingKey = Exclude<keyof CompanySettingsValues, "consignmentStartNumber" | "lorryHireStartNumber" | "accountType" | "lrFormat" | "lrFormatBackgrounds" | "chargeDefinitions" | "fieldVisibility">;
 type ImageSettingKey = "companyLogo" | "signature" | "upiQrCode";
 type AppearanceTabId = TabId | "appearance";
 
@@ -594,6 +594,24 @@ export default function SettingsPage() {
                       onChange={(e) => setSettings((current) => ({
                         ...current,
                         consignmentStartNumber: Number(e.target.value),
+                      }))}
+                    />
+                  </Field>
+                  <Field
+                    label="Lorry Hire (LHC) Starting Number"
+                    required
+                    helper="The first contract is numbered LHC/<this number>. After that, each new one is one more than the highest number already used."
+                  >
+                    <input
+                      className={`${inputClassName} h-10`}
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={settings.lorryHireStartNumber}
+                      required
+                      onChange={(e) => setSettings((current) => ({
+                        ...current,
+                        lorryHireStartNumber: Number(e.target.value),
                       }))}
                     />
                   </Field>

@@ -31,7 +31,7 @@ function PlaceFields({ prefix, title }: { prefix: "from" | "to"; title: string }
 /** Top of the form: the contract's own identity — number, date and loading date. */
 export function LhcDetailsSection({ status }: { status?: ReactNode }) {
   return (
-    <FormBlock id="details" title="LHC details" hint="Contract number and dates." action={status}>
+    <FormBlock id="details" title="LHC details" hint="Contract number and dates." headerRight={status}>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <TextField name="lhcNo" label="LHC number" required upper />
         <TextField name="lhcDate" label="LHC date" type="date" required />

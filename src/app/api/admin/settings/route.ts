@@ -43,6 +43,7 @@ const TEXT_LIMITS: Partial<Record<keyof CompanySettingsValues, number>> = {
   invoiceTerms: 10000,
   quotationTerms: 10000,
   lrTerms: 10000,
+  lorryHireTerms: 10000,
 };
 
 const IMAGE_FIELDS = ["companyLogo", "signature", "upiQrCode"] as const;
@@ -191,14 +192,16 @@ function validateSettings(value: unknown): { values?: CompanySettingsValues; err
       }
       continue;
     }
-    if (key === "consignmentStartNumber") {
+    if (key === "consignmentStartNumber" || key === "lorryHireStartNumber") {
       if (
         typeof fieldValue !== "number" ||
         !Number.isSafeInteger(fieldValue) ||
         fieldValue < 1 ||
         fieldValue > 999999999999
       ) {
-        return { error: "Consignment starting number must be a positive whole number" };
+        return {
+          error: `${key === "lorryHireStartNumber" ? "Lorry hire" : "Consignment"} starting number must be a positive whole number`,
+        };
       }
       settings[key] = fieldValue;
       continue;

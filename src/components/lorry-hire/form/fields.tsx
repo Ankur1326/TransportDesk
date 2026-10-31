@@ -1,6 +1,8 @@
 "use client";
 import type { ReactNode } from "react";
 import { Controller, get, useFormContext } from "react-hook-form";
+import { ClipboardList, FileText, IndianRupee, Package, Route, StickyNote, Truck, UserRound, Wallet } from "lucide-react";
+import { FormSection } from "@/components/billing/FormSection";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
@@ -147,30 +149,50 @@ export function TextAreaField({ name, label, rows = 2 }: { name: Name; label: st
   return <Textarea label={label} rows={rows} error={error} {...register(name as never)} />;
 }
 
-/** A section of the form; `id` is the anchor the left rail scrolls to. */
+/** Header icon per block, matched on the block title. */
+const BLOCK_ICONS: Record<string, ReactNode> = {
+  "LHC details": <FileText />,
+  Route: <Route />,
+  "Supplier & owner": <UserRound />,
+  "Truck & driver": <Truck />,
+  Cargo: <Package />,
+  "Freight & tax": <IndianRupee />,
+  "Advance & payments": <Wallet />,
+  Payments: <Wallet />,
+  "Shortage, remarks & signature": <StickyNote />,
+};
+
+/**
+ * A card of the form — the same card as the consignment form's sections
+ * (FormSection: blue title bar with an icon). The optional `hint` and `action`
+ * sit on a row at the top of the body; `headerRight` goes in the title bar.
+ */
 export function FormBlock({
   id,
   title,
   hint,
   action,
+  headerRight,
   children,
 }: {
   id: string;
   title: string;
   hint?: string;
   action?: ReactNode;
+  headerRight?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-28 border border-neutral-200 bg-white">
-      <header className="flex items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3">
-        <div>
-          <h2 className="text-sm font-semibold text-neutral-900">{title}</h2>
-          {hint && <p className="text-caption text-neutral-500">{hint}</p>}
-        </div>
-        {action}
-      </header>
-      <div className="p-4">{children}</div>
+    <section id={id} className="scroll-mt-24">
+      <FormSection title={title} icon={BLOCK_ICONS[title] ?? <ClipboardList />} headerAction={headerRight}>
+        {(hint || action) && (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            {hint ? <p className="text-[13px] leading-snug text-slate-500">{hint}</p> : <span />}
+            {action}
+          </div>
+        )}
+        {children}
+      </FormSection>
     </section>
   );
 }

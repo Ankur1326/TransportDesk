@@ -32,7 +32,7 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
  * The printable lorry hire contract ("Truck Supplier Note"), as a pure function
  * of the contract values and the company settings — no hooks — so the same
  * markup serves the live form preview and the server-rendered sheet that
- * becomes the stored PDF (src/app/(print)/admin/lorry-hire/[id]/page.tsx).
+ * becomes the stored PDF (src/app/(print)/admin/lhc/[id]/page.tsx).
  *
  * `payments` overrides `values.payments` — once a contract exists its payments
  * live on the server, not in the form.

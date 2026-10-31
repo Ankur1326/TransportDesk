@@ -110,7 +110,7 @@ export const NAVIGATION_CONFIG: Record<string, NavigationConfig> = {
                 id: "create-lorry-hire",
                 title: "New Contract",
                 icon: <LuFilePlus2 className="h-4 w-4" />,
-                route: "/admin/lorry-hires/new",
+                route: "/admin/lorry-hire/new",
               },
             ],
           },

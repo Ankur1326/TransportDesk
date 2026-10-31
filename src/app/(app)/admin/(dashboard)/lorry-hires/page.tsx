@@ -22,6 +22,7 @@ import {
   type LorryHireRecord,
 } from "@/lib/lorry-hire/api";
 import { LORRY_HIRE_STATUSES, PAYMENT_STATUSES, type LorryHirePaymentStatus, type LorryHireStatus } from "@/lib/lorry-hire/constants";
+import { LorryHireShareDialog } from "@/components/lorry-hire/LorryHireShareDialog";
 import { openLorryHirePdf } from "@/lib/lorry-hire/pdf-url";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +45,7 @@ export default function LorryHiresPage() {
 
   const [payTarget, setPayTarget] = useState<LorryHireRecord | null>(null);
   const [cancelTarget, setCancelTarget] = useState<LorryHireRecord | null>(null);
+  const [shareTarget, setShareTarget] = useState<LorryHireRecord | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -99,6 +101,7 @@ export default function LorryHiresPage() {
     markDelivered: (r) => move(r, "Delivered"),
     cancel: setCancelTarget,
     print: openLorryHirePdf,
+    share: setShareTarget,
   };
 
   const items = data?.data ?? [];
@@ -107,7 +110,7 @@ export default function LorryHiresPage() {
   const countOf = (t: StatusTab) => (t === "All" ? counts?.all : counts?.byStatus[t]);
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="w-full space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-h3 font-semibold text-neutral-900">Lorry Hire Contracts</h1>
@@ -192,6 +195,7 @@ export default function LorryHiresPage() {
         </div>
       )}
 
+      <LorryHireShareDialog record={shareTarget} onClose={() => setShareTarget(null)} />
       <AddPaymentDialog contract={payTarget} onClose={() => setPayTarget(null)} onDone={refresh} />
       <ConfirmDialog
         open={!!cancelTarget}

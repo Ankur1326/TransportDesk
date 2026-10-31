@@ -41,7 +41,7 @@ export const TOP_BAR_GROUPS: TopBarGroup[] = [
     label: "Lorry hire navigation",
     tabs: [
       { label: "List Contracts", href: "/admin/lorry-hires", icon: List },
-      { label: "New Contract", href: "/admin/lorry-hires/new", icon: Truck },
+      { label: "New Contract", href: "/admin/lorry-hire/new", icon: Truck },
     ],
   },
 ];
@@ -64,7 +64,7 @@ export function GlobalTopBar() {
   const group = TOP_BAR_GROUPS.find((g) => g.tabs.some((t) => matches(pathname, t.href)));
   if (!group) return null;
 
-  // Most specific tab wins, so "/admin/lorry-hires/new" doesn't also light up "/admin/lorry-hires".
+  // Most specific tab wins, so "/admin/lorry-hire/new" can never light up "/admin/lorry-hires" too.
   const activeHref = group.tabs
     .filter((t) => matches(pathname, t.href))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;

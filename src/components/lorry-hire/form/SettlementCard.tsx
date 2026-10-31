@@ -6,15 +6,6 @@ import { cn } from "@/lib/utils";
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-function Row({ label, value, tone, strong }: { label: string; value: string; tone?: "add" | "less"; strong?: boolean }) {
-  return (
-    <div className={cn("flex items-baseline justify-between gap-3 py-1 text-body-sm", strong && "font-semibold text-neutral-900")}>
-      <span className="text-neutral-600">{label}</span>
-      <span className={cn("tabular-nums", tone === "less" && "text-error-700", tone === "add" && "text-success-700")}>{value}</span>
-    </div>
-  );
-}
-
 /** Live settlement figures for the form. `paidSoFar` overrides the form's own payments (edit mode). */
 export function useLorryHireSummary(paidSoFar?: number) {
   const { control } = useFormContext<LorryHireFormValues>();
@@ -31,9 +22,22 @@ export function useLorryHireSummary(paidSoFar?: number) {
   return { v, s: summary };
 }
 
+function Item({ label, value, tone }: { label: string; value: string; tone?: "add" | "less" }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-caption text-neutral-500">{label}</p>
+      <p className={cn("text-body-md font-medium tabular-nums text-neutral-900", tone === "add" && "text-success-700", tone === "less" && "text-error-700")}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
 /**
- * Live settlement waterfall. `paidSoFar` overrides the form's own payments —
- * once a contract exists its payments live on the server, not in the form.
+ * Settlement summary at the top of the form: the breakdown, then the three
+ * totals. Plain and flat like the rest of the app. `paidSoFar` overrides the
+ * form's own payments — once a contract exists its payments live on the
+ * server, not in the form.
  */
 export function SettlementCard({ paidSoFar }: { paidSoFar?: number }) {
   const { v, s } = useLorryHireSummary(paidSoFar);
@@ -45,53 +49,65 @@ export function SettlementCard({ paidSoFar }: { paidSoFar?: number }) {
     s.cargo.chargedWeight > (v.truck?.capacity ?? 0);
 
   return (
-    <aside className="border border-neutral-200 bg-white">
-      <header className="border-b border-neutral-100 px-4 py-3">
+    <section aria-label="Settlement" className="border border-neutral-200 bg-white">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-neutral-200 px-4 py-2">
         <h2 className="text-sm font-semibold text-neutral-900">Settlement</h2>
-      </header>
-      <div className="px-4 py-3">
-        <Row label="Basic freight" value={inr(s.basicFreight)} />
-        {s.additions > 0 && <Row label="+ Halting / extra" value={inr(s.additions)} tone="add" />}
-        {s.deductions > 0 && <Row label="− Commission etc." value={inr(s.deductions)} tone="less" />}
-        <Row label="Gross hire" value={inr(s.grossHire)} strong />
+        {s.cargo.packages > 0 && (
+          <span className="text-caption text-neutral-500">
+            {s.cargo.packages} packages · {s.cargo.chargedWeight || s.cargo.actualWeight} {v.weightUnit}
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-x-10 gap-y-3 px-4 py-3">
+        <Item label="Basic freight" value={inr(s.basicFreight)} />
+        {s.additions > 0 && <Item label="Extra charges" value={`+ ${inr(s.additions)}`} tone="add" />}
+        {s.deductions > 0 && <Item label="Deductions" value={`− ${inr(s.deductions)}`} tone="less" />}
+        <Item label="Gross hire" value={inr(s.grossHire)} />
         {s.gstAmount > 0 && (
-          <Row
-            label={s.gstMode === "RCM" ? `RCM ${s.gstRate}% (we owe — not added)` : `GST ${s.gstRate}%`}
+          <Item
+            label={s.gstMode === "RCM" ? `GST ${s.gstRate}% (RCM, not added)` : `GST ${s.gstRate}%`}
             value={inr(s.gstAmount)}
             tone={s.gstMode === "GST" ? "add" : undefined}
           />
         )}
-        {s.tdsAmount > 0 && <Row label={`TDS ${v.tax?.tdsRate ?? 0}%`} value={`${s.tdsSigned < 0 ? "−" : "+"}${inr(s.tdsAmount)}`} tone={s.tdsSigned < 0 ? "less" : "add"} />}
-        {s.shortage > 0 && <Row label="Shortage" value={`−${inr(s.shortage)}`} tone="less" />}
-        {s.roundOffAmount !== 0 && <Row label="Round off" value={inr(s.roundOffAmount)} />}
-
-        <div className="mt-2 border-t border-neutral-200 pt-2">
-          <Row label="Net payable" value={inr(s.netPayable)} strong />
-          <p className="pb-1 text-caption text-neutral-500">{amountInWords(s.netPayable)}</p>
-          <Row label="Paid" value={inr(s.totalPaid)} tone="add" />
-        </div>
-
-        <div className="mt-2 flex items-baseline justify-between bg-neutral-50 px-3 py-2.5">
-          <span className="text-body-sm font-semibold text-neutral-800">Balance</span>
-          <span className={cn("text-lg font-bold tabular-nums", s.balance > 0 ? "text-error-700" : "text-success-700")}>
-            {inr(s.balance)}
-          </span>
-        </div>
-
-        {s.overpaid > 0 && (
-          <p className="mt-2 text-caption text-error-700">Payments exceed the net payable by {inr(s.overpaid)}.</p>
+        {s.tdsAmount > 0 && (
+          <Item
+            label={`TDS ${v.tax?.tdsRate ?? 0}%`}
+            value={`${s.tdsSigned < 0 ? "−" : "+"} ${inr(s.tdsAmount)}`}
+            tone={s.tdsSigned < 0 ? "less" : "add"}
+          />
         )}
-        {overCapacity && (
-          <p className="mt-2 text-caption text-warning-700">
-            Charged weight ({s.cargo.chargedWeight} {v.weightUnit}) is above the truck capacity ({v.truck?.capacity} {v.truck?.capacityUnit}).
-          </p>
-        )}
-        {s.cargo.packages > 0 && (
-          <p className="mt-2 text-caption text-neutral-500">
-            {s.cargo.packages} packages · {s.cargo.chargedWeight || s.cargo.actualWeight} {v.weightUnit}
-          </p>
-        )}
+        {s.shortage > 0 && <Item label="Shortage" value={`− ${inr(s.shortage)}`} tone="less" />}
+        {s.roundOffAmount !== 0 && <Item label="Round off" value={inr(s.roundOffAmount)} />}
       </div>
-    </aside>
+
+      <div className="flex flex-wrap items-end gap-x-10 gap-y-2 border-t border-neutral-200 bg-neutral-50 px-4 py-3">
+        <div>
+          <p className="text-caption text-neutral-500">Net payable</p>
+          <p className="text-lg font-semibold tabular-nums text-neutral-900">{inr(s.netPayable)}</p>
+        </div>
+        <div>
+          <p className="text-caption text-neutral-500">Paid</p>
+          <p className="text-lg font-semibold tabular-nums text-neutral-900">{inr(s.totalPaid)}</p>
+        </div>
+        <div>
+          <p className="text-caption text-neutral-500">Balance</p>
+          <p className={cn("text-lg font-semibold tabular-nums", s.balance > 0 ? "text-error-700" : "text-success-700")}>{inr(s.balance)}</p>
+        </div>
+        <p className="text-caption text-neutral-500 sm:ml-auto">{amountInWords(s.netPayable)}</p>
+      </div>
+
+      {(s.overpaid > 0 || overCapacity) && (
+        <div className="space-y-0.5 border-t border-neutral-200 px-4 py-2 text-caption text-error-700">
+          {s.overpaid > 0 && <p>Payments exceed the net payable by {inr(s.overpaid)}.</p>}
+          {overCapacity && (
+            <p>
+              Charged weight ({s.cargo.chargedWeight} {v.weightUnit}) is above the truck capacity ({v.truck?.capacity} {v.truck?.capacityUnit}).
+            </p>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

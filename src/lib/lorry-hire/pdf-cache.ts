@@ -10,7 +10,7 @@ export const LORRY_HIRE_PDF: PdfKind = {
   label: "Lorry hire contract",
   model: LorryHireModel,
   folder: "lorry-hire-pdf",
-  sheetPath: (id) => `/admin/lorry-hire/${encodeURIComponent(id)}`,
+  sheetPath: (id) => `/admin/lhc/${encodeURIComponent(id)}`,
 };
 
 export const warmLorryHirePdf = (opts: Parameters<typeof warmPdf>[1]) => warmPdf(LORRY_HIRE_PDF, opts);
