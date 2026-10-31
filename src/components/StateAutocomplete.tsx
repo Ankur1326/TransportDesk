@@ -1,15 +1,19 @@
 'use client'
 import { useState, useEffect, useRef } from "react";
 import { GST_STATES, GstState } from "@/data/gstStates";
+import { Input } from "@/components/ui/Input";
 
 interface StateAutocompleteProps {
     value: string;
     onChange: (value: string) => void;
     label?: string;
     required?: boolean;
+    /** Render with the shared flat <Input> so it lines up with the other fields. */
+    flat?: boolean;
+    error?: string;
 }
 
-export default function StateAutocomplete({ value, onChange, label = "State", required = false }: StateAutocompleteProps) {
+export default function StateAutocomplete({ value, onChange, label = "State", required = false, flat = false, error }: StateAutocompleteProps) {
     const [query, setQuery] = useState(value || "");
     const [showSuggestions, setShowSuggestions] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
@@ -53,21 +57,36 @@ export default function StateAutocomplete({ value, onChange, label = "State", re
 
     return (
         <div className="relative" ref={wrapperRef}>
+            {flat ? (
+                <Input
+                    label={label}
+                    required={required}
+                    error={error}
+                    value={query}
+                    onChange={handleInputChange}
+                    onFocus={() => setShowSuggestions(true)}
+                    placeholder="Type code or name, e.g. GJ"
+                    autoComplete="off"
+                />
+            ) : (
+                <>
             {label && (
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {label} {required && <span className="text-red-500">*</span>}
-                </label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        {label} {required && <span className="text-red-500">*</span>}
+                    </label>
+                )}
+                <input
+                    type="text"
+                    value={query}
+                    onChange={handleInputChange}
+                    onFocus={() => setShowSuggestions(true)}
+                    required={required}
+                    placeholder="Type state code e.g. GJ or DL"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-bg_secondary dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#153a69]"
+                    autoComplete="off"
+                />
+                </>
             )}
-            <input
-                type="text"
-                value={query}
-                onChange={handleInputChange}
-                onFocus={() => setShowSuggestions(true)}
-                required={required}
-                placeholder="Type state code e.g. GJ or DL"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-bg_secondary dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#153a69]"
-                autoComplete="off"
-            />
             {showSuggestions && filtered.length > 0 && (
                 <ul className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto bg-white dark:bg-bg_secondary border border-gray-300 dark:border-gray-600 rounded-md shadow-lg">
                     {filtered.map((s) => (

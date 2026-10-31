@@ -22,15 +22,21 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
    * form) and does not change behavior/validation.
    */
   size?: any;
+  /**
+   * "outlined" (default) is the original boxed select. "flat" matches the flat
+   * filled <Input> (same height, label and baseline) so mixed rows line up.
+   */
+  variant?: "outlined" | "flat";
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, label, hi, error, helperText, options, placeholder, id, required, size = "default", ...props }, ref) => {
+  ({ className, label, hi, error, helperText, options, placeholder, id, required, size = "default", variant = "outlined", ...props }, ref) => {
     const generatedId = useId();
     const selectId = id ?? generatedId;
     const helperId = `${selectId}-helper`;
     const errorId = `${selectId}-error`;
     const isCompact = size === "compact";
+    const isFlat = variant === "flat";
 
     return (
       <div className="group w-full">
@@ -39,7 +45,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             htmlFor={selectId}
             className={cn(
               "mb-1.5 block text-body-sm font-medium text-neutral-800 transition-colors group-focus-within:text-brand-700",
-              isCompact && "mb-0.5 text-[9.5px] font-semibold uppercase tracking-[0.02em] text-neutral-600"
+              isCompact && "mb-0.5 text-[9.5px] font-semibold uppercase tracking-[0.02em] text-neutral-600",
+              isFlat && "mb-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-neutral-600"
             )}
           >
             {label}
@@ -59,6 +66,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               "focus-ring h-11 w-full appearance-none rounded-lg border border-neutral-300 bg-white px-3.5 pr-9 text-body text-neutral-900",
               "transition-colors hover:border-neutral-400",
               isCompact && "h-8 rounded-md px-2 pr-6 text-[12px]",
+              isFlat && "h-10 rounded-none border-0 border-b border-neutral-300 bg-neutral-100 px-3 pr-9 text-[13px] font-medium hover:border-neutral-400 hover:bg-neutral-200/60 focus:bg-white disabled:cursor-not-allowed disabled:text-neutral-400",
+              isFlat && error && "bg-error-50 hover:bg-error-50",
               error && "uts-shake border-error-500 hover:border-error-500 focus-visible:ring-error-500",
               className
             )}
@@ -85,7 +94,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         </div>
 
         {error ? (
-          <p id={errorId} className={cn("mt-1.5 text-body-sm text-error-600", isCompact && "mt-0.5 text-[10px]")}>
+          <p id={errorId} className={cn("mt-1.5 text-body-sm text-error-600", isCompact && "mt-0.5 text-[10px]", isFlat && "mt-1 text-[11px] font-medium")}>
             {error}
           </p>
         ) : helperText ? (

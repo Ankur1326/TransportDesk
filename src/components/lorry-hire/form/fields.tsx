@@ -133,6 +133,7 @@ export function SelectField({
   return (
     <div className={className}>
       <Select
+        variant="flat"
         label={label}
         error={error}
         placeholder={placeholder}
@@ -143,10 +144,14 @@ export function SelectField({
   );
 }
 
-export function TextAreaField({ name, label, rows = 2 }: { name: Name; label: string; rows?: number }) {
+export function TextAreaField({ name, label, rows = 2, className }: { name: Name; label: string; rows?: number; className?: string }) {
   const { register } = useFormContext<LorryHireFormValues>();
   const error = useFieldError(name);
-  return <Textarea label={label} rows={rows} error={error} {...register(name as never)} />;
+  return (
+    <div className={className}>
+      <Textarea variant="flat" label={label} rows={rows} error={error} {...register(name as never)} />
+    </div>
+  );
 }
 
 /** Header icon per block, matched on the block title. */
@@ -197,30 +202,29 @@ export function FormBlock({
   );
 }
 
-/** Optional blocks stay closed until they hold data (or the user opens them). */
-export function MoreDetails({
-  label,
-  hasData,
-  children,
-}: {
-  label: string;
-  hasData: boolean;
-  children: ReactNode;
-}) {
+/**
+ * The one grid every card uses: 1 column on phones, 2 on tablets, 4 on desktop.
+ * Give a field `sm:col-span-2` (half a row on desktop) or `col-span-full`, so
+ * columns line up from card to card.
+ */
+export function FieldGrid({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4", className)}>{children}</div>;
+}
+
+/** Small divider-title between groups of fields inside one card. Use inside a FieldGrid. */
+export function SubHeading({ children }: { children: ReactNode }) {
   return (
-    <details open={hasData} className="group mt-4 border-t border-dashed border-neutral-200 pt-3">
-      <summary className="cursor-pointer select-none text-body-sm font-medium text-brand-700 hover:text-brand-800">
-        {label}
-      </summary>
-      <div className="mt-3">{children}</div>
-    </details>
+    <p className="col-span-full mt-2 border-t border-neutral-200 pt-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-neutral-500">
+      {children}
+    </p>
   );
 }
 
-export function CheckField({ name, label }: { name: Name; label: string }) {
+/** Checkbox sized like an input, so it sits on the same baseline as its row. Add `self-end` in a grid. */
+export function CheckField({ name, label, className }: { name: Name; label: string; className?: string }) {
   const { register } = useFormContext<LorryHireFormValues>();
   return (
-    <label className="flex cursor-pointer items-center gap-2 text-body-sm text-neutral-700">
+    <label className={cn("flex h-10 cursor-pointer items-center gap-2 text-[13px] font-medium text-neutral-700", className)}>
       <input type="checkbox" className="h-4 w-4" {...register(name as never)} />
       {label}
     </label>

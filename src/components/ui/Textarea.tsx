@@ -13,15 +13,18 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
    * form) and does not change behavior/validation.
    */
   size?: "default" | "compact";
+  /** "flat" matches the flat filled <Input>. Default keeps the boxed look. */
+  variant?: "outlined" | "flat";
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, label, hi, error, helperText, id, required, rows = 3, size = "default", ...props }, ref) => {
+  ({ className, label, hi, error, helperText, id, required, rows = 3, size = "default", variant = "outlined", ...props }, ref) => {
     const generatedId = useId();
     const textareaId = id ?? generatedId;
     const helperId = `${textareaId}-helper`;
     const errorId = `${textareaId}-error`;
     const isCompact = size === "compact";
+    const isFlat = variant === "flat";
 
     return (
       <div className="group w-full">
@@ -30,7 +33,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             htmlFor={textareaId}
             className={cn(
               "mb-1.5 block text-body-sm font-medium text-neutral-800 transition-colors group-focus-within:text-brand-700",
-              isCompact && "mb-0.5 text-[9.5px] font-semibold uppercase tracking-[0.02em] text-neutral-600"
+              isCompact && "mb-0.5 text-[9.5px] font-semibold uppercase tracking-[0.02em] text-neutral-600",
+              isFlat && "mb-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-neutral-600"
             )}
           >
             {label}
@@ -50,6 +54,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             "focus-ring w-full resize-y rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-body text-neutral-900 placeholder:text-neutral-400",
             "transition-colors hover:border-neutral-400",
             isCompact && "rounded-md px-2 py-1.5 text-[12px]",
+            isFlat && "rounded-none border-0 border-b border-neutral-300 bg-neutral-100 px-3 py-2 text-[13px] font-medium hover:border-neutral-400 hover:bg-neutral-200/60 focus:bg-white",
+            isFlat && error && "bg-error-50 hover:bg-error-50",
             error && "uts-shake border-error-500 hover:border-error-500 focus-visible:ring-error-500",
             className
           )}

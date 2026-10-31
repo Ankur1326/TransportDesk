@@ -6,7 +6,7 @@ import { Plus, Trash2, Truck } from "@/components/icons";
 import { lookupVehicle, type LorryHireRecord } from "@/lib/lorry-hire/api";
 import { normalizeVehicleNumber, WEIGHT_UNITS } from "@/lib/lorry-hire/constants";
 import type { LorryHireFormValues } from "@/lib/lorry-hire/validations";
-import { CheckField, FormBlock, MoreDetails, NumField, SelectField, TextField } from "./fields";
+import { CheckField, FieldGrid, FormBlock, NumField, SelectField, SubHeading, TextField } from "./fields";
 import { LrPickerDialog } from "./LrPickerDialog";
 
 type V = LorryHireFormValues;
@@ -19,10 +19,7 @@ const TRUCK_TYPES = ["Mini Truck (Tempo)", "Pickup", "Open Truck", "Closed Conta
 export function TruckSection() {
   const { control, setValue, getValues } = useFormContext<V>();
   const [hint, setHint] = useState<Last | null>(null);
-  const [chassis, permit, insurer, licExpiry, truckType] = useWatch({
-    control,
-    name: ["truck.chassisNo", "truck.permitNo", "insurance.company", "driver.licenseExpiry", "truck.truckType"],
-  });
+  const truckType = useWatch({ control, name: "truck.truckType" });
   // A saved or looked-up type that isn't in the list must still show as selected.
   const truckTypeOptions = truckType && !TRUCK_TYPES.includes(truckType) ? [...TRUCK_TYPES, truckType] : TRUCK_TYPES;
 
@@ -59,48 +56,44 @@ export function TruckSection() {
 
   return (
     <FormBlock id="truck" title="Truck & driver" hint="Type the truck number first — we'll offer its last details.">
-      <div onBlur={checkVehicle}>
-        <TextField name="truck.vehicleNumber" label="Truck number" required upper placeholder="MH23AU6718" className="max-w-xs" />
-      </div>
-
-      {hint && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border border-brand-200 bg-brand-50 px-3 py-2">
-          <p className="flex items-center gap-2 text-body-sm text-neutral-800">
-            <Truck className="h-4 w-4 text-brand-700" aria-hidden="true" />
-            Hired before ({hint.lhcNo}):{" "}
-            {[hint.driver?.name && `driver ${hint.driver.name}`, hint.owner?.name && `owner ${hint.owner.name}`, hint.truck?.truckType].filter(Boolean).join(" · ")}
-          </p>
-          <div className="flex gap-2">
-            <Button type="button" size="sm" onClick={applyHint}>Use last details</Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setHint(null)}>Dismiss</Button>
-          </div>
+      <FieldGrid>
+        <div onBlur={checkVehicle}>
+          <TextField name="truck.vehicleNumber" label="Truck number" required upper placeholder="MH23AU6718" />
         </div>
-      )}
-
-      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SelectField name="truck.truckType" label="Truck type" placeholder="Select truck type" options={truckTypeOptions} className="col-span-2" />
+        <SelectField name="truck.truckType" label="Truck type" placeholder="Select truck type" options={truckTypeOptions} />
         <NumField name="truck.capacity" label="Capacity" />
         <SelectField name="truck.capacityUnit" label="Unit" options={WEIGHT_UNITS} />
-      </div>
-      <div className="mt-3"><CheckField name="truck.isOversize" label="Oversize load" /></div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {hint && (
+          <div className="col-span-full flex flex-wrap items-center justify-between gap-2 border border-brand-200 bg-brand-50 px-3 py-2">
+            <p className="flex items-center gap-2 text-body-sm text-neutral-800">
+              <Truck className="h-4 w-4 text-brand-700" aria-hidden="true" />
+              Hired before ({hint.lhcNo}):{" "}
+              {[hint.driver?.name && `driver ${hint.driver.name}`, hint.owner?.name && `owner ${hint.owner.name}`, hint.truck?.truckType].filter(Boolean).join(" · ")}
+            </p>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" onClick={applyHint}>Use last details</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setHint(null)}>Dismiss</Button>
+            </div>
+          </div>
+        )}
+
+        <TextField name="truck.chassisNo" label="Chassis no." upper />
+        <TextField name="truck.engineNo" label="Engine no." upper />
+        <TextField name="truck.permitNo" label="Permit no." />
+        <CheckField name="truck.isOversize" label="Oversize load" className="self-end" />
+
+        <SubHeading>Driver</SubHeading>
         <TextField name="driver.name" label="Driver name" />
         <TextField name="driver.mobile" label="Driver mobile" type="tel" />
         <TextField name="driver.licenseNumber" label="Licence number" upper />
-      </div>
+        <TextField name="driver.licenseExpiry" label="Licence valid upto" type="date" />
 
-      <MoreDetails label="Chassis, engine, permit, insurance, licence expiry" hasData={Boolean(chassis || permit || insurer || licExpiry)}>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <TextField name="truck.chassisNo" label="Chassis no." upper />
-          <TextField name="truck.engineNo" label="Engine no." upper />
-          <TextField name="truck.permitNo" label="Permit no." />
-          <TextField name="driver.licenseExpiry" label="Licence valid upto" type="date" />
-          <TextField name="insurance.company" label="Insurance company" />
-          <TextField name="insurance.policyNumber" label="Policy number" />
-          <TextField name="insurance.validUpto" label="Insurance valid upto" type="date" />
-        </div>
-      </MoreDetails>
+        <SubHeading>Insurance</SubHeading>
+        <TextField name="insurance.company" label="Insurance company" className="sm:col-span-2" />
+        <TextField name="insurance.policyNumber" label="Policy number" />
+        <TextField name="insurance.validUpto" label="Valid upto" type="date" />
+      </FieldGrid>
     </FormBlock>
   );
 }
@@ -126,8 +119,8 @@ export function CargoSection() {
       title="Cargo"
       hint="Import LRs, or type the consignments by hand."
       action={
-        <div className="flex items-center gap-2">
-          <div className="w-24"><SelectField name="weightUnit" label="Weights in" options={WEIGHT_UNITS} /></div>
+        <div className="flex items-end gap-2">
+          <div className="w-28"><SelectField name="weightUnit" label="Weights in" options={WEIGHT_UNITS} /></div>
           <Button type="button" size="sm" variant="outline" onClick={() => setPickerOpen(true)}>Add from LR</Button>
           <Button type="button" size="sm" variant="ghost" onClick={() => append(EMPTY_ITEM)}>
             <Plus className="h-4 w-4" aria-hidden="true" /> Row
@@ -143,13 +136,13 @@ export function CargoSection() {
 
       <div className="space-y-3">
         {fields.map((f, i) => (
-          <div key={f.id} className="grid grid-cols-2 gap-3 border border-neutral-200 bg-neutral-50/50 p-3 md:grid-cols-12">
+          <div key={f.id} className="grid grid-cols-2 gap-x-4 gap-y-3 border border-neutral-200 bg-neutral-50/50 p-3 md:grid-cols-12">
             <TextField name={`items.${i}.cnNo`} label="CN / LR no." required upper className="md:col-span-2" />
             <TextField name={`items.${i}.cnDate`} label="Date" type="date" className="md:col-span-2" />
-            <TextField name={`items.${i}.description`} label="Description" className="col-span-2 md:col-span-4" />
+            <TextField name={`items.${i}.description`} label="Description" className="col-span-2 md:col-span-3" />
             <NumField name={`items.${i}.packages`} label="Pkgs" className="md:col-span-1" step="1" />
-            <NumField name={`items.${i}.actualWeight`} label="Actual wt" className="md:col-span-1" />
-            <NumField name={`items.${i}.chargedWeight`} label="Charged wt" className="md:col-span-1" />
+            <NumField name={`items.${i}.actualWeight`} label="Actual wt" className="md:col-span-2" />
+            <NumField name={`items.${i}.chargedWeight`} label="Charged wt" className="md:col-span-2" />
             <div className="col-span-2 flex items-center justify-between md:col-span-12">
               <span className="text-caption text-neutral-500">
                 {items[i]?.consignmentId ? "Linked to LR" : "Typed manually"}

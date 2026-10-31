@@ -96,16 +96,12 @@ export function LorryHireForm({
         <fieldset disabled={cancelled} className="min-w-0 space-y-4">
           <LhcDetailsSection status={record && <Badge variant={STATUS_VARIANT[record.status]}>{record.status}</Badge>} />
           <RouteSection />
-          <div className="grid items-start gap-4 xl:grid-cols-2">
-            <PartySection />
-            <TruckSection />
-          </div>
+          <PartySection />
+          <TruckSection />
           <CargoSection />
           <FreightSection />
-          <div className="grid items-start gap-4 xl:grid-cols-2">
-            <PaymentsSection record={record} onRecordChange={setRecord} />
-            <NotesSection />
-          </div>
+          <PaymentsSection record={record} onRecordChange={setRecord} />
+          <NotesSection />
         </fieldset>
 
         <LorryHireActionsBar

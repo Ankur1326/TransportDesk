@@ -22,7 +22,7 @@ import {
 } from "@/lib/lorry-hire/constants";
 import type { LorryHireFormValues } from "@/lib/lorry-hire/validations";
 import { AddPaymentDialog } from "../AddPaymentDialog";
-import { CheckField, FormBlock, NumField, SelectField, TextAreaField, TextField } from "./fields";
+import { CheckField, FieldGrid, FormBlock, NumField, SelectField, SubHeading, TextAreaField, TextField } from "./fields";
 import { SignaturePad } from "./SignaturePad";
 import { Controller } from "react-hook-form";
 import { useLorryHireSummary } from "./SettlementCard";
@@ -50,20 +50,19 @@ export function FreightSection() {
   const suggestion = suggestTdsRate({ pan });
 
   return (
-    <FormBlock id="freight" title="Freight & tax" hint="What you pay the supplier, with add-ons, deductions and tax.">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <FormBlock id="freight" title="Freight & tax">
+      <FieldGrid>
         <SelectField name="freight.rateMode" label="Rate type" options={RATE_MODES} />
         <NumField name="freight.rate" label={RATE_LABEL[rateMode ?? "Fixed"]} />
         <SelectField name="freight.freightPaidBy" label="Freight paid by" options={FREIGHT_PAID_BY} />
-      </div>
-      {rateMode !== "Fixed" && (
-        <p className="mt-1 text-caption text-neutral-500">
-          Basis: {s.quantity} {rateMode === "Per Tonne" ? "tonnes" : rateMode === "Per Kg" ? "kg" : "packages"} × rate = {inr(s.basicFreight)}
-        </p>
-      )}
+        {rateMode !== "Fixed" && (
+          <p className="self-end pb-2 text-[11px] text-neutral-500">
+            Basis: {s.quantity} {rateMode === "Per Tonne" ? "tonnes" : rateMode === "Per Kg" ? "kg" : "packages"} × rate = {inr(s.basicFreight)}
+          </p>
+        )}
 
-      <p className="mb-2 mt-4 text-caption font-semibold uppercase tracking-wide text-neutral-500">Add-ons (+) and deductions (−)</p>
-      <div className="flex flex-wrap gap-2">
+        <SubHeading>Add-ons (+) and deductions (−)</SubHeading>
+        <div className="col-span-full flex flex-wrap gap-2">
         {DEFAULT_LORRY_CHARGE_PRESETS.map((p) => {
           const used = (charges ?? []).some((c) => c.chargeId === p.id);
           return (
@@ -78,31 +77,33 @@ export function FreightSection() {
             </button>
           );
         })}
-      </div>
-      <div className="mt-3 space-y-2">
+        </div>
+        {fields.length > 0 && (
+        <div className="col-span-full space-y-2">
         {fields.map((f, i) => (
           <div key={f.id} className="flex items-end gap-3">
-            <div className="flex-1 text-body-sm font-medium text-neutral-800">
+            <div className="flex h-10 flex-1 items-center text-[13px] font-medium text-neutral-800">
               <span className={f.kind === "add" ? "text-success-700" : "text-error-700"}>{f.kind === "add" ? "+" : "−"}</span> {f.name}
             </div>
             <NumField name={`charges.${i}.amount`} label="Amount (₹)" className="w-40" />
-            <button type="button" aria-label={`Remove ${f.name}`} onClick={() => remove(i)} className="pb-2 text-neutral-500 hover:text-error-700">
+            <button type="button" aria-label={`Remove ${f.name}`} onClick={() => remove(i)} className="flex h-10 items-center text-neutral-500 hover:text-error-700">
               <Trash2 className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         ))}
-      </div>
+        </div>
+        )}
 
-      <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <SubHeading>Tax</SubHeading>
         <SelectField name="tax.gstMode" label="GST" options={GST_MODES} />
-        {gstMode === "GST" && <SelectField name="tax.gstRate" label="GST rate %" options={GST_RATE_OPTIONS} number />}
         <SelectField name="tax.tdsMode" label="TDS" options={TDS_MODES} />
         <NumField name="tax.tdsRate" label="TDS rate %" />
         <SelectField name="tax.tdsSection" label="TDS section" options={TDS_SECTIONS} />
-        <div className="flex items-end pb-2"><CheckField name="tax.roundOff" label="Round off" /></div>
-      </div>
-      {gstMode === "RCM" && <p className="mt-1 text-caption text-neutral-500">Reverse charge: 5% is shown but not added — you pay it directly.</p>}
-      <p className="mt-2 text-caption text-neutral-500">
+        {gstMode === "GST" && <SelectField name="tax.gstRate" label="GST rate %" options={GST_RATE_OPTIONS} number />}
+        <CheckField name="tax.roundOff" label="Round off" className="self-end" />
+        {gstMode === "RCM" && <p className="col-span-full -mt-1 text-[11px] text-neutral-500">Reverse charge: 5% is shown but not added — you pay it directly.</p>}
+      </FieldGrid>
+      <p className="mt-3 text-caption text-neutral-500">
         Suggested TDS: {suggestion.rate}% — {suggestion.reason}{" "}
         {suggestion.rate !== Number(tdsRate) && (
           <button type="button" className="text-brand-700 hover:underline" onClick={() => setValue("tax.tdsRate", suggestion.rate, { shouldDirty: true })}>
@@ -150,14 +151,16 @@ export function PaymentsSection({
         {fields.length === 0 && <p className="text-body-sm text-neutral-500">No payment recorded yet.</p>}
         <div className="space-y-3">
           {fields.map((f, i) => (
-            <div key={f.id} className="grid grid-cols-2 gap-3 border border-neutral-200 bg-neutral-50/50 p-3 md:grid-cols-6">
-              <SelectField name={`payments.${i}.kind`} label="Type" options={PAYMENT_KINDS} />
-              <NumField name={`payments.${i}.amount`} label="Amount (₹)" />
-              <TextField name={`payments.${i}.date`} label="Date" type="date" />
-              <SelectField name={`payments.${i}.mode`} label="Mode" options={PAYMENT_MODES} />
-              <TextField name={`payments.${i}.reference`} label="UTR / cheque" />
-              <TextField name={`payments.${i}.paidTo`} label="Paid to" />
-              <button type="button" onClick={() => remove(i)} className="col-span-2 inline-flex items-center gap-1 text-caption text-error-700 hover:underline md:col-span-6">
+            <div key={f.id} className="border border-neutral-200 bg-neutral-50/50 p-3">
+              <FieldGrid>
+                <SelectField name={`payments.${i}.kind`} label="Type" options={PAYMENT_KINDS} />
+                <NumField name={`payments.${i}.amount`} label="Amount (₹)" />
+                <TextField name={`payments.${i}.date`} label="Date" type="date" />
+                <SelectField name={`payments.${i}.mode`} label="Mode" options={PAYMENT_MODES} />
+                <TextField name={`payments.${i}.reference`} label="UTR / cheque" className="sm:col-span-2" />
+                <TextField name={`payments.${i}.paidTo`} label="Paid to" className="sm:col-span-2" />
+              </FieldGrid>
+              <button type="button" onClick={() => remove(i)} className="mt-2 inline-flex items-center gap-1 text-caption text-error-700 hover:underline">
                 <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Remove
               </button>
             </div>
@@ -237,26 +240,27 @@ export function NotesSection() {
   const { control } = useFormContext<V>();
   return (
     <FormBlock id="notes" title="Shortage, remarks & signature">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <FieldGrid>
         <NumField name="shortage.amount" label="Shortage amount (₹)" />
         <NumField name="shortage.quantity" label="Shortage quantity" />
         <SelectField name="shortage.unit" label="Unit" options={WEIGHT_UNITS} />
         <TextField name="shortage.note" label="Shortage note" />
-      </div>
-      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-        <TextAreaField name="remarks" label="Remarks (printed)" />
-        <TextAreaField name="internalNotes" label="Internal notes (not printed)" />
-      </div>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <TextField name="preparedBy" label="Prepared by" />
-        <TextField name="passedBy" label="Passed by" />
-      </div>
-      <p className="mb-1 mt-4 text-[11px] font-semibold uppercase tracking-[0.05em] text-neutral-600">Driver&apos;s signature</p>
-      <Controller
-        control={control}
-        name="driverSignature"
-        render={({ field }) => <SignaturePad value={field.value ?? ""} onChange={field.onChange} />}
-      />
+
+        <TextAreaField name="remarks" label="Remarks (printed)" className="sm:col-span-2" />
+        <TextAreaField name="internalNotes" label="Internal notes (not printed)" className="sm:col-span-2" />
+
+        <TextField name="preparedBy" label="Prepared by" className="sm:col-span-2" />
+        <TextField name="passedBy" label="Passed by" className="sm:col-span-2" />
+
+        <div className="col-span-full">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-neutral-600">Driver&apos;s signature</p>
+          <Controller
+            control={control}
+            name="driverSignature"
+            render={({ field }) => <SignaturePad value={field.value ?? ""} onChange={field.onChange} />}
+          />
+        </div>
+      </FieldGrid>
     </FormBlock>
   );
 }

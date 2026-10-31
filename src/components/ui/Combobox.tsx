@@ -28,6 +28,8 @@ interface ComboboxProps {
    * form) and does not change behavior.
    */
   size?: "default" | "compact";
+  /** "flat" matches the flat filled <Input>. Default keeps the boxed look. */
+  variant?: "outlined" | "flat";
 }
 
 export function Combobox({
@@ -39,8 +41,10 @@ export function Combobox({
   createNewLabel = "+ Add New",
   className,
   size = "default",
+  variant = "outlined",
 }: ComboboxProps) {
   const isCompact = size === "compact";
+  const isFlat = variant === "flat";
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -72,7 +76,8 @@ export function Combobox({
           htmlFor={inputId}
           className={cn(
             "mb-1.5 block text-body-sm font-medium text-neutral-800",
-            isCompact && "mb-0.5 text-[9.5px] font-semibold uppercase tracking-[0.02em] text-neutral-600"
+            isCompact && "mb-0.5 text-[9.5px] font-semibold uppercase tracking-[0.02em] text-neutral-600",
+            isFlat && "mb-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-neutral-600"
           )}
         >
           {label}
@@ -83,7 +88,8 @@ export function Combobox({
         <Search
           className={cn(
             "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400",
-            isCompact && "left-2 h-3.5 w-3.5"
+            isCompact && "left-2 h-3.5 w-3.5",
+            isFlat && "left-3 h-3.5 w-3.5"
           )}
           aria-hidden="true"
         />
@@ -103,7 +109,8 @@ export function Combobox({
           }}
           className={cn(
             "focus-ring h-11 w-full rounded-lg border border-neutral-300 bg-white pl-10 pr-9 text-body text-neutral-900 placeholder:text-neutral-400 transition-colors hover:border-neutral-400",
-            isCompact && "h-8 rounded-md pl-7 pr-7 text-[12px]"
+            isCompact && "h-8 rounded-md pl-7 pr-7 text-[12px]",
+            isFlat && "h-10 rounded-none border-0 border-b border-neutral-300 bg-neutral-100 pl-9 pr-9 text-[13px] font-medium hover:border-neutral-400 hover:bg-neutral-200/60 focus:bg-white"
           )}
         />
         {query && (
