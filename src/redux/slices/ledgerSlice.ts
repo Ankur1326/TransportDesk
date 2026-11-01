@@ -34,6 +34,11 @@ export interface LedgerCustomerInfo {
   state: string;
   pincode: string;
   email: string;
+  /** Suppliers only. */
+  panNumber?: string;
+  supplierType?: "Broker" | "Owner";
+  defaultTdsRate?: number | null;
+  bankDetails?: { accountHolderName?: string; bankName?: string; accountNumber?: string; ifscCode?: string; upiId?: string };
 }
 
 export interface LedgerPagination {

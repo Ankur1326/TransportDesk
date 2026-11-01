@@ -16,6 +16,8 @@ import {
 import { EditOrCreateNewModalWrapper } from "@/components/EditOrCreateNewModalWrapper";
 import FormInput from "@/components/FormInput";
 import FormTextarea from "@/components/FormTextarea";
+import { Select } from "@/components/ui/Select";
+import { SUPPLIER_TYPES } from "@/lib/lorry-hire/constants";
 import StateAutocomplete from "@/components/StateAutocomplete";
 import { Button } from "@/components/Button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -54,7 +56,21 @@ export interface PartyFormData {
     email: string;
     openingBalance: number;
     balanceType: BalanceType;
+    /** Suppliers only: used by lorry hire contracts. */
+    panNumber?: string;
+    supplierType?: "Broker" | "Owner";
+    defaultTdsRate?: number | null;
+    bankDetails?: SupplierBank;
 }
+
+interface SupplierBank {
+    accountHolderName: string;
+    bankName: string;
+    accountNumber: string;
+    ifscCode: string;
+    upiId: string;
+}
+const EMPTY_BANK: SupplierBank = { accountHolderName: "", bankName: "", accountNumber: "", ifscCode: "", upiId: "" };
 
 /** Saving goes through each party's own slice; the screen only needs these three actions. */
 export interface PartyCrud {
@@ -110,6 +126,11 @@ export function PartyLedgerScreen({ kind, crud }: { kind: PartyKind; crud: Party
     const [email, setEmail] = useState("");
     const [openingBalance, setOpeningBalance] = useState("");
     const [balanceType, setBalanceType] = useState<BalanceType>(kind === "supplier" ? "credit" : "debit");
+    // Suppliers only
+    const [panNumber, setPanNumber] = useState("");
+    const [supplierType, setSupplierType] = useState<"Broker" | "Owner">("Broker");
+    const [defaultTdsRate, setDefaultTdsRate] = useState("");
+    const [bank, setBank] = useState<SupplierBank>(EMPTY_BANK);
     const [isModalVisible, setModalVisible] = useState(false);
     const [editing, setEditing] = useState<LedgerCustomerInfo | null>(null);
     const [isDeleteOpen, setDeleteOpen] = useState(false);
@@ -279,6 +300,7 @@ export function PartyLedgerScreen({ kind, crud }: { kind: PartyKind; crud: Party
         }
         setName(""); setAddress(""); setCity(""); setState(""); setPincode("");
         setGstin(""); setMobile(""); setEmail(""); setOpeningBalance(""); setBalanceType(kind === "supplier" ? "credit" : "debit");
+        setPanNumber(""); setSupplierType("Broker"); setDefaultTdsRate(""); setBank(EMPTY_BANK);
         setEditing(null);
         setModalVisible(true);
     };
@@ -291,12 +313,23 @@ export function PartyLedgerScreen({ kind, crud }: { kind: PartyKind; crud: Party
         setPincode(c.pincode ?? ""); setGstin(c.gstin ?? ""); setMobile(c.mobile ?? ""); setEmail(c.email ?? "");
         setOpeningBalance(c.openingBalance ? String(c.openingBalance) : "");
         setBalanceType(c.balanceType === "credit" ? "credit" : "debit");
+        setPanNumber(c.panNumber ?? ""); setSupplierType(c.supplierType === "Owner" ? "Owner" : "Broker");
+        setDefaultTdsRate(typeof c.defaultTdsRate === "number" ? String(c.defaultTdsRate) : "");
+        setBank({ ...EMPTY_BANK, ...(c.bankDetails ?? {}) });
         setModalVisible(true);
     };
 
     const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const data: PartyFormData = { name, address, city, state, pincode, gstin, mobile, email, openingBalance: Number(openingBalance) || 0, balanceType };
+        if (kind === "supplier") {
+            data.panNumber = panNumber;
+            data.supplierType = supplierType;
+            // Blank clears the default on an existing supplier (null); a new one just has none.
+            if (defaultTdsRate.trim() !== "") data.defaultTdsRate = Number(defaultTdsRate);
+            else if (editing) data.defaultTdsRate = null;
+            data.bankDetails = bank;
+        }
         if (editing) {
             if (await crud.update(editing._id, data, editing.createdAt)) {
                 setModalVisible(false);
@@ -566,6 +599,30 @@ export function PartyLedgerScreen({ kind, crud }: { kind: PartyKind; crud: Party
                 <div className="form-group mb-5">
                     <FormInput label="Email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
                 </div>
+                {kind === "supplier" && (
+                    <>
+                        <div className="form-group mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <FormInput label="PAN" value={panNumber} onChange={(e) => setPanNumber(e.target.value.toUpperCase())} placeholder="ABCDE1234F" />
+                            <Select
+                                label="Supplier type"
+                                value={supplierType}
+                                onChange={(e) => setSupplierType(e.target.value === "Owner" ? "Owner" : "Broker")}
+                                options={SUPPLIER_TYPES.map((t) => ({ value: t, label: t }))}
+                            />
+                        </div>
+                        <div className="form-group mb-5">
+                            <FormInput label="Default TDS rate (%)" type="number" min={0} max={100} value={defaultTdsRate} onChange={(e) => setDefaultTdsRate(e.target.value)} placeholder="e.g. 1" />
+                        </div>
+                        <p className="mb-2 text-sm font-semibold text-gray-700">Bank details (for paying this supplier)</p>
+                        <div className="form-group mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <FormInput label="Account holder" value={bank.accountHolderName} onChange={(e) => setBank({ ...bank, accountHolderName: e.target.value })} />
+                            <FormInput label="Bank name" value={bank.bankName} onChange={(e) => setBank({ ...bank, bankName: e.target.value })} />
+                            <FormInput label="Account number" value={bank.accountNumber} onChange={(e) => setBank({ ...bank, accountNumber: e.target.value })} />
+                            <FormInput label="IFSC" value={bank.ifscCode} onChange={(e) => setBank({ ...bank, ifscCode: e.target.value.toUpperCase() })} placeholder="HDFC0001234" />
+                            <FormInput label="UPI ID" value={bank.upiId} onChange={(e) => setBank({ ...bank, upiId: e.target.value })} />
+                        </div>
+                    </>
+                )}
                 <div className="form-group mb-5">
                     <OpeningBalanceField
                         amount={openingBalance}

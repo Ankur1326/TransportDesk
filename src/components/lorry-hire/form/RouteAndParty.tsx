@@ -13,7 +13,7 @@ type V = LorryHireFormValues;
 // ─── Route & dates ───────────────────────────────────────────────────────────
 
 /** State picker (shared flat look), kept in the same grid cell size as every other field. */
-function StateField({ name, label }: { name: "from.state" | "to.state"; label: string }) {
+function StateField({ name, label }: { name: "from.state" | "to.state" | "supplier.state"; label: string }) {
   const { control } = useFormContext<V>();
   return (
     <Controller
@@ -87,24 +87,32 @@ interface SupplierOption {
 export function PartySection() {
   const { control, setValue, getValues } = useFormContext<V>();
   const [options, setOptions] = useState<SupplierOption[]>([]);
+  const [search, setSearch] = useState("");
   const pickedName = useRef(getValues("supplier.supplierId") ? getValues("supplier.name") : "");
   const [name, supplierId, sameAsSupplier] = useWatch({
     control,
     name: ["supplier.name", "supplier.supplierId", "owner.sameAsSupplier"],
   });
 
+  // Search the server as the person types (a short pause first), instead of loading a fixed batch
+  // that silently leaves out everyone past the first page.
   useEffect(() => {
     let cancelled = false;
-    axios
-      .get<{ data?: { suppliers?: SupplierOption[] } }>("/api/admin/supplier/get", { params: { itemsPerPage: 200, currentPage: 1 } })
-      .then((res) => {
-        if (!cancelled) setOptions(res.data?.data?.suppliers ?? []);
-      })
-      .catch(() => undefined);
+    const timer = setTimeout(() => {
+      axios
+        .get<{ data?: { suppliers?: SupplierOption[] } }>("/api/admin/supplier/get", {
+          params: { search: search.trim() || undefined, itemsPerPage: 20, currentPage: 1 },
+        })
+        .then((res) => {
+          if (!cancelled) setOptions(res.data?.data?.suppliers ?? []);
+        })
+        .catch(() => undefined);
+    }, search ? 250 : 0);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, []);
+  }, [search]);
 
   // Editing the name after picking a saved supplier means it's a different party.
   useEffect(() => {
@@ -138,7 +146,8 @@ export function PartySection() {
       pan: s.panNumber ?? "",
       mobile: s.mobile ?? "",
     }, opt);
-    if (s.bankDetails) setValue("bank", { accountHolderName: "", bankName: "", accountNumber: "", ifscCode: "", upiId: "", ...s.bankDetails }, opt);
+    // Always replace the bank block, so the previous supplier's account never stays behind.
+    setValue("bank", { accountHolderName: "", bankName: "", accountNumber: "", ifscCode: "", upiId: "", ...(s.bankDetails ?? {}) }, opt);
     if (typeof s.defaultTdsRate === "number") setValue("tax.tdsRate", s.defaultTdsRate, opt);
   };
 
@@ -151,6 +160,8 @@ export function PartySection() {
             label="Find a saved supplier"
             placeholder="Search by name, city, GSTIN or mobile…"
             items={items}
+            serverFiltered
+            onQueryChange={setSearch}
             onSelect={pick}
             onCreateNew={() => {
               pickedName.current = "";
@@ -170,7 +181,7 @@ export function PartySection() {
         <TextField name="supplier.gstin" label="GSTIN" upper />
         <TextField name="supplier.pan" label="PAN" upper placeholder="ABCDE1234F" />
         <TextField name="supplier.city" label="City" />
-        <TextField name="supplier.state" label="State" />
+        <StateField name="supplier.state" label="State" />
 
         <TextField name="supplier.address" label="Address" className="sm:col-span-2 lg:col-span-3" />
         <TextField name="supplier.pincode" label="PIN code" />

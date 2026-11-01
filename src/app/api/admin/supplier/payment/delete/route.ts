@@ -15,10 +15,17 @@ export async function DELETE(request: Request) {
 
   try {
     await dbConnect();
+    const scope = { $and: [companyFilter(auth.companyId), { _id: parsed.data._id, partyType: "supplier" }] };
+    const found = await PaymentModel.findOne(scope).select("lorryHireId lhcNo").lean();
+    if (!found) return Response.json({ success: false, message: "Payment not found." }, { status: 404 });
+    if (found.lorryHireId) {
+      return Response.json(
+        { success: false, message: `This payment belongs to lorry hire contract ${found.lhcNo ?? ""}. Remove it from that contract.`.replace("  ", " ") },
+        { status: 409 }
+      );
+    }
     // Contract status is derived from the remaining payments, so deleting is enough.
-    const removed = await PaymentModel.findOneAndDelete({
-      $and: [companyFilter(auth.companyId), { _id: parsed.data._id, partyType: "supplier" }],
-    }).lean();
+    const removed = await PaymentModel.findOneAndDelete(scope).lean();
     if (!removed) return Response.json({ success: false, message: "Payment not found." }, { status: 404 });
     return Response.json({ success: true, message: "Payment deleted successfully." });
   } catch (error) {

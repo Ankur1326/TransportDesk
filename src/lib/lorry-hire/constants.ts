@@ -87,6 +87,8 @@ export const DEFAULT_LORRY_CHARGE_PRESETS: readonly LorryChargePreset[] = [
 // ─── Input formats ───────────────────────────────────────────────────────────
 
 export const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+/** 15 characters: state code, PAN, entity number, "Z", check digit. */
+export const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 export const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 /** Standard plates, e.g. MH23AU6718, GJ6AB1234, DL1CAB1234. */
 const STANDARD_VEHICLE_REGEX = /^[A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}$/;

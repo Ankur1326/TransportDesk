@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDownLeft, ArrowUpRight } from "@/components/ledger/ledger-icons";
+import Link from "next/link";
 import { useEffect } from "react";
 import { FileText, Pencil, Trash2, X } from "@/components/icons";
 import { Button } from "@/components/Button";
@@ -59,7 +60,9 @@ export function LedgerEntryDrawer({
   const style = sideStyle(entry.side);
   const isContract = entry.source === "contract";
   const docId = entry.billId ?? entry.contractId;
-  const editable = entry.source === "payment" || entry.source === "adjustment";
+  // Entries that come from a Lorry Hire Contract are managed on the Lorry Hire screen.
+  const lorryHireId = typeof entry.meta.lorryHireId === "string" ? entry.meta.lorryHireId : "";
+  const editable = (entry.source === "payment" || entry.source === "adjustment") && !lorryHireId;
   const canRecordForBill =
     (entry.source === "bill" || isContract) && Boolean(docId) && (billStatus?.outstanding ?? 0) > 0;
   const items = Array.isArray(entry.meta.items) ? (entry.meta.items as BillItemMeta[]) : [];
@@ -177,6 +180,13 @@ export function LedgerEntryDrawer({
           )}
 
           {EDIT_ELSEWHERE[entry.source] && <p className="text-xs text-neutral-500">{EDIT_ELSEWHERE[entry.source]}</p>}
+          {lorryHireId && (
+            <p className="text-xs text-neutral-500">
+              {isContract
+                ? "This comes from a lorry hire contract. Edit it from Lorry Hire."
+                : "This payment is recorded on a lorry hire contract. Change or remove it from that contract."}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2 border-t border-(--ledger-line) p-4">
@@ -190,7 +200,14 @@ export function LedgerEntryDrawer({
               <FileText size={16} aria-hidden="true" /> Open bill PDF
             </Button>
           )}
-          {isContract && onEditContract && onDeleteContract && (
+          {lorryHireId && (
+            <Link href={`/admin/lorry-hire/new?id=${lorryHireId}`} className="block">
+              <Button className="w-full" variant="outline">
+                <FileText size={16} aria-hidden="true" /> Open lorry hire contract
+              </Button>
+            </Link>
+          )}
+          {isContract && !lorryHireId && onEditContract && onDeleteContract && (
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" onClick={() => onEditContract(entry)}>
                 <Pencil size={16} aria-hidden="true" /> Edit contract

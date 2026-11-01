@@ -1,6 +1,7 @@
 import { z } from "zod";
 import mongoose from "mongoose";
 import { companyFilter } from "@/lib/company-scope";
+import LorryHireModel from "@/models/LorryHire";
 import LorryHireContractModel from "@/models/LorryHireContract";
 import { PAYMENT_MODES } from "@/lib/ledger/payment-modes";
 import { round2 } from "@/lib/ledger/build-ledger";
@@ -54,12 +55,19 @@ export async function resolveContractForSupplier(
   companyId: string,
   contractId: string,
   supplierId: string
-): Promise<{ ok: true; contractNo: string } | { ok: false; message: string }> {
-  const contract = await LorryHireContractModel.findOne(
-    { $and: [companyFilter(companyId), { _id: contractId, supplierId }] },
-    "contractNo"
-  ).lean<{ contractNo: string } | null>();
-  return contract ? { ok: true, contractNo: contract.contractNo } : { ok: false, message: "Contract not found for this supplier." };
+): Promise<{ ok: true; contractNo: string; lorryHire: boolean } | { ok: false; message: string }> {
+  const scope = companyFilter(companyId);
+  const contract = await LorryHireContractModel.findOne({ $and: [scope, { _id: contractId, supplierId }] }, "contractNo").lean<
+    { contractNo: string } | null
+  >();
+  if (contract) return { ok: true, contractNo: contract.contractNo, lorryHire: false };
+
+  // A Lorry Hire Contract (LHC) of this supplier. Its payments live on the LHC itself.
+  const hire = await LorryHireModel.findOne(
+    { $and: [scope, { _id: contractId, "supplier.supplierId": supplierId, status: { $ne: "Cancelled" } }] },
+    "lhcNo"
+  ).lean<{ lhcNo: string } | null>();
+  return hire ? { ok: true, contractNo: hire.lhcNo, lorryHire: true } : { ok: false, message: "Contract not found for this supplier." };
 }
 
 // ─── lorry hire contracts ───────────────────────────────────────────────────

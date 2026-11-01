@@ -54,7 +54,7 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
       return fail("One or more consignments were not found.", 400);
     }
 
-    const supplier = await resolveSupplier(auth.companyId, auth.userId, parsed.supplier);
+    const supplier = await resolveSupplier(auth.companyId, auth.userId, parsed.supplier, parsed.bank);
     if (!supplier.ok) return fail(supplier.message, 400);
 
     const hasPayments = existing.payments.length > 0;

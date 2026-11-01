@@ -1,7 +1,9 @@
 import dbConnect from "@/lib/db";
 import Supplier from "@/models/Supplier";
 import PaymentModel from "@/models/Payment";
+import LorryHireModel from "@/models/LorryHire";
 import { companyFilter, requireCompanyProfile } from "@/lib/company-scope";
+import { recordLorryHirePayment } from "@/lib/lorry-hire/server";
 import { loadSupplierLedgers } from "@/lib/ledger/load-supplier-ledger";
 import { allocateSupplierPaymentSchema } from "@/lib/ledger/supplier-input";
 import { planAllocation } from "@/lib/ledger/allocate";
@@ -57,10 +59,33 @@ export async function POST(request: Request) {
       createdBy: auth.userId,
     };
     type Row = typeof common & { amount: number; contractId?: string; contractNo?: string };
-    const rows: Row[] = plan.allocations.map((a) => ({ ...common, contractId: a.billId, contractNo: a.billNo, amount: a.amount }));
+    // Parts that settle a Lorry Hire Contract are recorded on that contract; the rest are ledger rows.
+    const hireIds = new Set(
+      (
+        await LorryHireModel.find(
+          { $and: [companyFilter(auth.companyId), { _id: { $in: plan.allocations.map((a) => a.billId) } }] },
+          "_id"
+        ).lean()
+      ).map((h) => String(h._id))
+    );
+    for (const a of plan.allocations.filter((x) => hireIds.has(String(x.billId)))) {
+      const recorded = await recordLorryHirePayment({
+        companyId: auth.companyId,
+        userId: auth.userId,
+        lorryHireId: String(a.billId),
+        payment: { amount: a.amount, date: input.date, mode: input.mode, reference: input.reference, remark: input.remark },
+      });
+      if (!recorded.ok) {
+        return Response.json({ success: false, message: `${a.billNo}: ${recorded.message}` }, { status: recorded.status });
+      }
+    }
+
+    const rows: Row[] = plan.allocations
+      .filter((a) => !hireIds.has(String(a.billId)))
+      .map((a) => ({ ...common, contractId: a.billId, contractNo: a.billNo, amount: a.amount }));
     if (plan.unapplied > 0) rows.push({ ...common, amount: plan.unapplied });
 
-    const created = await PaymentModel.insertMany(rows);
+    const created = rows.length > 0 ? await PaymentModel.insertMany(rows) : [];
     return Response.json(
       {
         success: true,

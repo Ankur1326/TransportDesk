@@ -50,6 +50,8 @@ export interface LedgerContract {
   advanceDate?: string;
   advanceVia?: string;
   remark?: string;
+  /** Set when this "contract" is really a Lorry Hire Contract (LHC): it is managed on the Lorry Hire screen. */
+  lorryHireId?: string;
 }
 
 export interface SupplierPayment {
@@ -62,6 +64,8 @@ export interface SupplierPayment {
   mode?: string;
   reference?: string;
   remark?: string;
+  /** Set when the payment is recorded on a Lorry Hire Contract: it is managed there. */
+  lorryHireId?: string;
 }
 
 /** Contract total, paise-safe. The ONLY place this formula lives. */
@@ -158,6 +162,7 @@ export function buildSupplierLedger(input: {
         advanceDate: c.advanceDate ?? "",
         advanceVia: c.advanceVia ?? "",
         remark: c.remark ?? "",
+        ...(c.lorryHireId ? { lorryHireId: c.lorryHireId } : {}),
       },
     });
     if (c.advancePaid > 0) {
@@ -185,7 +190,12 @@ export function buildSupplierLedger(input: {
   for (const p of sorted) {
     const contractId = p.contractId ? String(p.contractId) : undefined;
     const contract = contractId ? contractById.get(contractId) : undefined;
-    const meta = { mode: p.mode ?? "", reference: p.reference ?? "", remark: p.remark ?? "" };
+    const meta = {
+      mode: p.mode ?? "",
+      reference: p.reference ?? "",
+      remark: p.remark ?? "",
+      ...(p.lorryHireId ? { lorryHireId: p.lorryHireId } : {}),
+    };
     if (p.direction === "payable_adjustment") {
       push({
         id: `payment:${p._id}`,

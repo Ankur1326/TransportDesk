@@ -18,6 +18,11 @@ interface Supplier {
     email: string;
     openingBalance: number;
     balanceType: BalanceType;
+    /** Lorry hire details (optional). */
+    panNumber?: string;
+    supplierType?: 'Broker' | 'Owner';
+    defaultTdsRate?: number | null;
+    bankDetails?: { accountHolderName?: string; bankName?: string; accountNumber?: string; ifscCode?: string; upiId?: string };
     createdAt: string;
     updatedAt: string;
 }
@@ -74,7 +79,7 @@ export const createSupplier = createAsyncThunk(
                 return response.data.data;
             }
         } catch (error: any) {
-            toast.error(error.response.data.message || "Failed")
+            toast.error(error?.response?.data?.message || "Couldn't create the supplier.")
             return rejectWithValue(error.message || 'Failed to create Supplier');
         } finally {
             dispatch(setLoading(false))
@@ -94,7 +99,7 @@ export const updateSupplier = createAsyncThunk(
                 return response.data.data;
             }
         } catch (error: any) {
-            toast.error(error.response.data.message || "Failed to update Supplier")
+            toast.error(error?.response?.data?.message || "Couldn't update the supplier.")
             return rejectWithValue(error.message || 'Failed to update Supplier');
         } finally {
             dispatch(setLoading(false))

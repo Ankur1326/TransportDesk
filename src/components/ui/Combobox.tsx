@@ -30,6 +30,10 @@ interface ComboboxProps {
   size?: "default" | "compact";
   /** "flat" matches the flat filled <Input>. Default keeps the boxed look. */
   variant?: "outlined" | "flat";
+  /** Called as the person types, so the parent can fetch matching items from the server. */
+  onQueryChange?: (query: string) => void;
+  /** The parent already filters `items` (e.g. a server search): don't filter them again here. */
+  serverFiltered?: boolean;
 }
 
 export function Combobox({
@@ -42,6 +46,8 @@ export function Combobox({
   className,
   size = "default",
   variant = "outlined",
+  onQueryChange,
+  serverFiltered = false,
 }: ComboboxProps) {
   const isCompact = size === "compact";
   const isFlat = variant === "flat";
@@ -51,7 +57,7 @@ export function Combobox({
   const inputId = useId();
 
   const filtered =
-    query.trim().length === 0
+    serverFiltered || query.trim().length === 0
       ? items
       : items.filter((item) =>
           `${item.label} ${item.subLabel ?? ""} ${item.keywords ?? ""}`
@@ -105,6 +111,7 @@ export function Combobox({
           onFocus={() => setOpen(true)}
           onChange={(e) => {
             setQuery(e.target.value);
+            onQueryChange?.(e.target.value);
             setOpen(true);
           }}
           className={cn(
@@ -117,7 +124,10 @@ export function Combobox({
           <button
             type="button"
             aria-label="Clear search"
-            onClick={() => setQuery("")}
+            onClick={() => {
+              setQuery("");
+              onQueryChange?.("");
+            }}
             className={cn(
               "absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600",
               isCompact && "right-2"

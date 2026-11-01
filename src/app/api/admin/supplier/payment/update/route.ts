@@ -24,6 +24,12 @@ export async function PUT(request: Request) {
       $and: [companyFilter(auth.companyId), { _id: input._id, partyType: "supplier" }],
     });
     if (!existing) return Response.json({ success: false, message: "Payment not found." }, { status: 404 });
+    if (existing.lorryHireId) {
+      return Response.json(
+        { success: false, message: `This payment belongs to lorry hire contract ${existing.lhcNo ?? ""}. Change it from that contract.`.replace("  ", " ") },
+        { status: 409 }
+      );
+    }
     if (input.contractId && existing.direction !== "paid") {
       return Response.json({ success: false, message: "Only paid entries can be linked to a contract." }, { status: 400 });
     }
@@ -32,6 +38,12 @@ export async function PUT(request: Request) {
     if (input.contractId) {
       const contract = await resolveContractForSupplier(auth.companyId, input.contractId, String(existing.partyId));
       if (!contract.ok) return Response.json({ success: false, message: contract.message }, { status: 404 });
+      if (contract.lorryHire) {
+        return Response.json(
+          { success: false, message: "Lorry hire contracts are paid with a new payment, not by linking an existing one." },
+          { status: 400 }
+        );
+      }
       contractNo = contract.contractNo;
       const tooMuch = await contractOutstandingError(auth.companyId, input.contractId, input.amount, String(existing._id));
       if (tooMuch) return Response.json({ success: false, message: tooMuch }, { status: 400 });

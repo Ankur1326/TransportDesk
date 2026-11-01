@@ -2,6 +2,7 @@ import dbConnect from "@/lib/db";
 import Supplier from "@/models/Supplier";
 import PaymentModel from "@/models/Payment";
 import { companyFilter, requireCompanyProfile } from "@/lib/company-scope";
+import { recordLorryHirePayment } from "@/lib/lorry-hire/server";
 import {
   contractOutstandingError,
   createSupplierPaymentSchema,
@@ -39,6 +40,18 @@ export async function POST(request: Request) {
       contractNo = contract.contractNo;
       const tooMuch = await contractOutstandingError(auth.companyId, input.contractId, input.amount);
       if (tooMuch) return Response.json({ success: false, message: tooMuch }, { status: 400 });
+
+      // A Lorry Hire Contract keeps its own payments (and mirrors them to the ledger), so record it there.
+      if (contract.lorryHire) {
+        const recorded = await recordLorryHirePayment({
+          companyId: auth.companyId,
+          userId: auth.userId,
+          lorryHireId: input.contractId,
+          payment: { amount: input.amount, date: input.date, mode: input.mode, reference: input.reference, remark: input.remark },
+        });
+        if (!recorded.ok) return Response.json({ success: false, message: recorded.message }, { status: recorded.status });
+        return Response.json({ success: true, message: "Payment recorded successfully.", data: recorded.data }, { status: 201 });
+      }
     }
 
     const payment = await PaymentModel.create({

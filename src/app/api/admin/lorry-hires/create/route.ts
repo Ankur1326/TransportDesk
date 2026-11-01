@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       return fail("One or more consignments were not found.", 400);
     }
 
-    const supplier = await resolveSupplier(auth.companyId, auth.userId, parsed.supplier);
+    const supplier = await resolveSupplier(auth.companyId, auth.userId, parsed.supplier, parsed.bank);
     if (!supplier.ok) return fail(supplier.message, 400);
 
     // Never trust client totals — recompute everything server-side.

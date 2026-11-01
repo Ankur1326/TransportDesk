@@ -2,7 +2,10 @@ import dbConnect from "@/lib/db";
 import Supplier from "@/models/Supplier";
 import { requireCompany, companyFilter } from "@/lib/company-scope";
 import { parseOpeningBalance } from "@/lib/opening-balance";
-// import { getSession } from "next-auth/react";
+import { parseSupplierInput, supplierSetFields, supplierUnsetFields } from "@/lib/supplier/validations";
+import { isObjectId } from "@/lib/lorry-hire/server";
+
+const CI = { locale: "en", strength: 2 } as const;
 
 export async function PUT(request: Request) {
     const auth = await requireCompany();
@@ -10,102 +13,60 @@ export async function PUT(request: Request) {
 
     await dbConnect();
 
-    // const session = await getSession({ request })
-
-    // if (!session) {
-    //     return Response.json(
-    //         {
-    //             success: false,
-    //             message: "Unauthorized. Please log in."
-    //         },
-    //         {
-    //             status: 401
-    //         }
-    //     );
-    // }
-
-    // Check if the user has admin role
-    // if (session.user?.role !== "transporter") {
-    //     return res.status(403).json({ error: "Forbidden. You do not have permission to perform this action." });
-    // }
-
     try {
-        const { _id, name, address, city, state, pincode, gstin, mobile, email, openingBalance, balanceType } = await request.json();
-
-        const supplierId = _id;
-
-        if (!supplierId) {
-            return Response.json(
-                {
-                    success: false,
-                    message: "supplierId is required",
-                },
-                {
-                    status: 400,
-                }
-            );
+        const body = await request.json().catch(() => null);
+        if (!body || typeof body !== "object") {
+            return Response.json({ success: false, message: "Invalid request." }, { status: 400 });
         }
 
-        const balance = parseOpeningBalance(openingBalance, balanceType);
+        const { _id: supplierId, openingBalance, balanceType } = body as { _id?: unknown; openingBalance?: unknown; balanceType?: unknown };
+        if (!supplierId) {
+            return Response.json({ success: false, message: "supplierId is required" }, { status: 400 });
+        }
+        if (!isObjectId(supplierId)) {
+            return Response.json({ success: false, message: "Invalid supplier id." }, { status: 400 });
+        }
+
+        const input = parseSupplierInput(body);
+        if (!input.ok) {
+            return Response.json({ success: false, message: input.message }, { status: 400 });
+        }
+
+        const balance = parseOpeningBalance(openingBalance as never, balanceType as never);
         if (!balance.ok) {
             return Response.json({ success: false, message: balance.message }, { status: 400 });
         }
 
-        // Check if the new name is already taken
-        const existingSupplier: any = await Supplier.findOne({ name, ...companyFilter(auth.companyId) });
-        if (existingSupplier && existingSupplier._id.toString() !== supplierId) {
-            return Response.json(
-                {
-                    success: false,
-                    message: "Supplier with this name already exists",
-                },
-                {
-                    status: 400,
-                }
-            );
+        // The new name must not belong to a different supplier of this company.
+        const clash = await Supplier.findOne({ $and: [companyFilter(auth.companyId), { name: input.data.name }] })
+            .collation(CI)
+            .select("_id")
+            .lean();
+        if (clash && String(clash._id) !== supplierId) {
+            return Response.json({ success: false, message: "A supplier with this name already exists." }, { status: 409 });
         }
 
-        // Find the category by ID and update it
+        // Only the fields that were sent are changed, so a form that doesn't know
+        // about the bank / PAN block can't blank them.
         const updatedSupplier = await Supplier.findOneAndUpdate(
             { _id: supplierId, ...companyFilter(auth.companyId) },
-            { name, address, city, state, pincode, gstin, mobile, email, openingBalance: balance.openingBalance, balanceType: balance.balanceType },
+            {
+                $set: { ...supplierSetFields(input.data), openingBalance: balance.openingBalance, balanceType: balance.balanceType },
+                ...(Object.keys(supplierUnsetFields(input.data)).length > 0 ? { $unset: supplierUnsetFields(input.data) } : {}),
+            },
             { new: true, runValidators: true }
         );
 
         if (!updatedSupplier) {
-            return Response.json(
-                {
-                    success: false,
-                    message: "Supplier not found",
-                },
-                {
-                    status: 404
-                }
-            );
+            return Response.json({ success: false, message: "Supplier not found" }, { status: 404 });
         }
 
-        return Response.json(
-            {
-                success: true,
-                message: "Supplier updated successfully",
-                data: updatedSupplier
-            },
-            {
-                status: 200
-            }
-        );
-
+        return Response.json({ success: true, message: "Supplier updated successfully", data: updatedSupplier }, { status: 200 });
     } catch (error) {
-        console.log("Error while updating Supplier : ", error);
-        return Response.json(
-            {
-                success: false,
-                message: "Internal server error while Updating Supplier",
-                error
-            },
-            {
-                status: 500
-            }
-        );
+        if ((error as { code?: number })?.code === 11000) {
+            return Response.json({ success: false, message: "A supplier with this name already exists." }, { status: 409 });
+        }
+        console.error("Error while updating Supplier : ", error);
+        return Response.json({ success: false, message: "Internal server error while Updating Supplier" }, { status: 500 });
     }
 }

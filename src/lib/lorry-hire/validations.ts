@@ -9,6 +9,7 @@ import {
   CHARGE_KINDS,
   FREIGHT_PAID_BY,
   GST_MODES,
+  GSTIN_REGEX,
   IFSC_REGEX,
   LOAD_TYPES,
   PAN_REGEX,
@@ -64,7 +65,8 @@ const gstin = z
   .max(15)
   .optional()
   .or(z.literal(""))
-  .default("");
+  .default("")
+  .refine((v) => !v || GSTIN_REGEX.test(v), { message: "GSTIN must be 15 characters, like 24ABCDE1234F1Z5." });
 
 const pincode = z
   .string()

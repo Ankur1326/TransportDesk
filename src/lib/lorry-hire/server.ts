@@ -8,10 +8,11 @@ import type { ZodError } from "zod";
 import { companyFilter } from "@/lib/company-scope";
 import { dropLegacyUniqueIndex } from "@/lib/legacy-indexes";
 import ConsignmentModel from "@/models/Consignment";
+import LorryHireModel from "@/models/LorryHire";
 import PaymentModel from "@/models/Payment";
 import SupplierModel from "@/models/Supplier";
 import type { LorryHireFormValues } from "./validations";
-import { mirrorPaymentDoc } from "./build";
+import { mirrorPaymentDoc, paymentTotals } from "./build";
 
 export * from "./build";
 
@@ -29,21 +30,49 @@ export type SupplierResolution =
   | { ok: true; supplierId: mongoose.Types.ObjectId }
   | { ok: false; message: string };
 
+type SupplierBank = NonNullable<LorryHireFormValues["bank"]>;
+
+const hasBank = (b?: SupplierBank): boolean => Boolean(b && (b.accountNumber || b.ifscCode || b.upiId || b.bankName || b.accountHolderName));
+
 /**
  * Verify a picked supplier belongs to the company, or find-or-create one from
  * the typed details. The contract keeps its own snapshot either way.
+ *
+ * Typed PAN / bank details are also saved on the supplier, so the next contract
+ * can pick them up. For a supplier that already exists they only FILL BLANKS —
+ * a contract never overwrites what the Suppliers screen holds.
  */
 export async function resolveSupplier(
   companyId: string,
   userId: string,
-  s: LorryHireFormValues["supplier"]
+  s: LorryHireFormValues["supplier"],
+  bank?: SupplierBank
 ): Promise<SupplierResolution> {
+  const fillBlanks = async (id: mongoose.Types.ObjectId | string) => {
+    const doc = await SupplierModel.findOne({ $and: [companyFilter(companyId), { _id: id }] })
+      .select("panNumber gstin mobile bankDetails")
+      .lean();
+    if (!doc) return;
+    const set: Record<string, string> = {};
+    if (!doc.panNumber && s.pan) set.panNumber = s.pan;
+    if (!doc.gstin && s.gstin) set.gstin = s.gstin;
+    if (!doc.mobile && s.mobile) set.mobile = s.mobile;
+    if (bank) {
+      for (const k of ["accountHolderName", "bankName", "accountNumber", "ifscCode", "upiId"] as const) {
+        if (!doc.bankDetails?.[k] && bank[k]) set[`bankDetails.${k}`] = bank[k] as string;
+      }
+    }
+    if (Object.keys(set).length > 0) {
+      await SupplierModel.updateOne({ $and: [companyFilter(companyId), { _id: id }] }, { $set: set });
+    }
+  };
+
   if (s.supplierId) {
     if (!isObjectId(s.supplierId)) return { ok: false, message: "Selected supplier is invalid." };
     const exists = await SupplierModel.exists({ $and: [companyFilter(companyId), { _id: s.supplierId }] });
-    return exists
-      ? { ok: true, supplierId: new mongoose.Types.ObjectId(s.supplierId) }
-      : { ok: false, message: "Selected supplier was not found." };
+    if (!exists) return { ok: false, message: "Selected supplier was not found." };
+    await fillBlanks(s.supplierId);
+    return { ok: true, supplierId: new mongoose.Types.ObjectId(s.supplierId) };
   }
 
   await dropLegacyUniqueIndex(SupplierModel, "name");
@@ -54,7 +83,10 @@ export async function resolveSupplier(
       .lean();
 
   const existing = await byName();
-  if (existing) return { ok: true, supplierId: existing._id as mongoose.Types.ObjectId };
+  if (existing) {
+    await fillBlanks(existing._id);
+    return { ok: true, supplierId: existing._id as mongoose.Types.ObjectId };
+  }
 
   try {
     const created = await SupplierModel.create({
@@ -67,6 +99,7 @@ export async function resolveSupplier(
       mobile: s.mobile || null,
       panNumber: s.pan,
       supplierType: s.supplierType,
+      ...(hasBank(bank) ? { bankDetails: bank } : {}),
       companyId,
       createdBy: userId,
     });
@@ -152,3 +185,117 @@ export const DUPLICATE_LHC_MESSAGE = "That LHC number already exists — refresh
 
 /** Fields the list / detail APIs never send (large or internal). */
 export const LIST_EXCLUDE = "-driverSignature -statusHistory";
+
+// ─── Recording a payment on a contract ───────────────────────────────────────
+
+const paise = (n: number) => Math.round(n * 100);
+
+/** Re-write totalPaid / balance / paymentStatus exactly from the stored payments. */
+export async function settleTotals(companyId: string, id: string) {
+  const doc = await LorryHireModel.findOne({ $and: [companyFilter(companyId), { _id: id }] })
+    .select("settlement.netPayable payments.amount")
+    .lean();
+  if (!doc) return null;
+  const t = paymentTotals(doc.settlement.netPayable, doc.payments);
+  return LorryHireModel.findOneAndUpdate(
+    { $and: [companyFilter(companyId), { _id: id }] },
+    {
+      $set: {
+        "settlement.totalPaid": t.totalPaid,
+        "settlement.balance": t.balance,
+        "settlement.paymentStatus": t.paymentStatus,
+      },
+    },
+    { new: true }
+  )
+    .select(LIST_EXCLUDE)
+    .lean();
+}
+
+export interface RecordPaymentInput {
+  /** Omit to pick automatically: Advance for the first payment, Final when it clears the balance, otherwise Part. */
+  kind?: "Advance" | "Part" | "Final";
+  amount: number;
+  date: string | Date;
+  mode: LorryHireFormValues["payments"][number]["mode"];
+  reference?: string;
+  paidTo?: string;
+  remark?: string;
+}
+
+export type RecordPaymentResult =
+  | { ok: true; data: Awaited<ReturnType<typeof settleTotals>> }
+  | { ok: false; status: number; message: string };
+
+/**
+ * The ONE way a payment is added to a lorry hire contract — used by the Lorry
+ * Hire screen and by the Suppliers ledger, so both always agree.
+ *
+ * The push is atomic and only applies while the balance still covers the amount,
+ * so two simultaneous payments can't overpay the contract.
+ */
+export async function recordLorryHirePayment(args: {
+  companyId: string;
+  userId: string;
+  lorryHireId: string;
+  payment: RecordPaymentInput;
+}): Promise<RecordPaymentResult> {
+  const { companyId, userId, lorryHireId: id, payment: p } = args;
+  const scope = companyFilter(companyId);
+
+  const existing = await LorryHireModel.findOne({ $and: [scope, { _id: id }] })
+    .select("status lhcNo supplier settlement payments._id")
+    .lean();
+  if (!existing) return { ok: false, status: 404, message: "Lorry hire contract not found." };
+  if (existing.status === "Cancelled") return { ok: false, status: 409, message: "Payments can't be added to a cancelled contract." };
+  if (paise(p.amount) > paise(existing.settlement.balance)) {
+    return { ok: false, status: 400, message: `Payment exceeds the balance of ₹${existing.settlement.balance.toFixed(2)}.` };
+  }
+
+  const kind =
+    p.kind ??
+    (paise(p.amount) >= paise(existing.settlement.balance) ? "Final" : existing.payments.length === 0 ? "Advance" : "Part");
+
+  const paymentId = new mongoose.Types.ObjectId();
+  const ledgerId = new mongoose.Types.ObjectId();
+
+  const pushed = await LorryHireModel.findOneAndUpdate(
+    { $and: [scope, { _id: id, status: { $ne: "Cancelled" }, "settlement.balance": { $gte: p.amount } }] },
+    {
+      $push: {
+        payments: {
+          _id: paymentId,
+          ledgerPaymentId: ledgerId,
+          kind,
+          amount: p.amount,
+          date: p.date,
+          mode: p.mode,
+          reference: p.reference ?? "",
+          paidTo: p.paidTo ?? "",
+          remark: p.remark ?? "",
+        },
+      },
+      $inc: { "settlement.totalPaid": p.amount, "settlement.balance": -p.amount },
+    },
+    { new: true }
+  )
+    .select("_id")
+    .lean();
+  if (!pushed) return { ok: false, status: 409, message: "The balance changed. Refresh and try again." };
+
+  const data = await settleTotals(companyId, id);
+
+  const supplierId = existing.supplier.supplierId;
+  if (supplierId) {
+    await insertMirrors([
+      mirrorPaymentDoc({
+        companyId,
+        userId,
+        ledgerId,
+        contract: { _id: id, lhcNo: existing.lhcNo, supplierId, supplierName: existing.supplier.name },
+        payment: { kind, amount: p.amount, date: p.date as never, mode: p.mode, reference: p.reference ?? "", paidTo: p.paidTo ?? "", remark: p.remark ?? "" },
+      }),
+    ]);
+  }
+  return { ok: true, data };
+}
