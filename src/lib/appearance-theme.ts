@@ -31,23 +31,40 @@ export interface AppearancePreset {
   colors: AppearanceColors;
 }
 
+const TRANSPORT_ORANGE_COLORS: AppearanceColors = {
+  primary: "#A65320",
+  accent: "#8A4F24",
+  pageBackground: "#F4F3F2",
+  cardBackground: "#FFFFFF",
+  text: "#292621",
+  mutedText: "#716B64",
+  border: "#E3DED7",
+  sidebarBackground: "#FFFFFF",
+  sidebarText: "#49443D",
+  sidebarActiveBackground: "#ECE7E0",
+  sidebarActiveText: "#553A24",
+  buttonBackground: "#8A4F24",
+  buttonText: "#FFFFFF",
+  buttonHover: "#6E3E1D",
+};
+
 export const APPEARANCE_PRESETS: AppearancePreset[] = [
   {
     id: "executive-navy",
     name: "Executive Navy",
-    description: "Classic navy, crisp white, and restrained blue accents.",
+    description: "A restrained navy accent on warm, quiet surfaces.",
     colors: {
       primary: "#244B78",
       accent: "#38779A",
-      pageBackground: "#F4F7FA",
+      pageBackground: "#F4F3F2",
       cardBackground: "#FFFFFF",
-      text: "#1E2937",
-      mutedText: "#647386",
-      border: "#DCE4EC",
+      text: "#292621",
+      mutedText: "#716B64",
+      border: "#E3DED7",
       sidebarBackground: "#FFFFFF",
-      sidebarText: "#39495B",
-      sidebarActiveBackground: "#E8F0F8",
-      sidebarActiveText: "#193C62",
+      sidebarText: "#49443D",
+      sidebarActiveBackground: "#ECE7E0",
+      sidebarActiveText: "#553A24",
       buttonBackground: "#244B78",
       buttonText: "#FFFFFF",
       buttonHover: "#193C62",
@@ -56,41 +73,26 @@ export const APPEARANCE_PRESETS: AppearancePreset[] = [
   {
     id: "transport-orange",
     name: "Transport Orange",
-    description: "Warm, confident orange with charcoal neutrals.",
-    colors: {
-      primary: "#DB7007",
-      accent: "#B85C05",
-      pageBackground: "#F7F7F5",
-      cardBackground: "#FFFFFF",
-      text: "#242321",
-      mutedText: "#6C6A66",
-      border: "#E5E2DC",
-      sidebarBackground: "#FFFFFF",
-      sidebarText: "#45423E",
-      sidebarActiveBackground: "#FFF0E1",
-      sidebarActiveText: "#793B00",
-      buttonBackground: "#B85C05",
-      buttonText: "#FFFFFF",
-      buttonHover: "#A84F00",
-    },
+    description: "A grounded terracotta accent on warm, quiet surfaces.",
+    colors: TRANSPORT_ORANGE_COLORS,
   },
 
   {
     id: "forest-green",
     name: "Forest Green",
-    description: "Grounded evergreen with soft, warm neutrals.",
+    description: "A grounded green accent on warm, quiet surfaces.",
     colors: {
       primary: "#32745A",
       accent: "#55866A",
-      pageBackground: "#F5F8F5",
+      pageBackground: "#F4F3F2",
       cardBackground: "#FFFFFF",
-      text: "#202B25",
-      mutedText: "#64756A",
-      border: "#DCE6DE",
+      text: "#292621",
+      mutedText: "#716B64",
+      border: "#E3DED7",
       sidebarBackground: "#FFFFFF",
-      sidebarText: "#3D5145",
-      sidebarActiveBackground: "#E6F2E9",
-      sidebarActiveText: "#20553D",
+      sidebarText: "#49443D",
+      sidebarActiveBackground: "#ECE7E0",
+      sidebarActiveText: "#553A24",
       buttonBackground: "#32745A",
       buttonText: "#FFFFFF",
       buttonHover: "#285F49",
@@ -99,19 +101,19 @@ export const APPEARANCE_PRESETS: AppearancePreset[] = [
   {
     id: "royal-indigo",
     name: "Royal Indigo",
-    description: "Refined indigo with cool, modern surfaces.",
+    description: "A refined indigo accent on warm, quiet surfaces.",
     colors: {
       primary: "#5A58A6",
       accent: "#716FAF",
-      pageBackground: "#F6F6FA",
+      pageBackground: "#F4F3F2",
       cardBackground: "#FFFFFF",
-      text: "#25253A",
-      mutedText: "#6C6C86",
-      border: "#E1E1ED",
+      text: "#292621",
+      mutedText: "#716B64",
+      border: "#E3DED7",
       sidebarBackground: "#FFFFFF",
-      sidebarText: "#474761",
-      sidebarActiveBackground: "#EEEDFA",
-      sidebarActiveText: "#45438A",
+      sidebarText: "#49443D",
+      sidebarActiveBackground: "#ECE7E0",
+      sidebarActiveText: "#553A24",
       buttonBackground: "#5A58A6",
       buttonText: "#FFFFFF",
       buttonHover: "#48468D",
@@ -120,19 +122,19 @@ export const APPEARANCE_PRESETS: AppearancePreset[] = [
   {
     id: "graphite",
     name: "Graphite",
-    description: "Quiet charcoal with a subtle copper accent.",
+    description: "A quiet graphite accent on warm, quiet surfaces.",
     colors: {
       primary: "#48515B",
       accent: "#A96839",
-      pageBackground: "#F5F6F7",
+      pageBackground: "#F4F3F2",
       cardBackground: "#FFFFFF",
-      text: "#24282D",
-      mutedText: "#69717A",
-      border: "#DFE2E5",
+      text: "#292621",
+      mutedText: "#716B64",
+      border: "#E3DED7",
       sidebarBackground: "#FFFFFF",
-      sidebarText: "#414950",
-      sidebarActiveBackground: "#ECEFF1",
-      sidebarActiveText: "#303841",
+      sidebarText: "#49443D",
+      sidebarActiveBackground: "#ECE7E0",
+      sidebarActiveText: "#553A24",
       buttonBackground: "#48515B",
       buttonText: "#FFFFFF",
       buttonHover: "#353D46",
@@ -142,7 +144,7 @@ export const APPEARANCE_PRESETS: AppearancePreset[] = [
 
 export const DEFAULT_APPEARANCE_THEME: AppearanceTheme = {
   preset: "transport-orange",
-  colors: APPEARANCE_PRESETS[0].colors,
+  colors: TRANSPORT_ORANGE_COLORS,
 };
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -256,6 +258,7 @@ export function appearanceCssVariables(theme: AppearanceTheme, isDark = false): 
     palette[`--color-slate-${step}`] = neutralValue;
     palette[`--color-gray-${step}`] = neutralValue;
     palette[`--color-neutral-${step}`] = neutralValue;
+    palette[`--color-stone-${step}`] = neutralValue;
     palette[`--app-dark-slate-${step}`] = darkNeutral[step];
   }
   palette["--app-page-background"] = isDark ? darkSurface(colors.primary, 0.08) : colors.pageBackground;
