@@ -2,6 +2,7 @@ import type { DeepPartial } from "react-hook-form";
 import { amountInWords } from "@/lib/bill/validations";
 import { computeLorryHireSummary } from "@/lib/lorry-hire/calculations";
 import { formatVehicleNumber } from "@/lib/lorry-hire/constants";
+import { TruckTypeIcon } from "@/components/lorry-hire/TruckTypeIcon";
 import type { LorryHireFormValues } from "@/lib/lorry-hire/validations";
 import { getCompanyDocumentInfo, type CompanySettingsValues } from "@/lib/company-settings";
 
@@ -172,7 +173,10 @@ export function LorryHireSheet({
           </div>
           <div className="space-y-0.5 p-3">
             <p className="mb-1 text-[10px] font-bold uppercase text-slate-500">Truck &amp; driver</p>
-            <p className="text-base font-bold uppercase">{truck?.vehicleNumber ? formatVehicleNumber(truck.vehicleNumber) : ""}</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-base font-bold uppercase">{truck?.vehicleNumber ? formatVehicleNumber(truck.vehicleNumber) : ""}</p>
+              {truck?.truckType && <TruckTypeIcon type={truck.truckType} className="h-9 w-[74px]" />}
+            </div>
             <Field label="Truck type" value={truck?.truckType} />
             <Field label="Capacity" value={Number(truck?.capacity) > 0 ? `${qty(Number(truck?.capacity))} ${truck?.capacityUnit ?? ""}` : ""} />
             {truck?.isOversize && <p className="font-semibold">Oversize load</p>}

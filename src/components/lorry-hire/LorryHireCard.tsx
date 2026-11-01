@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Calculator, MoreHorizontal, Pencil, Printer, Share2, X } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { LorryTruckIcon } from "@/components/lorry-hire/LorryTruckIcon";
+import { TruckTypeIcon } from "@/components/lorry-hire/TruckTypeIcon";
+import { findTruckType } from "@/lib/lorry-hire/truck-types";
 import type { LorryHireRecord } from "@/lib/lorry-hire/api";
 import { formatVehicleNumber } from "@/lib/lorry-hire/constants";
 import { canCancelLorryHire, canTransitionLorryHire } from "@/lib/lorry-hire/status";
@@ -92,7 +94,7 @@ export function LorryHireCard({ r, actions }: { r: LorryHireRecord; actions: Lor
       {/* Row 2 — truck + route, supplier + owner */}
       <div className="mt-2 grid gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div className="flex items-center gap-3">
-          <LorryTruckIcon />
+          {findTruckType(r.truck.truckType) ? <TruckTypeIcon type={r.truck.truckType} className="h-11 w-[86px]" decorative={false} /> : <LorryTruckIcon />}
           <div className="min-w-0 flex-1">
             <Link href={`/admin/lorry-hire/new?id=${r._id}`} className="text-lg font-bold tracking-wide text-blue-600 hover:text-blue-800">
               {formatVehicleNumber(r.truck.vehicleNumber)}

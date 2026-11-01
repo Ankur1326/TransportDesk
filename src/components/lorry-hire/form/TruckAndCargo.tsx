@@ -1,27 +1,45 @@
 "use client";
-import { useState } from "react";
-import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
+import { useMemo, useState } from "react";
+import { Controller, useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import { Button } from "@/components/Button";
 import { Plus, Trash2, Truck } from "@/components/icons";
+import { IconSelect } from "@/components/ui/IconSelect";
+import { TruckTypeIcon } from "@/components/lorry-hire/TruckTypeIcon";
 import { lookupVehicle, type LorryHireRecord } from "@/lib/lorry-hire/api";
 import { normalizeVehicleNumber, WEIGHT_UNITS } from "@/lib/lorry-hire/constants";
+import { truckTypeChoices } from "@/lib/lorry-hire/truck-types";
 import type { LorryHireFormValues } from "@/lib/lorry-hire/validations";
-import { CheckField, FieldGrid, FormBlock, NumField, SelectField, SubHeading, TextField } from "./fields";
+import { CheckField, FieldGrid, FormBlock, NumField, SelectField, SubHeading, TextField, useFieldError } from "./fields";
 import { LrPickerDialog } from "./LrPickerDialog";
 
 type V = LorryHireFormValues;
 type Last = Partial<LorryHireRecord>;
 
-const TRUCK_TYPES = ["Mini Truck (Tempo)", "Pickup", "Open Truck", "Closed Container", "Trailer", "Tanker", "Tipper", "Other"];
+/** Truck type with a picture of each type. A saved value that isn't in the list stays selectable. */
+function TruckTypeField() {
+  const { control } = useFormContext<V>();
+  const error = useFieldError("truck.truckType");
+  const current = useWatch({ control, name: "truck.truckType" });
+  const options = useMemo(
+    () => truckTypeChoices(current).map((c) => ({ value: c.value, label: c.value, icon: <TruckTypeIcon type={c.value} className="h-8 w-16" /> })),
+    [current]
+  );
+  return (
+    <Controller
+      control={control}
+      name="truck.truckType"
+      render={({ field }) => (
+        <IconSelect label="Truck type" placeholder="Select truck type" value={field.value ?? ""} onChange={field.onChange} options={options} error={error} />
+      )}
+    />
+  );
+}
 
 // ─── Truck & driver ──────────────────────────────────────────────────────────
 
 export function TruckSection() {
-  const { control, setValue, getValues } = useFormContext<V>();
+  const { setValue, getValues } = useFormContext<V>();
   const [hint, setHint] = useState<Last | null>(null);
-  const truckType = useWatch({ control, name: "truck.truckType" });
-  // A saved or looked-up type that isn't in the list must still show as selected.
-  const truckTypeOptions = truckType && !TRUCK_TYPES.includes(truckType) ? [...TRUCK_TYPES, truckType] : TRUCK_TYPES;
 
   // Typing a known truck number offers its last driver / owner / type in one tap.
   const checkVehicle = async () => {
@@ -60,7 +78,7 @@ export function TruckSection() {
         <div onBlur={checkVehicle}>
           <TextField name="truck.vehicleNumber" label="Truck number" required upper placeholder="MH23AU6718" />
         </div>
-        <SelectField name="truck.truckType" label="Truck type" placeholder="Select truck type" options={truckTypeOptions} />
+        <TruckTypeField />
         <NumField name="truck.capacity" label="Capacity" />
         <SelectField name="truck.capacityUnit" label="Unit" options={WEIGHT_UNITS} />
 
