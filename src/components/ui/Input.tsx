@@ -109,7 +109,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             aria-describedby={error ? errorId : helperText ? helperId : undefined}
             className={cn(
               // Base: flat filled surface, square, no border
-              "block h-10 w-full rounded-none border-0 bg-neutral-100 px-3",
+              "block h-10 w-full rounded-none border-0 bg-[#f7f5f4] px-3",
               "text-[13px] font-medium text-neutral-900 outline-none",
               "transition-colors duration-150",
 
@@ -117,7 +117,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               "placeholder:font-normal placeholder:text-neutral-400",
 
               // Hover / focus surface
-              "hover:bg-neutral-200/60 focus:bg-white",
+              "hover:bg-[#F4F3F2] focus:bg-white",
 
               // Disabled / read-only
               "disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-400 disabled:hover:bg-neutral-100",

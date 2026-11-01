@@ -90,7 +90,7 @@ export function GlobalTopBar() {
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--app-sidebar-active-mark,#2563eb)]",
             index > 0 && "border-l border-[var(--app-border)]",
             isActive
-              ? "bg-[var(--app-card-background)] font-semibold text-[var(--app-text)]"
+              ? "bg-[#F4F3F2] font-semibold text-[var(--app-text)]"
               : cn(
                   "bg-[color-mix(in_srgb,var(--app-border)_30%,var(--app-card-background))]",
                   "font-medium text-[var(--app-muted-text)]",

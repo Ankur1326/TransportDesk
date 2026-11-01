@@ -21,7 +21,7 @@ function RootLayoutContent({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-neutral-50 dark:bg-brand-950 print:block">
+    <div className="flex min-h-screen bg-[#F4F3F2] dark:bg-brand-950 print:block">
       {session?.user ? (
         <div className="print:hidden">
           <Sidebar
