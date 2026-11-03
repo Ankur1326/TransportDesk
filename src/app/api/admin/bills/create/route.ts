@@ -3,7 +3,8 @@ import { ZodError } from "zod";
 
 import dbConnect from "@/lib/db";
 import FreightBillModel from "@/models/Bill";
-import { requireCompanyProfile } from "@/lib/company-scope";
+import { companyFilter, requireCompanyProfile } from "@/lib/company-scope";
+import { atomically, syncLrBilling } from "@/lib/bill/lr-billing-sync";
 import { dropLegacyUniqueIndex } from "@/lib/legacy-indexes";
 import { warmBillPdf } from "@/lib/bill-pdf-cache";
 import { pdfRenderBaseUrl } from "@/lib/pdf-cache";
@@ -51,15 +52,39 @@ export async function POST(request: NextRequest) {
     const totalAmount = summary.invoiceAmount;
     const payableAmount = summary.payable;
 
-    const created = await FreightBillModel.create({
-      ...parsed,
-      items,
-      totalAmount,
-      payableAmount,
-      // Server-controlled — never taken from the request body.
-      companyId: auth.companyId,
-      createdBy: auth.userId,
-    });
+    // Bill + the LRs' `billing` marker commit together (or are rolled back).
+    let createdId: string | undefined;
+    const created = await atomically(
+      async (session) => {
+        const [doc] = await FreightBillModel.create(
+          [
+            {
+              ...parsed,
+              items,
+              totalAmount,
+              payableAmount,
+              // Server-controlled — never taken from the request body.
+              companyId: auth.companyId,
+              createdBy: auth.userId,
+            },
+          ],
+          { session }
+        );
+        createdId = String(doc._id);
+        await syncLrBilling({
+          companyId: auth.companyId,
+          bill: { id: createdId, billNo: doc.billNo, billDate: doc.billDate },
+          previousLrIds: [],
+          nextLrIds: parsed.items.map((i) => i.consignmentId),
+          session,
+        });
+        return doc;
+      },
+      // Standalone MongoDB (no transactions): undo the bill if the LR sync fails.
+      async () => {
+        if (createdId) await FreightBillModel.deleteOne({ _id: createdId, ...companyFilter(auth.companyId) });
+      }
+    );
 
     // An advance on the bill already counts as payment (Partially Paid / Paid bilties).
     await syncBillStatusAfterBillSave(auth.companyId, String(created._id), { hadAdvance: false });

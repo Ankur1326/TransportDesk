@@ -5,6 +5,8 @@ import { ZodError } from "zod";
 import dbConnect from "@/lib/db";
 import FreightBillModel from "@/models/Bill";
 import { requireCompany, companyFilter } from "@/lib/company-scope";
+import { atomically, billHasPayments, syncLrBilling } from "@/lib/bill/lr-billing-sync";
+import { diffLrIds, removeFromPaidBillMessage } from "@/lib/bill/lr-billing";
 import { warmBillPdf } from "@/lib/bill-pdf-cache";
 import { pdfRenderBaseUrl } from "@/lib/pdf-cache";
 import { allConsignmentsBelongToCompany } from "@/lib/bill/verify-consignments";
@@ -69,16 +71,55 @@ export async function PUT(
     const totalAmount = summary.invoiceAmount;
     const payableAmount = summary.payable;
 
-    const before = await FreightBillModel.findOne(
-      { _id: id, ...companyFilter(auth.companyId) },
-      "adjustments.advanceReceived"
-    ).lean<{ adjustments?: { advanceReceived?: number } } | null>();
+    const scope = { _id: id, ...companyFilter(auth.companyId) };
+    const before = await FreightBillModel.findOne(scope).lean();
+    if (!before) {
+      return NextResponse.json({ success: false, message: "Bill not found" }, { status: 404 });
+    }
 
-    const updated = await FreightBillModel.findOneAndUpdate(
-      { _id: id, ...companyFilter(auth.companyId) },
-      { ...parsed, items, totalAmount, payableAmount },
-      { new: true, runValidators: true }
-    ).lean();
+    // An LR can't leave a bill that already has payments recorded against it.
+    const previousLrIds = (before.items ?? []).map((i) => String(i.consignmentId));
+    const nextLrIds = parsed.items.map((i) => i.consignmentId);
+    const { removed } = diffLrIds(previousLrIds, nextLrIds);
+    if (removed.length > 0 && (await billHasPayments(auth.companyId, id))) {
+      const removedNos = (before.items ?? [])
+        .filter((i) => removed.includes(String(i.consignmentId)))
+        .map((i) => i.cnsNo);
+      return NextResponse.json(
+        { success: false, message: removeFromPaidBillMessage(before.billNo, removedNos) },
+        { status: 409 }
+      );
+    }
+
+    // Bill + the LRs' `billing` marker commit together (or are rolled back).
+    const updated = await atomically(
+      async (session) => {
+        const doc = await FreightBillModel.findOneAndUpdate(
+          scope,
+          { ...parsed, items, totalAmount, payableAmount },
+          { new: true, runValidators: true, session }
+        ).lean();
+        if (!doc) return null;
+        await syncLrBilling({
+          companyId: auth.companyId,
+          bill: { id, billNo: doc.billNo, billDate: doc.billDate },
+          previousLrIds,
+          nextLrIds,
+          session,
+        });
+        return doc;
+      },
+      // Standalone MongoDB (no transactions): put the bill and the markers back.
+      async () => {
+        await FreightBillModel.replaceOne(scope, before);
+        await syncLrBilling({
+          companyId: auth.companyId,
+          bill: { id, billNo: before.billNo, billDate: before.billDate },
+          previousLrIds: nextLrIds,
+          nextLrIds: previousLrIds,
+        });
+      }
+    );
 
     if (!updated) {
       return NextResponse.json({ success: false, message: "Bill not found" }, { status: 404 });

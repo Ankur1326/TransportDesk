@@ -14,6 +14,7 @@ import { balanceDue, formatDate, formatINR, getStatus, lrTotal, receivedAmount }
 import { getPodStatus, rollbackTarget } from "@/lib/pod-status";
 import { MenuDivider, MenuItem } from "./Menu";
 import { PodAgeing, PodBadge } from "./PodBadge";
+import { BillLine, StageBadge } from "./StageBadge";
 
 export interface LrCardActions {
   open: (r: ConsignmentListItem) => void;
@@ -285,10 +286,12 @@ export function LrCard({
               </span>
             </div>
           </div>
-          <div className="flex w-full items-center gap-2 sm:w-auto">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <BillLine bill={item.billInfo} />
             {pod === "Pending" && status === "Delivered" && <PodAgeing days={item.podDaysPending} />}
             <PodBadge item={{ status, podStatus: item.podStatus }} />
-            {!cancelled && <Badge variant={PAY_VARIANT[pay] ?? "neutral"}>{pay}</Badge>}
+            {item.stage && <StageBadge stage={item.stage} />}
+            {!cancelled && <Badge variant={PAY_VARIANT[pay] ?? "neutral"} title="Freight payment status">{pay}</Badge>}
           </div>
         </div>
 

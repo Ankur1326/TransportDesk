@@ -4,11 +4,12 @@ import { z } from "zod";
 
 import dbConnect from "@/lib/db";
 import ConsignmentModel from "@/models/Consignment";
-import Bill from "@/models/Bill";
 import { companyFilter, requireCompany } from "@/lib/company-scope";
 import { destroyAsset } from "@/lib/cloudinary";
 import { PAYMENT_STATUSES, RECEIVED_TYPES } from "@/lib/validations/billing";
 import { DEFAULT_LR_STATUS, LR_STATUSES, canTransition, isLrStatus } from "@/lib/consignment-status";
+import { findBillOfLr } from "@/lib/bill/lr-billing-sync";
+import { billedLrMessage } from "@/lib/bill/lr-billing";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -74,7 +75,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   await dbConnect();
 
   const scope = { _id: id, ...companyFilter(auth.companyId) };
-  const current = await ConsignmentModel.findOne(scope).select("status").lean();
+  const current = await ConsignmentModel.findOne(scope).select("status consignmentNumber").lean();
   if (!current) return fail("Consignment not found", 404);
 
   const from = isLrStatus(current.status) ? current.status : DEFAULT_LR_STATUS;
@@ -94,6 +95,11 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   if (patch.status && patch.status !== from) {
     if (!canTransition(from, patch.status)) {
       return fail(`Can't move an LR from ${from} to ${patch.status}.`, 409);
+    }
+    // A billed LR is part of a freight bill - it can't be cancelled from under it.
+    if (patch.status === "Cancelled") {
+      const bill = await findBillOfLr(auth.companyId, id);
+      if (bill) return fail(billedLrMessage(current.consignmentNumber, bill.billNo, "cancelled"), 409, { code: "LR_BILLED", billNo: bill.billNo });
     }
     const now = new Date();
     $set.status = patch.status;
@@ -151,9 +157,9 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
     if (!lr) return fail("Consignment not found", 404);
 
     // An LR that is on a freight bill must be removed from the bill first.
-    const onBill = await Bill.exists({ "items.consignmentId": new mongoose.Types.ObjectId(id), ...companyFilter(auth.companyId) });
-    if (onBill) {
-      return fail(`LR ${lr.consignmentNumber} is on a freight bill. Remove it from the bill before deleting.`, 409);
+    const bill = await findBillOfLr(auth.companyId, id);
+    if (bill) {
+      return fail(billedLrMessage(lr.consignmentNumber, bill.billNo, "deleted"), 409, { code: "LR_BILLED", billNo: bill.billNo });
     }
 
     await ConsignmentModel.deleteOne(scope);

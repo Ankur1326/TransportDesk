@@ -105,6 +105,14 @@ export interface IStatusHistory {
     note?: string;
 }
 
+/** Denormalised freight-bill marker. The Bill documents stay the source of truth. */
+export interface IBillingMarker {
+    billed: boolean;
+    billId?: mongoose.Types.ObjectId;
+    billNo?: string;
+    billedAt?: Date;
+}
+
 export interface IConsignment extends Document {
     consignmentNumber: string;
     bookingDate: Date | string;
@@ -155,6 +163,13 @@ export interface IConsignment extends Document {
     podSubmittedAt?: Date;
     podSubmittedTo?: string;
     podRemarks?: string;
+
+    /**
+     * Freight-bill marker kept in sync by the bill routes (rebuild it with
+     * scripts/reconcile-lr-billing.ts). NOT the LR's own `payment` field, which is
+     * the freight payment type (Paid / To Pay / TBB).
+     */
+    billing?: IBillingMarker;
 
     /** Stored LR PDFs by variant ("default", "all", ...). See src/lib/lr-pdf-cache.ts. */
     pdfCache?: Record<string, { url: string; publicId: string; sourceUpdatedAt: string }>;
@@ -288,6 +303,16 @@ const insuranceSchema = new Schema<IInsurance>(
     { _id: false }
 );
 
+const billingMarkerSchema = new Schema<IBillingMarker>(
+    {
+        billed: { type: Boolean, default: false },
+        billId: { type: Schema.Types.ObjectId, ref: "FreightBill" },
+        billNo: { type: String },
+        billedAt: { type: Date },
+    },
+    { _id: false }
+);
+
 const statusHistorySchema = new Schema<IStatusHistory>(
     {
         status: { type: String, enum: LR_STATUSES, required: true },
@@ -355,6 +380,8 @@ const consignmentSchema = new Schema<IConsignment>(
         podSubmittedTo: { type: String, trim: true, maxlength: 100 },
         podRemarks: { type: String, trim: true, maxlength: 200 },
 
+        billing: { type: billingMarkerSchema, default: undefined },
+
         pdfCache: { type: Schema.Types.Mixed, default: undefined },
 
         lorryHire: {
@@ -396,7 +423,10 @@ consignmentSchema.index({
     "lorryHire.lorryHireId": 1,
 });
 
+consignmentSchema.index({ companyId: 1, "billing.billId": 1 });
+
 dropStaleModel("Consignment", "podStatus");
+dropStaleModel("Consignment", "billing");
 
 const ConsignmentModel: Model<IConsignment> =
     (mongoose?.models?.Consignment as Model<IConsignment>) ||

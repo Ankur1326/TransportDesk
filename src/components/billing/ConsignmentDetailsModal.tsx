@@ -22,6 +22,7 @@ import {
 import { ClipboardCheck } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { BillLine, StageBadge, StageStepper } from "@/components/bookings/StageBadge";
 import { Button } from "@/components/Button";
 import type { MongoDate } from "@/lib/api/consignments";
 import { getPodStatus } from "@/lib/pod-status";
@@ -253,6 +254,7 @@ export function ConsignmentDetailsModal({
                     <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
                 ) : null}
+                {c.stage ? <StageBadge stage={c.stage} /> : null}
                 <Badge variant={STATUS_VARIANT[c.payment?.status ?? ""] ?? "neutral"}>
                   {c.payment?.status || "Pending"}
                 </Badge>
@@ -287,6 +289,13 @@ export function ConsignmentDetailsModal({
               <div className="text-h4 font-bold text-neutral-900">{formatINR(chargesTotal)}</div>
             </div>
           </div>
+
+          {c.stage ? (
+            <div className="mt-4 space-y-1.5">
+              <StageStepper stage={c.stage} />
+              {c.billInfo ? <BillLine bill={c.billInfo} /> : null}
+            </div>
+          ) : null}
         </div>
 
         {/* BODY */}

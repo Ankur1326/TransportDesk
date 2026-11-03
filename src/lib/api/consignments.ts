@@ -4,6 +4,7 @@ import type { BillingFormValues } from "@/lib/validations/billing";
 import type { ChargeLine } from "@/lib/charges";
 import type { LrStatus } from "@/lib/consignment-status";
 import type { PodStatus } from "@/lib/pod-status";
+import type { LrStage, StageCounts } from "@/lib/consignment-stage";
 
 /** Proof-of-delivery fields. All optional: legacy records have none and read as Pending. */
 export interface PodFields {
@@ -21,6 +22,16 @@ export interface ConsignmentRecord extends BillingFormValues, PodFields {
 }
 
 /** Mongo can serialize dates either as a plain ISO string or as extended-JSON `{ $date: "..." }`. */
+/** The freight bill an LR is on, with its collection state (from the ledger's allocation logic). */
+export interface LrBillSummary {
+  billId: string;
+  billNo: string;
+  billDate: string;
+  status: "Unpaid" | "Partial" | "Paid";
+  paid: number;
+  outstanding: number;
+}
+
 export type MongoDate = string | { $date: string } | null | undefined;
 
 /**
@@ -95,6 +106,12 @@ export interface ConsignmentListItem extends PodFields {
   podUrl?: string;
   podFileName?: string;
   podUploadedAt?: MongoDate;
+  /** Single trip stage (Booked … Paid), computed server-side from status, POD and the bill. */
+  stage?: LrStage;
+  /** The bill this LR is on; null / missing when unbilled. */
+  billInfo?: LrBillSummary | null;
+  /** Denormalised marker; `billInfo` is the authoritative value. */
+  billing?: { billed?: boolean; billId?: string; billNo?: string; billedAt?: MongoDate };
 
   createdBy?: { name?: string };
   createdAt?: MongoDate;
@@ -123,13 +140,18 @@ export interface ConsignmentListParams {
   partyName?: string;
   /** "true" hides LRs that are already on a freight bill. */
   excludeBilled?: "true";
+  /** Trip stage, e.g. "POD Received" or "Partially Paid". */
+  stage?: LrStage;
   sort?: ConsignmentSort;
   page?: number;
   limit?: number;
 }
 
 /** Per-status totals for the tab badges (respects every filter except status). */
-export type ConsignmentCounts = { All: number; /** Delivered LRs still waiting for their POD. */ pendingPod: number } & Record<LrStatus, number>;
+export type ConsignmentCounts = { All: number; /** Delivered LRs still waiting for their POD. */ pendingPod: number } & Record<LrStatus, number> & {
+  /** Trip-stage split for the same filters (absent on older servers). */
+  stages?: StageCounts;
+};
 
 export interface ConsignmentListResponse {
   success: boolean;

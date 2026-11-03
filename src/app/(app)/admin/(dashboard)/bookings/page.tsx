@@ -445,7 +445,7 @@ export default function BookingsPage() {
 
           <div className="mt-3">
             <FilterBar filters={filters} onChange={patchFilters} onClear={clearFilters} dateError={dateError}
-              podLocked={statusTab === PENDING_POD_TAB} />
+              podLocked={statusTab === PENDING_POD_TAB} stageCounts={counts?.stages} />
           </div>
 
           {/* CONTENT */}

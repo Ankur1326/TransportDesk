@@ -6,11 +6,14 @@ import { Search } from "@/components/icons";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import type { ConsignmentSort } from "@/lib/api/consignments";
+import { LR_STAGES, type StageCounts } from "@/lib/consignment-stage";
 
 export interface Filters {
   search: string;
   paymentStatus: string;
   podStatus: string;
+  /** Trip stage ("" = all). */
+  stage: string;
   from: string;
   to: string;
   fromCity: string;
@@ -22,7 +25,7 @@ export interface Filters {
 }
 
 export const EMPTY_FILTERS: Filters = {
-  search: "", paymentStatus: "", podStatus: "", from: "", to: "", fromCity: "", toCity: "",
+  search: "", paymentStatus: "", podStatus: "", stage: "", from: "", to: "", fromCity: "", toCity: "",
   consignor: "", consignee: "", vehicle: "", sort: "newest",
 };
 
@@ -40,6 +43,11 @@ const POD_OPTIONS = [
   { value: "Submitted", label: "POD Submitted" },
 ];
 
+const stageOptions = (counts?: StageCounts | null) => [
+  { value: "", label: "All stages" },
+  ...LR_STAGES.map((s) => ({ value: s, label: counts ? `${s} (${counts[s] ?? 0})` : s })),
+];
+
 const SORT_OPTIONS: { value: ConsignmentSort; label: string }[] = [
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
@@ -55,11 +63,13 @@ export function activeFilterCount(f: Filters): number {
 }
 
 export function FilterBar({
-  filters, onChange, onClear, dateError, podLocked,
+  filters, onChange, onClear, dateError, podLocked, stageCounts,
 }: {
   filters: Filters; onChange: (patch: Partial<Filters>) => void; onClear: () => void; dateError?: string;
   /** The Pending POD tab fixes the POD status, so the filter is disabled. */
   podLocked?: boolean;
+  /** Per-stage totals for the option labels (optional). */
+  stageCounts?: StageCounts | null;
 }) {
   const advancedActive = ADVANCED.some((k) => filters[k] !== "");
   const [showMore, setShowMore] = useState(advancedActive);
@@ -118,6 +128,15 @@ export function FilterBar({
           )}
           {dateError && <span role="alert" className="text-body-sm text-error-600">{dateError}</span>}
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        <div className="w-48">
+          <Select
+            aria-label="Trip stage"
+            options={stageOptions(stageCounts)}
+            value={filters.stage}
+            onChange={(e) => onChange({ stage: e.target.value })}
+          />
+        </div>
         <div className="w-44">
           <Select
             aria-label="Sort"
@@ -125,6 +144,7 @@ export function FilterBar({
             value={filters.sort}
             onChange={(e) => onChange({ sort: e.target.value as ConsignmentSort })}
           />
+        </div>
         </div>
       </div>
 

@@ -9,6 +9,7 @@ import {
   buildLedger,
   computeBillStatuses,
   normName,
+  type BillStatus,
   type LedgerBill,
   type LedgerConsignment,
   type LedgerCustomer,
@@ -274,4 +275,66 @@ export async function syncBillPaymentStatus(companyId: string, billId: string): 
     },
     { $set: { "payment.status": paymentStatus } }
   );
+}
+
+/** The freight bill an LR is on, with its collection state. */
+export interface LrBillInfo {
+  billId: string;
+  billNo: string;
+  billDate: string;
+  status: BillStatus;
+  paid: number;
+  outstanding: number;
+}
+
+/**
+ * Collection state of the bill(s) each LR sits on, keyed by consignment id.
+ * Reuses computeBillStatuses - the very function the party ledger uses - so
+ * an LR's "Billed / Partially paid / Paid" can never disagree with the ledger.
+ * Money stays in rupees (2 decimals); paise are only used inside that helper.
+ *
+ * Pass `consignmentIds` to look at just those LRs (list page), or omit it to
+ * cover every bill of the company (stage filter / counts). It reads the Bill
+ * documents rather than `Consignment.billing`, so legacy data needs no backfill.
+ * An LR on several bills reports the latest one.
+ */
+export async function loadLrBillInfo(companyId: string, consignmentIds?: string[]): Promise<Map<string, LrBillInfo>> {
+  const result = new Map<string, LrBillInfo>();
+  if (consignmentIds && consignmentIds.length === 0) return result;
+
+  const scope = companyFilter(companyId);
+  const billFilter = consignmentIds
+    ? { $and: [scope, { "items.consignmentId": { $in: consignmentIds.filter(isObjectId).map((id) => new mongoose.Types.ObjectId(id)) } }] }
+    : scope;
+
+  const bills = await FreightBillModel.find(
+    billFilter,
+    "billNo billDate totalAmount items.consignmentId adjustments.advanceReceived"
+  ).lean<BillLean[]>();
+  if (bills.length === 0) return result;
+
+  const payments = await PaymentModel.find(
+    { $and: [scope, { direction: "received", billId: { $in: bills.map((b) => b._id) } }] },
+    "direction billId amount date"
+  ).lean<PaymentLean[]>();
+
+  const statuses = computeBillStatuses(bills.map(toBill), payments.map(toPayment));
+  const ordered = [...bills].sort(
+    (a, b) => new Date(a.billDate).getTime() - new Date(b.billDate).getTime() || String(a._id).localeCompare(String(b._id))
+  );
+
+  for (const bill of ordered) {
+    const info = statuses[String(bill._id)];
+    for (const item of bill.items ?? []) {
+      result.set(String(item.consignmentId), {
+        billId: info.billId,
+        billNo: info.billNo,
+        billDate: info.billDate,
+        status: info.status,
+        paid: info.paid,
+        outstanding: info.outstanding,
+      }); // later bills overwrite earlier ones
+    }
+  }
+  return result;
 }
