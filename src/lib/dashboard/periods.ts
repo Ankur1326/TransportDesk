@@ -281,7 +281,7 @@ export function istDaysBetween(earlier: Date, later: Date): number {
 /* --------------------------------- buckets -------------------------------- */
 
 export interface TrendBucket {
-  /** Stable key: `YYYY-MM` for months, `YYYY-MM-DD` (first day) for days and weeks. */
+  /** Stable key: `YYYY-MM` for months, `YYYY-MM-DD` for days. */
   key: string;
   label: string;
   from: Date;
@@ -309,53 +309,26 @@ function monthBuckets(from: Date, to: Date): TrendBucket[] {
 }
 
 /**
- * Month buckets for the "Revenue vs hire cost" chart: every month of the
- * period when it spans more than one calendar month, otherwise the last 6
- * months ending with the month the period ends in (never later than now).
+ * Buckets for the dashboard's single financial chart. Short periods use IST
+ * calendar days; longer periods use calendar months, all clipped to selection.
  */
-export function revenueBuckets(period: ResolvedPeriod, now: Date): TrendBucket[] {
-  const lastInstant = new Date(Math.min(period.to.getTime() - 1, now.getTime()));
-  const spanMonths = monthBuckets(period.from, period.to).length;
-  if (spanMonths > 1) {
-    // Do not draw months that have not started yet (the rest of the current FY).
-    return monthBuckets(period.from, new Date(lastInstant.getTime() + 1));
-  }
-  const endMonth = startOfIstMonth(lastInstant);
-  return monthBuckets(startOfIstMonth(endMonth, -5), startOfIstMonth(endMonth, 1));
-}
-
-/** Monthly buckets clipped by the selected range's coverage, with no history fallback. */
-export function periodMonthBuckets(period: ResolvedPeriod): TrendBucket[] {
-  return monthBuckets(period.from, period.to);
-}
-
-/**
- * Day buckets when the window is at most 31 days, else Monday-start week
- * buckets clipped to the window. Used by the "Collections" trend.
- */
-export function collectionBuckets(period: ResolvedPeriod): { unit: "day" | "week"; buckets: TrendBucket[] } {
+export function financialBuckets(period: ResolvedPeriod): { unit: "day" | "month"; buckets: TrendBucket[] } {
   const days = Math.round((period.to.getTime() - period.from.getTime()) / DAY_MS);
-  const buckets: TrendBucket[] = [];
-
   if (days <= 31) {
+    const buckets: TrendBucket[] = [];
     for (let i = 0; i < days; i++) {
       const from = new Date(period.from.getTime() + i * DAY_MS);
-      const p = istParts(from);
-      buckets.push({ key: toIstYmd(from), label: `${p.day} ${MONTH_SHORT[p.month]}`, from, to: new Date(from.getTime() + DAY_MS) });
+      const parts = istParts(from);
+      buckets.push({
+        key: toIstYmd(from),
+        label: `${parts.day} ${MONTH_SHORT[parts.month]}`,
+        from,
+        to: new Date(from.getTime() + DAY_MS),
+      });
     }
     return { unit: "day", buckets };
   }
-
-  let cursor = startOfIstWeek(period.from);
-  while (cursor.getTime() < period.to.getTime()) {
-    const next = new Date(cursor.getTime() + 7 * DAY_MS);
-    const from = new Date(Math.max(cursor.getTime(), period.from.getTime()));
-    const to = new Date(Math.min(next.getTime(), period.to.getTime()));
-    const p = istParts(from);
-    buckets.push({ key: toIstYmd(from), label: `${p.day} ${MONTH_SHORT[p.month]}`, from, to });
-    cursor = next;
-  }
-  return { unit: "week", buckets };
+  return { unit: "month", buckets: monthBuckets(period.from, period.to) };
 }
 
 /** Index of the bucket containing `instant`, or -1. Buckets are sorted and contiguous. */

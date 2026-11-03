@@ -10,7 +10,6 @@ import type {
   ActionId,
   ActionItem,
   ActionUrgency,
-  LhcStrip,
   OperationsFacts,
   PartySnapshot,
 } from "@/lib/dashboard/types";
@@ -18,7 +17,7 @@ import type {
 const URGENCY_RANK: Record<ActionUrgency, number> = { critical: 0, high: 1, medium: 2 };
 
 /** Stable tie-break so the order never flickers between refreshes. */
-const ID_ORDER: ActionId[] = ["eway", "overdue-bills", "documents", "late-trips", "supplier-dues", "pod-pending", "ready-to-bill"];
+const ID_ORDER: ActionId[] = ["overdue-bills", "documents", "late-trips", "pod-pending", "ready-to-bill"];
 
 /** POD waiting longer than this many days is escalated to "high". Mirrors podAgeLevel's "overdue" (more than 7). */
 export const POD_ESCALATE_AFTER_DAYS = 7;
@@ -27,7 +26,6 @@ const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en
 
 export interface ActionInputs {
   ops: OperationsFacts | null;
-  lhc: LhcStrip | null;
   /** Customer snapshot; only its overdueDocs is used. */
   receivables: Pick<PartySnapshot, "overdueDocs"> | null;
   creditDays: number;
@@ -36,7 +34,7 @@ export interface ActionInputs {
 export function buildActions(input: ActionInputs): ActionCentre {
   const items: ActionItem[] = [];
   const unavailable: ActionId[] = [];
-  const { ops, lhc, receivables, creditDays } = input;
+  const { ops, receivables, creditDays } = input;
 
   // 1. POD pending
   if (ops?.podPending) {
@@ -87,22 +85,7 @@ export function buildActions(input: ActionInputs): ActionCentre {
     }
   } else unavailable.push("overdue-bills");
 
-  // 4. Supplier balances on delivered trips
-  if (lhc) {
-    if (lhc.deliveredWithBalance > 0 && lhc.balanceDueOnDelivered > 0) {
-      items.push({
-        id: "supplier-dues",
-        count: lhc.deliveredWithBalance,
-        title: "Supplier balance on delivered trips",
-        description: `${formatInr(lhc.balanceDueOnDelivered)} is still unpaid on ${plural(lhc.deliveredWithBalance, "delivered trip", "delivered trips")}.`,
-        urgency: "high",
-        amount: lhc.balanceDueOnDelivered,
-        href: "/admin/lorry-hires?status=Delivered",
-      });
-    }
-  } else unavailable.push("supplier-dues");
-
-  // 5. Documents
+  // 4. Documents
   if (ops?.documents) {
     const { expired, expiringSoon } = ops.documents;
     const count = expired + expiringSoon;
@@ -122,7 +105,7 @@ export function buildActions(input: ActionInputs): ActionCentre {
     }
   } else unavailable.push("documents");
 
-  // 6. On-route LRs past their expected delivery date
+  // 5. On-route LRs past their expected delivery date
   if (ops) {
     if (ops.onRouteOverdue > 0) {
       items.push({
@@ -134,21 +117,8 @@ export function buildActions(input: ActionInputs): ActionCentre {
         href: "/admin/bookings?status=On%20Route",
       });
     }
-    // 7. E-way bills
-    if (ops.eway.count > 0) {
-      items.push({
-        id: "eway",
-        count: ops.eway.count,
-        title: "E-way bills expiring",
-        description:
-          `${plural(ops.eway.count, "e-way bill", "e-way bills")} on undelivered LRs ` +
-          (ops.eway.expired > 0 ? `${ops.eway.expired === ops.eway.count ? "have expired" : `(${ops.eway.expired} already expired)`} or expire within 24 hours.` : "expire within 24 hours."),
-        urgency: "critical",
-        href: "/admin/bookings",
-      });
-    }
   } else {
-    unavailable.push("late-trips", "eway");
+    unavailable.push("late-trips");
   }
 
   items.sort(

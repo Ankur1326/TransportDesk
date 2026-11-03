@@ -1,133 +1,129 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Minus } from "@/components/icons";
-import { Card } from "@/components/ui/Card";
 import { formatInr } from "@/lib/ledger/format";
 import { compactInr } from "@/lib/dashboard/ui-helpers";
-import { isWidgetError, type Financials, type KpiValue, type Widget } from "@/lib/dashboard/types";
+import { isWidgetError, type Financials, type KpiValue, type PartySnapshot, type Widget } from "@/lib/dashboard/types";
 import { WidgetUnavailable } from "./DashboardPrimitives";
 
-type MetricName = "revenue" | "expenses" | "netProfit";
-
-const metricDetails: Record<MetricName, { label: string; better: "higher" | "lower"; hint: string }> = {
-  revenue: {
-    label: "Total Revenue",
-    better: "higher",
-    hint: "Taxable bill value: item charges minus discount, before GST. TDS, advances and round-off do not change revenue.",
-  },
-  expenses: {
-    label: "Total Expenses",
-    better: "lower",
-    hint: "Recorded lorry hire cost before GST and TDS. Other expense categories are not currently tracked.",
-  },
-  netProfit: {
-    label: "Net Profit",
-    better: "higher",
-    hint: "Period revenue minus recorded expenses. This accounting measure is distinct from trip-linked gross margin.",
-  },
-};
-
-function Delta({ metric, better }: { metric: KpiValue; better: "higher" | "lower" }) {
-  const previous = metric.previous;
-  if (previous == null) return <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Comparison unavailable</p>;
-
-  const direction = metric.value > previous ? "up" : metric.value < previous ? "down" : "flat";
-  const positive = direction !== "flat" && ((direction === "up") === (better === "higher"));
-  const negative = direction !== "flat" && !positive;
-  const color = positive
+function Change({
+  metric,
+  better,
+  compareLabel,
+}: {
+  metric: KpiValue;
+  better: "higher" | "lower";
+  compareLabel: string;
+}) {
+  if (metric.previous === null) {
+    return <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">No prior comparison</p>;
+  }
+  const direction = metric.value > metric.previous ? "up" : metric.value < metric.previous ? "down" : "flat";
+  const improved = direction !== "flat" && ((direction === "up") === (better === "higher"));
+  const worsened = direction !== "flat" && !improved;
+  const Icon = direction === "up" ? ArrowUp : direction === "down" ? ArrowDown : Minus;
+  const color = improved
     ? "text-success-700 dark:text-success-300"
-    : negative
+    : worsened
       ? "text-error-700 dark:text-error-300"
       : "text-neutral-500 dark:text-neutral-400";
-  const Icon = direction === "up" ? ArrowUp : direction === "down" ? ArrowDown : Minus;
-  const text = metric.deltaPct == null
-    ? direction === "flat" ? "No change vs previous period" : "New vs previous period"
-    : `${Math.abs(metric.deltaPct).toFixed(1)}% vs previous period`;
-
+  const change = metric.deltaPct === null
+    ? "New"
+    : direction === "flat"
+      ? "No change"
+      : `${direction === "up" ? "+" : "−"}${Math.abs(metric.deltaPct).toFixed(1)}%`;
+  const cue = improved ? "improved" : worsened ? "worsened" : "unchanged";
   return (
-    <p className={`mt-2 flex items-center gap-1 text-xs font-semibold ${color}`}>
-      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-      <span>{text}</span>
-      <span className="sr-only">{positive ? "Improved" : negative ? "Worsened" : "Unchanged"}</span>
+    <p className={`mt-1 flex items-center gap-1 text-xs ${color}`}>
+      <Icon className="h-3 w-3" aria-hidden="true" />
+      <span>{change} vs {compareLabel}</span>
+      <span className="sr-only">, {cue}</span>
     </p>
   );
 }
 
-function FinancialCard({
-  name,
-  financials,
-  periodLabel,
+function Stat({
+  label,
+  amount,
+  metric,
+  better = "higher",
+  compareLabel,
+  negative = false,
+  hint,
+  children,
 }: {
-  name: MetricName;
-  financials: Financials;
-  periodLabel: string;
+  label: string;
+  amount: number;
+  metric?: KpiValue;
+  better?: "higher" | "lower";
+  compareLabel: string;
+  negative?: boolean;
+  hint?: string;
+  children?: React.ReactNode;
 }) {
-  const detail = metricDetails[name];
-  const metric = name === "expenses" ? financials.expenses.total : financials[name];
-  const value = metric.value;
-  const negativeProfit = name === "netProfit" && value < 0;
-
   return (
-    <Card className="min-w-0 rounded-2xl border-neutral-200 bg-white p-4 shadow-sm dark:border-brand-800 dark:bg-brand-900 sm:p-5">
-      <div className="flex items-start gap-2">
-        <h2 className="min-w-0 text-sm font-semibold text-neutral-700 dark:text-neutral-200">{detail.label}</h2>
-        <span
-          tabIndex={0}
-          title={detail.hint}
-          aria-label={`${detail.label} information: ${detail.hint}`}
-          className="flex h-5 w-5 shrink-0 cursor-help items-center justify-center rounded-full border border-neutral-300 text-[11px] font-bold text-neutral-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 dark:border-brand-700 dark:text-neutral-300"
-        >
-          i
-        </span>
-      </div>
+    <div className="min-w-0 border-neutral-200 px-3 py-2 first:pl-0 dark:border-brand-800 sm:border-l sm:py-0 sm:first:border-0">
+      <p className="text-xs text-neutral-500 dark:text-neutral-400">{label}</p>
       <p
-        title={`${value < 0 ? "−" : ""}${formatInr(value)}`}
-        className={`mt-3 truncate text-2xl font-bold tabular-nums tracking-tight sm:text-3xl ${negativeProfit ? "text-error-700 dark:text-error-300" : "text-neutral-950 dark:text-white"}`}
+        title={`${amount < 0 ? "−" : ""}${formatInr(Math.abs(amount))}${hint ? ` · ${hint}` : ""}`}
+        className={`mt-1 truncate text-xl font-semibold tabular-nums tracking-tight ${negative ? "text-error-700 dark:text-error-300" : "text-neutral-950 dark:text-white"}`}
       >
-        {compactInr(value)}
+        {compactInr(amount)}
       </p>
-      {name === "expenses" ? (
-        <ul className="mt-3 space-y-1 border-t border-neutral-100 pt-2 text-xs dark:border-brand-800">
-          {financials.expenses.breakdown.map((item) => (
-            <li key={item.key} className="flex items-center justify-between gap-2">
-              <span className="truncate text-neutral-600 dark:text-neutral-300">{item.label}</span>
-              <span className="shrink-0 font-medium tabular-nums text-neutral-800 dark:text-neutral-100">
-                {item.amount == null ? "Not tracked" : formatInr(item.amount)}
-              </span>
-            </li>
-          ))}
-          {financials.expenses.breakdown.some((item) => item.key === "other" && item.amount == null) && (
-            <li className="pt-1 text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">
-              Trip expenses (fuel, toll, etc.) are not tracked yet
-            </li>
-          )}
-        </ul>
-      ) : name === "netProfit" ? (
-        <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-300">
-          {financials.marginPct == null ? "Margin unavailable" : `${financials.marginPct}% margin`}
-        </p>
-      ) : null}
-      <Delta metric={metric} better={detail.better} />
-      <p className="mt-2 text-[11px] text-neutral-500 dark:text-neutral-400">{periodLabel}</p>
-    </Card>
+      {metric && <Change metric={metric} better={better} compareLabel={compareLabel} />}
+      {children}
+    </div>
   );
+}
+
+function SnapshotValue({ value, onRetry }: { value: Widget<PartySnapshot>; onRetry: () => void }) {
+  if (isWidgetError(value)) {
+    return <WidgetUnavailable onRetry={onRetry} />;
+  }
+  return <p className="mt-1 truncate text-xl font-semibold tabular-nums tracking-tight text-neutral-950 dark:text-white" title={formatInr(value.total)}>{compactInr(value.total)}</p>;
 }
 
 export function FinancialsSection({
   financials,
-  periodLabel,
+  receivables,
+  payables,
+  compareLabel,
   onRetry,
 }: {
-  financials: Widget<Financials> | null | undefined;
-  periodLabel: string;
+  financials: Widget<Financials>;
+  receivables: Widget<PartySnapshot>;
+  payables: Widget<PartySnapshot>;
+  compareLabel: string;
   onRetry: () => void;
 }) {
-  if (!financials || isWidgetError(financials)) return <WidgetUnavailable onRetry={onRetry} />;
+  if (isWidgetError(financials)) return <WidgetUnavailable onRetry={onRetry} />;
   return (
-    <section aria-label="Period financials" className="grid min-w-0 gap-3 sm:grid-cols-3">
-      {(["revenue", "expenses", "netProfit"] as const).map((name) => (
-        <FinancialCard key={name} name={name} financials={financials} periodLabel={periodLabel} />
-      ))}
+    <section aria-label="Financial summary" className="grid grid-cols-2 gap-y-4 sm:grid-cols-4">
+      <Stat label="Revenue" amount={financials.revenue.value} metric={financials.revenue} compareLabel={compareLabel} hint="Taxable billed value before GST" />
+      <Stat label="Expenses" amount={financials.expenses.total.value} metric={financials.expenses.total} better="lower" compareLabel={compareLabel} hint="Recorded lorry hire cost, excluding GST and TDS" />
+      <Stat
+        label="Net profit"
+        amount={financials.netProfit.value}
+        metric={financials.netProfit}
+        compareLabel={compareLabel}
+        negative={financials.netProfit.value < 0}
+        hint="Revenue minus expenses. Gross margin is a separate trip-linked measure."
+      >
+        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+          {financials.marginPct === null ? "Margin unavailable" : `${financials.marginPct}% margin`}
+        </p>
+      </Stat>
+      <div className="min-w-0 border-neutral-200 px-3 py-2 first:border-0 first:pl-0 dark:border-brand-800 sm:border-l sm:py-0">
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">Outstanding · as of now</p>
+        <SnapshotValue value={receivables} onRetry={onRetry} />
+        {isWidgetError(payables) ? (
+          <WidgetUnavailable onRetry={onRetry} />
+        ) : (
+          <p className="mt-1 truncate text-xs text-neutral-500 dark:text-neutral-400" title={`Payable ${formatInr(payables.total)}`}>
+            Payable {compactInr(payables.total)}
+          </p>
+        )}
+      </div>
     </section>
   );
 }

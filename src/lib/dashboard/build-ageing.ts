@@ -90,7 +90,18 @@ export function buildPartySnapshot(parties: readonly PartyLedgerInput[], opts: P
   const top: PartyRow[] = [...owing]
     .sort((a, b) => paise(b.net) - paise(a.net) || a.name.localeCompare(b.name))
     .slice(0, opts.top ?? TOP_PARTIES)
-    .map((p) => ({ id: p.id, name: p.name, amount: fromPaise(paise(p.net)) }));
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      amount: fromPaise(paise(p.net)),
+      oldestDays: p.documents.reduce<number | null>((oldest, document) => {
+        if (paise(document.outstanding) <= 0) return oldest;
+        const billDate = new Date(document.billDate);
+        if (Number.isNaN(billDate.getTime())) return oldest;
+        const days = istDaysBetween(billDate, opts.now);
+        return oldest === null ? days : Math.max(oldest, days);
+      }, null),
+    }));
 
   return {
     total: fromPaise(totalP),

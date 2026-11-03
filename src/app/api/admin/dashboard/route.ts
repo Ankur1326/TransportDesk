@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import dbConnect from "@/lib/db";
 import { requireCompany } from "@/lib/company-scope";
 import { DEFAULT_PERIOD, PERIOD_KEYS, resolvePeriod, type PeriodKey } from "@/lib/dashboard/periods";
-import { loadActivity } from "@/lib/dashboard/load-activity";
 import { loadActions } from "@/lib/dashboard/load-actions";
-import { loadKpis } from "@/lib/dashboard/load-kpis";
+import { loadBookings } from "@/lib/dashboard/load-bookings";
 import { loadFinancials } from "@/lib/dashboard/load-financials";
 import { loadPayables } from "@/lib/dashboard/load-payables";
 import { loadPipeline } from "@/lib/dashboard/load-pipeline";
 import { loadReceivables } from "@/lib/dashboard/load-receivables";
 import { loadSetup } from "@/lib/dashboard/load-setup";
-import { loadTrends } from "@/lib/dashboard/load-trends";
 import type { DashboardPayload, Widget } from "@/lib/dashboard/types";
-import type { SetupState } from "@/lib/dashboard/types";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +36,7 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   }
+
   const now = new Date();
   const resolved = resolvePeriod(parsed.data.period as PeriodKey, now, {
     from: parsed.data.from,
@@ -48,23 +45,24 @@ export async function GET(request: NextRequest) {
   if (!resolved.ok) {
     return NextResponse.json({ success: false, message: resolved.message }, { status: 400 });
   }
-  const period = resolved.period;
 
+  const period = resolved.period;
+  const pipelinePromise = loadPipeline(auth.companyId);
+  const receivablesPromise = loadReceivables(auth.companyId, period);
   const results = await Promise.allSettled([
-    (async () => { await dbConnect(); return loadSetup(auth.companyId); })(),
-    loadKpis(auth.companyId, period),
+    loadSetup(auth.companyId),
+    loadBookings(auth.companyId),
     loadFinancials(auth.companyId, period),
-    loadReceivables(auth.companyId, period),
+    receivablesPromise,
     loadPayables(auth.companyId, period),
-    loadPipeline(auth.companyId, period),
-    loadActions(auth.companyId, period),
-    loadTrends(auth.companyId, period),
-    loadActivity(auth.companyId, period),
+    pipelinePromise,
+    loadActions(auth.companyId, period, pipelinePromise, receivablesPromise),
   ]);
-  const [setupResult, kpisResult, financialsResult, receivablesResult, payablesResult, pipelineResult, actionsResult, trendsResult, activityResult] = results;
-  const setupLoad = setupResult.status === "fulfilled" ? setupResult.value : null;
+  const [setupResult, bookingsResult, financialsResult, receivablesResult, payablesResult, pipelineResult, actionsResult] = results;
+  const pipeline = pipelineResult.status === "fulfilled" ? pipelineResult.value : null;
+  if (pipelineResult.status === "rejected") console.error("Dashboard active trips widget failed:", pipelineResult.reason);
   if (setupResult.status === "rejected") console.error("Dashboard setup widget failed:", setupResult.reason);
-  const pipelineLoad = settledWidget("pipeline", pipelineResult);
+
   const payload: DashboardPayload = {
     meta: {
       generatedAt: now.toISOString(),
@@ -82,26 +80,14 @@ export async function GET(request: NextRequest) {
         fromYmd: period.fromYmd,
         toYmd: period.toYmd,
       },
-      capabilities: setupLoad?.capabilities ?? {
-        podStatus: false,
-        billingMarker: false,
-        vehicleMaster: false,
-        driverMaster: false,
-      },
-      creditDays: 30,
     },
-    company: setupLoad?.company ?? { name: null },
-    setup: setupLoad?.setup ?? ({ error: true } satisfies Widget<SetupState>),
-    kpis: settledWidget("kpis", kpisResult),
+    setup: setupResult.status === "fulfilled" ? setupResult.value.setup : { error: true },
+    bookings: settledWidget("bookings", bookingsResult),
     financials: settledWidget("financials", financialsResult),
     receivables: settledWidget("receivables", receivablesResult),
     payables: settledWidget("payables", payablesResult),
-    pipeline: pipelineLoad && !("error" in pipelineLoad) ? pipelineLoad.pipeline : pipelineLoad,
-    activeTrips: pipelineLoad && !("error" in pipelineLoad) ? pipelineLoad.activeTrips : pipelineLoad,
-    lhc: pipelineLoad && !("error" in pipelineLoad) ? pipelineLoad.lhc : pipelineLoad,
+    activeTrips: pipeline?.activeTrips ?? { error: true },
     actions: settledWidget("actions", actionsResult),
-    trends: settledWidget("trends", trendsResult),
-    recent: settledWidget("activity", activityResult),
   };
   return NextResponse.json(payload, {
     headers: { "Cache-Control": "private, max-age=30" },

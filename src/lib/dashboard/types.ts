@@ -36,33 +36,12 @@ export interface PeriodInfo {
   toYmd: string;
 }
 
-/**
- * Which optional features this deployment has. A metric that needs a missing
- * feature is `null` in the payload (or uses the documented fallback), never a crash.
- */
-export interface DashboardCapabilities {
-  /** Consignment.podStatus exists. Otherwise "Delivered with no podUrl" means POD pending. */
-  podStatus: boolean;
-  /** Consignment.billing.billed exists (informational: billed state is always read from Bill documents). */
-  billingMarker: boolean;
-  /** Vehicle / Driver master collections exist. */
-  vehicleMaster: boolean;
-  driverMaster: boolean;
-}
-
 export interface DashboardMeta {
   generatedAt: string;
   timezone: "Asia/Kolkata";
   currency: "INR";
   moneyUnit: "rupees";
   period: PeriodInfo;
-  capabilities: DashboardCapabilities;
-  /** Overdue-bill threshold used by the action centre, in days. */
-  creditDays: number;
-}
-
-export interface CompanyInfo {
-  name: string | null;
 }
 
 /** What the company has set up so far; drives the onboarding card. */
@@ -85,37 +64,15 @@ export interface KpiValue {
   deltaPct: number | null;
 }
 
-export interface Kpis {
-  bookings: KpiValue;
-  freightBilled: KpiValue;
-  collected: KpiValue;
-  paidToSuppliers: KpiValue;
-  /** LR freight earned minus LHC hire cost for LHCs dated in the window. */
-  grossMargin: KpiValue & {
-    revenue: number;
-    cost: number;
-    /** null when there is no revenue to measure against. */
-    marginPct: number | null;
-    trips: number;
-    lossTrips: number;
-  };
-}
-
-export interface ExpenseBreakdownItem {
-  key: string;
-  label: string;
-  /** Rupees, or null when the category is not tracked by this deployment. */
-  amount: number | null;
-}
-
 export interface Financials {
   revenue: KpiValue;
   expenses: {
     total: KpiValue;
-    breakdown: ExpenseBreakdownItem[];
   };
   netProfit: KpiValue;
   marginPct: number | null;
+  trend: FinancialTrendPoint[];
+  trendUnit: "day" | "month";
 }
 
 /* ------------------------- receivables / payables ------------------------- */
@@ -125,6 +82,8 @@ export interface PartyRow {
   name: string;
   /** What the party owes us (customers) / what we owe them (suppliers). Always > 0. */
   amount: number;
+  /** Age in whole IST calendar days of the oldest open dated document, if any. */
+  oldestDays: number | null;
 }
 
 export interface AgeingSummary {
@@ -155,45 +114,19 @@ export interface PartySnapshot {
 
 /* -------------------------------- operations ------------------------------ */
 
-export interface Pipeline {
-  booked: number;
-  onRoute: number;
-  /** Delivered in the last 30 days (IST days, today included). */
-  delivered30d: number;
-  /** Delivered, POD still Pending. */
-  pendingPod: number;
-  /** Delivered, POD Received/Submitted, not on a bill. */
-  readyToBill: number;
-}
-
 export interface ActiveTrip {
   id: string;
   lrNo: string;
   from: string;
   to: string;
   vehicleNumber: string;
-  consignor: string;
-  consignee: string;
   /** ISO or null when no expected date was entered. */
   expectedDeliveryDate: string | null;
   overdue: boolean;
 }
 
 export interface ActiveTrips {
-  /** All LRs On Route (the list below is capped at 8). */
-  total: number;
   items: ActiveTrip[];
-}
-
-export interface LhcStrip {
-  hired: number;
-  inTransit: number;
-  delivered: number;
-  cancelled: number;
-  /** Sum of settlement.balance on non-cancelled, Delivered LHCs. */
-  balanceDueOnDelivered: number;
-  /** Delivered, non-cancelled LHCs with a balance above zero. */
-  deliveredWithBalance: number;
 }
 
 export interface PodPending {
@@ -209,20 +142,8 @@ export interface ReadyToBillSummary {
 }
 
 export interface ExpiringDocuments {
-  /** Where the dates came from. */
-  source: "vehicle-driver-master" | "lorry-hire-contracts" | "mixed";
   expired: number;
   expiringSoon: number;
-  /** The soonest ones, expired first. */
-  items: { kind: string; subject: string; date: string; expired: boolean }[];
-  /** Document classes that could not be checked. */
-  unavailable: string[];
-}
-
-export interface EwayExpiring {
-  /** Not Delivered or Cancelled, e-way bill expired in the last 24 hours or expiring within 24 hours. */
-  count: number;
-  expired: number;
 }
 
 /**
@@ -230,11 +151,9 @@ export interface EwayExpiring {
  * source is unavailable (missing feature) or failed, and the matching card is skipped.
  */
 export interface OperationsFacts {
-  pipeline: Pipeline;
   podPending: PodPending | null;
   readyToBill: ReadyToBillSummary | null;
   onRouteOverdue: number;
-  eway: EwayExpiring;
   documents: ExpiringDocuments | null;
 }
 
@@ -245,10 +164,8 @@ export type ActionId =
   | "pod-pending"
   | "ready-to-bill"
   | "overdue-bills"
-  | "supplier-dues"
   | "documents"
-  | "late-trips"
-  | "eway";
+  | "late-trips";
 
 export interface ActionItem {
   id: ActionId;
@@ -268,17 +185,6 @@ export interface ActionCentre {
   unavailable: ActionId[];
 }
 
-/* --------------------------------- trends --------------------------------- */
-
-export interface RevenueCostPoint {
-  key: string;
-  label: string;
-  /** Taxable bill revenue (pre-GST). */
-  revenue: number;
-  /** Lorry hire cost excluding GST and TDS. */
-  cost: number;
-}
-
 export interface FinancialTrendPoint {
   key: string;
   label: string;
@@ -287,63 +193,15 @@ export interface FinancialTrendPoint {
   netProfit: number;
 }
 
-export interface TopCustomer {
-  id: string | null;
-  name: string;
-  amount: number;
-}
-
-export interface TopRoute {
-  from: string;
-  to: string;
-  count: number;
-}
-
-export interface CollectionPoint {
-  key: string;
-  label: string;
-  amount: number;
-}
-
-export interface Trends {
-  revenueVsCost: RevenueCostPoint[];
-  /** Values are restricted to the selected period and reconcile to its KPIs. */
-  financials: FinancialTrendPoint[];
-  topCustomers: TopCustomer[];
-  /** null: the LRs in the window carry no from / to data. */
-  topRoutes: TopRoute[] | null;
-  collections: { unit: "day" | "week"; points: CollectionPoint[] };
-}
-
-/* --------------------------------- activity -------------------------------- */
-
-export type ActivityKind = "lr" | "bill" | "payment" | "lhc";
-
-export interface ActivityItem {
-  id: string;
-  type: ActivityKind;
-  /** Rupees, when the event records a money amount. */
-  amount?: number;
-  /** ISO instant. */
-  at: string;
-  text: string;
-  href: string;
-}
-
 /* --------------------------------- payload -------------------------------- */
 
 export interface DashboardPayload {
   meta: DashboardMeta;
-  company: CompanyInfo;
   setup: Widget<SetupState>;
-  kpis: Widget<Kpis>;
+  bookings: Widget<number>;
   financials: Widget<Financials>;
   receivables: Widget<PartySnapshot>;
   payables: Widget<PartySnapshot>;
-  pipeline: Widget<Pipeline>;
   activeTrips: Widget<ActiveTrips>;
-  lhc: Widget<LhcStrip>;
   actions: Widget<ActionCentre>;
-  trends: Widget<Trends>;
-  recent: Widget<ActivityItem[]>;
 }

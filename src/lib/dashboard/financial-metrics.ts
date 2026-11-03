@@ -1,7 +1,13 @@
 import { computeBillSummary, type BillAdjustments } from "@/lib/bill/validations";
 import { computeDelta } from "@/lib/dashboard/build-deltas";
+import type { TrendBucket } from "@/lib/dashboard/periods";
 import { fromPaise, paise } from "@/lib/ledger/build-ledger";
-import type { Financials, KpiValue } from "@/lib/dashboard/types";
+import type { Financials, FinancialTrendPoint, KpiValue } from "@/lib/dashboard/types";
+
+interface KeyedAmount {
+  key: string;
+  amount: number;
+}
 
 export interface ExpenseCategoryTotals {
   key: string;
@@ -23,7 +29,11 @@ function kpiValue(current: number, previous: number): KpiValue {
 
 export function buildFinancials(
   revenue: { current: number; previous: number },
-  expenseCategories: readonly ExpenseCategoryTotals[]
+  expenseCategories: readonly ExpenseCategoryTotals[],
+  buckets: readonly TrendBucket[],
+  revenueTrend: readonly KeyedAmount[],
+  expenseTrend: readonly KeyedAmount[],
+  trendUnit: "day" | "month"
 ): Financials {
   const currentRevenue = fromPaise(paise(revenue.current));
   const previousRevenue = fromPaise(paise(revenue.previous));
@@ -38,17 +48,32 @@ export function buildFinancials(
   const currentProfit = fromPaise(paise(currentRevenue) - paise(currentExpenses));
   const previousProfit = fromPaise(paise(previousRevenue) - paise(previousExpenses));
   const expensesTotal = kpiValue(currentExpenses, previousExpenses);
+  const sumByKey = (rows: readonly KeyedAmount[]) => {
+    const amounts = new Map<string, number>();
+    for (const row of rows) amounts.set(row.key, (amounts.get(row.key) ?? 0) + paise(row.amount));
+    return amounts;
+  };
+  const revenueByBucket = sumByKey(revenueTrend);
+  const expenseByBucket = sumByKey(expenseTrend);
+  const trend: FinancialTrendPoint[] = buckets.map((bucket) => {
+    const revenuePaise = revenueByBucket.get(bucket.key) ?? 0;
+    const expensesPaise = expenseByBucket.get(bucket.key) ?? 0;
+    return {
+      key: bucket.key,
+      label: bucket.label,
+      revenue: fromPaise(revenuePaise),
+      expenses: fromPaise(expensesPaise),
+      netProfit: fromPaise(revenuePaise - expensesPaise),
+    };
+  });
   return {
     revenue: kpiValue(currentRevenue, previousRevenue),
     expenses: {
       total: expensesTotal,
-      breakdown: expenseCategories.map((category) => ({
-        key: category.key,
-        label: category.label,
-        amount: category.current == null ? null : fromPaise(paise(category.current)),
-      })),
     },
     netProfit: kpiValue(currentProfit, previousProfit),
     marginPct: currentRevenue === 0 ? null : Math.round((currentProfit / currentRevenue) * 10000) / 100,
+    trend,
+    trendUnit,
   };
 }
