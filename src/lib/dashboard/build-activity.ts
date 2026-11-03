@@ -35,7 +35,7 @@ export function describeActivity(e: RawActivity): ActivityItem {
       const who = clean(e.consignor);
       return {
         id: `lr:${e.id}`,
-        kind: "lr",
+        type: "lr",
         at,
         text: `LR ${e.lrNo} booked${who ? ` for ${who}` : ""}${to ? ` · to ${to}` : ""}`,
         href: `/admin/bookings`,
@@ -45,13 +45,14 @@ export function describeActivity(e: RawActivity): ActivityItem {
       // POD entries already read "POD Pending → Received: ..." and say more than the bare status.
       const note = clean(e.note);
       const text = note.startsWith("POD") ? `LR ${e.lrNo} · ${note}` : `LR ${e.lrNo} marked ${e.status}`;
-      return { id: `lrs:${e.id}:${at}`, kind: "lr", at, text, href: `/admin/bookings` };
+      return { id: `lrs:${e.id}:${at}`,       type: "lr", at, text, href: `/admin/bookings` };
     }
     case "bill_created": {
       const party = clean(e.party);
       return {
         id: `bill:${e.id}`,
-        kind: "bill",
+        type: "bill",
+        amount: e.amount,
         at,
         text: `Bill ${e.billNo} created${party ? ` for ${party}` : ""} · ${formatInr(e.amount)}`,
         href: `/admin/billings`,
@@ -62,7 +63,8 @@ export function describeActivity(e: RawActivity): ActivityItem {
       const verb = e.direction === "received" ? "received from" : "paid to";
       return {
         id: `pay:${e.id}`,
-        kind: "payment",
+        type: "payment",
+        amount: e.amount,
         at,
         text: `${formatInr(e.amount)} ${party ? `${verb} ${party}` : e.direction}`,
         href: e.partyType === "supplier" ? "/admin/suppliers" : "/admin/customers",
@@ -73,7 +75,7 @@ export function describeActivity(e: RawActivity): ActivityItem {
       const vehicle = clean(e.vehicle);
       return {
         id: `lhc:${e.id}`,
-        kind: "lhc",
+        type: "lhc",
         at,
         text: `Contract ${e.lhcNo} created${supplier ? ` with ${supplier}` : ""}${vehicle ? ` · ${vehicle}` : ""}`,
         href: `/admin/lorry-hires`,

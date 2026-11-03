@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { AppDispatch, RootState } from "@/redux/store";
@@ -83,6 +83,28 @@ export interface PartyCrud {
 const filtersAreDefault = (f: LedgerFilterState) =>
     f.from === "" && f.to === "" && f.type === "all" && f.search === "" && f.includeUnbilled;
 
+function subscribeToPartyId(onChange: () => void) {
+    window.addEventListener("popstate", onChange);
+    window.addEventListener("party-ledger-location-change", onChange);
+    return () => {
+        window.removeEventListener("popstate", onChange);
+        window.removeEventListener("party-ledger-location-change", onChange);
+    };
+}
+
+function readPartyId() {
+    return new URLSearchParams(window.location.search).get("partyId");
+}
+
+function writePartyId(id: string | null) {
+    const params = new URLSearchParams(window.location.search);
+    if (id) params.set("partyId", id);
+    else params.delete("partyId");
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+    window.dispatchEvent(new Event("party-ledger-location-change"));
+}
+
 export function PartyLedgerScreen({ kind, crud }: { kind: PartyKind; crud: PartyCrud }) {
     const cfg = PARTY_CONFIG[kind];
     const doc = cfg.docWord.toLowerCase();
@@ -96,7 +118,7 @@ export function PartyLedgerScreen({ kind, crud }: { kind: PartyKind; crud: Party
     } = useSelector((state: RootState) => state.ledger);
 
     const [search, setSearch] = useState("");
-    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const selectedId = useSyncExternalStore(subscribeToPartyId, readPartyId, () => null);
     const [filters, setFilters] = useState<LedgerFilterState>(DEFAULT_LEDGER_FILTERS);
     const [appliedFilters, setAppliedFilters] = useState<LedgerFilterState>(DEFAULT_LEDGER_FILTERS);
     const [openEntry, setOpenEntry] = useState<LedgerEntry | null>(null);
@@ -165,14 +187,14 @@ export function PartyLedgerScreen({ kind, crud }: { kind: PartyKind; crud: Party
     }, [dispatch, kind, loadParties, selectedId, appliedFilters]);
 
     const selectParty = (id: string) => {
-        setSelectedId(id);
+        writePartyId(id);
         setFilters(DEFAULT_LEDGER_FILTERS);
         setAppliedFilters(DEFAULT_LEDGER_FILTERS);
         setOpenEntry(null);
     };
 
     const goBack = () => {
-        setSelectedId(null);
+        writePartyId(null);
         setOpenEntry(null);
         dispatch(clearLedger());
     };

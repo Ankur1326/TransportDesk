@@ -77,6 +77,7 @@ const paymentSchema = new Schema<IPayment>(
 );
 
 paymentSchema.index({ companyId: 1, partyId: 1, date: -1 });
+paymentSchema.index({ companyId: 1, partyType: 1, direction: 1, date: -1 });
 paymentSchema.index({ companyId: 1, billId: 1 });
 paymentSchema.index({ companyId: 1, contractId: 1 });
 

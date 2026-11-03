@@ -412,7 +412,11 @@ const consignmentSchema = new Schema<IConsignment>(
 // unique index is dropped by scripts/migrate-consignments.mjs.)
 consignmentSchema.index({ companyId: 1, consignmentNumber: 1 }, { unique: true });
 consignmentSchema.index({ companyId: 1, status: 1, bookingDate: -1 });
+consignmentSchema.index({ companyId: 1, createdAt: -1 });
+consignmentSchema.index({ companyId: 1, status: 1, createdAt: -1 });
 consignmentSchema.index({ companyId: 1, status: 1, podStatus: 1, deliveredAt: 1 });
+consignmentSchema.index({ companyId: 1, status: 1, "vehicle.expectedDeliveryDate": 1 });
+consignmentSchema.index({ companyId: 1, status: 1, validUpTo: 1 });
 consignmentSchema.index({ "payment.status": 1 });
 consignmentSchema.index({ bookingDate: -1 });
 consignmentSchema.index({ "consignor.name": 1 });

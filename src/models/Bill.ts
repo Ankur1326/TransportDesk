@@ -198,8 +198,10 @@ const freightBillSchema = new Schema<IFreightBill>(
 // Bill numbers are unique per company, not globally.
 freightBillSchema.index({ companyId: 1, billNo: 1 }, { unique: true });
 freightBillSchema.index({ companyId: 1, createdAt: -1 });
+freightBillSchema.index({ companyId: 1, billDate: 1 });
 freightBillSchema.index({ createdAt: -1 });
 freightBillSchema.index({ "items.consignmentId": 1 });
+freightBillSchema.index({ companyId: 1, "items.consignmentId": 1 });
 freightBillSchema.index({ "billedTo.name": 1 });
 freightBillSchema.index({ companyId: 1, "billedTo.name": 1 });
 freightBillSchema.index({ companyId: 1, customerId: 1 });

@@ -2,14 +2,9 @@ import { NextResponse } from "next/server";
 import { resolveCompanyAuth } from "@/lib/company-auth";
 import dbConnect from "@/lib/db";
 import CompanySettings from "@/models/CompanySettings";
+import { ALLOW_LEGACY_UNSCOPED, companyFilter } from "@/lib/company-filter";
 
-/**
- * When true, documents that have no `companyId` stay visible to EVERY company.
- * That is a data leak between tenants, so it is off. Run
- * `scripts/backfill-company-id.mjs` once to attach old customers / bills /
- * consignments to their company.
- */
-export const ALLOW_LEGACY_UNSCOPED = false;
+export { ALLOW_LEGACY_UNSCOPED, companyFilter };
 
 export type CompanyAuth =
   | { ok: true; companyId: string; userId: string }
@@ -50,13 +45,6 @@ export async function requireCompany(): Promise<CompanyAuth> {
         ),
       };
   }
-}
-
-/** Mongo filter limiting a query to one company's documents. */
-export function companyFilter(companyId: string): Record<string, unknown> {
-  return ALLOW_LEGACY_UNSCOPED
-    ? { $or: [{ companyId }, { companyId: { $exists: false } }, { companyId: null }, { companyId: "" }] }
-    : { companyId };
 }
 
 /**

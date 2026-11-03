@@ -478,9 +478,11 @@ const lorryHireSchema = new Schema<ILorryHire>(
 lorryHireSchema.index({ companyId: 1, lhcNo: 1 }, { unique: true });
 lorryHireSchema.index({ companyId: 1, createdAt: -1 });
 lorryHireSchema.index({ companyId: 1, status: 1, createdAt: -1 });
+lorryHireSchema.index({ companyId: 1, status: 1, lhcDate: 1 });
 lorryHireSchema.index({ companyId: 1, "supplier.supplierId": 1, lhcDate: -1 });
 lorryHireSchema.index({ companyId: 1, "truck.vehicleNumber": 1, lhcDate: -1 });
 lorryHireSchema.index({ companyId: 1, "items.consignmentId": 1 });
+lorryHireSchema.index({ companyId: 1, status: 1, "payments.date": 1 });
 lorryHireSchema.index({ companyId: 1, "settlement.paymentStatus": 1 });
 
 dropStaleModel("LorryHire", "settlement");

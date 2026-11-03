@@ -1,11 +1,7 @@
-import React from 'react'
+"use client";
 
-function Dashboard() {
-    return (
-        <div>
-            Dashboard
-        </div>
-    )
+import { DashboardClient } from "@/components/dashboard/DashboardClient";
+
+export default function DashboardPage() {
+  return <DashboardClient />;
 }
-
-export default Dashboard

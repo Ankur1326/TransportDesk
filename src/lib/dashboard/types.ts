@@ -81,6 +81,8 @@ export interface KpiValue {
   value: number;
   /** Same metric over the previous equivalent window; null when it does not apply (snapshots). */
   previous: number | null;
+  /** Percentage change, null when previous is absent or zero. */
+  deltaPct: number | null;
 }
 
 export interface Kpis {
@@ -191,17 +193,17 @@ export interface ReadyToBillSummary {
 
 export interface ExpiringDocuments {
   /** Where the dates came from. */
-  source: "lorry-hire-contracts";
+  source: "vehicle-driver-master" | "lorry-hire-contracts" | "mixed";
   expired: number;
   expiringSoon: number;
   /** The soonest ones, expired first. */
-  items: { kind: "Vehicle insurance" | "Driver licence"; subject: string; date: string; expired: boolean }[];
-  /** Document kinds nothing records yet. */
+  items: { kind: string; subject: string; date: string; expired: boolean }[];
+  /** Document classes that could not be checked. */
   unavailable: string[];
 }
 
 export interface EwayExpiring {
-  /** Not Delivered or Cancelled, e-way bill expired in the last 7 days or expiring within 24 hours. */
+  /** Not Delivered or Cancelled, e-way bill expired in the last 24 hours or expiring within 24 hours. */
   count: number;
   expired: number;
 }
@@ -290,7 +292,9 @@ export type ActivityKind = "lr" | "bill" | "payment" | "lhc";
 
 export interface ActivityItem {
   id: string;
-  kind: ActivityKind;
+  type: ActivityKind;
+  /** Rupees, when the event records a money amount. */
+  amount?: number;
   /** ISO instant. */
   at: string;
   text: string;

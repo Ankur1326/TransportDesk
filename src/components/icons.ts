@@ -9,6 +9,7 @@ export {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
   Boxes,
   Building2,
   Calendar,

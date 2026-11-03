@@ -115,7 +115,7 @@ export function buildActions(input: ActionInputs): ActionCentre {
           `${expired > 0 ? `${plural(expired, "document has", "documents have")} expired` : ""}` +
           `${expired > 0 && expiringSoon > 0 ? " and " : ""}` +
           `${expiringSoon > 0 ? `${plural(expiringSoon, "expires", "expire")} within 30 days` : ""}` +
-          " (vehicle insurance, driver licence).",
+          " (vehicle and driver documents).",
         urgency: expired > 0 ? "critical" : "medium",
         href: "/admin/lorry-hires",
       });
