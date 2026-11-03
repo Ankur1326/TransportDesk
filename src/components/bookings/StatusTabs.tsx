@@ -3,8 +3,10 @@
 import type { ConsignmentCounts } from "@/lib/api/consignments";
 import { LR_STATUSES, type LrStatus } from "@/lib/consignment-status";
 
-export type StatusTab = "All" | LrStatus;
-export const STATUS_TABS: StatusTab[] = ["All", ...LR_STATUSES];
+/** "Pending POD" is a view, not an LR status: Delivered LRs still waiting for their POD, oldest first. */
+export const PENDING_POD_TAB = "Pending POD";
+export type StatusTab = "All" | LrStatus | typeof PENDING_POD_TAB;
+export const STATUS_TABS: StatusTab[] = ["All", ...LR_STATUSES, PENDING_POD_TAB];
 
 export function StatusTabs({
   value, counts, onChange,
@@ -15,7 +17,7 @@ export function StatusTabs({
     <div role="tablist" aria-label="Filter by status" className="flex flex-wrap gap-2">
       {STATUS_TABS.map((tab) => {
         const active = value === tab;
-        const n = counts?.[tab];
+        const n = tab === PENDING_POD_TAB ? counts?.pendingPod : counts?.[tab];
         return (
           <button
             key={tab}

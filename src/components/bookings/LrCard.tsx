@@ -3,15 +3,17 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  ArrowRight, CalendarDays, Calculator, Copy, Eye as EyeIcon, FileCheck2, FileText, Link2,
-  MapPin, MessageCircle, MoreHorizontal, PackageCheck, RefreshCcw, Share2, Truck as TruckIcon, Upload, UserRound, UserRoundCheck, XCircle,
+  ArrowRight, CalendarDays, Calculator, ClipboardCheck, Copy, Eye as EyeIcon, FileCheck2, FileText, Link2,
+  MapPin, MessageCircle, MoreHorizontal, PackageCheck, RefreshCcw, Send, Share2, Truck as TruckIcon, Undo2, Upload, UserRound, UserRoundCheck, XCircle,
 } from "lucide-react";
 import { Eye, Pencil, Printer, Trash2, Truck } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import type { ConsignmentListItem } from "@/lib/api/consignments";
 import type { LrStatus } from "@/lib/consignment-status";
 import { balanceDue, formatDate, formatINR, getStatus, lrTotal, receivedAmount } from "@/lib/lr-helpers";
+import { getPodStatus, rollbackTarget } from "@/lib/pod-status";
 import { MenuDivider, MenuItem } from "./Menu";
+import { PodAgeing, PodBadge } from "./PodBadge";
 
 export interface LrCardActions {
   open: (r: ConsignmentListItem) => void;
@@ -19,6 +21,12 @@ export interface LrCardActions {
   podUpload: (r: ConsignmentListItem) => void;
   podView: (r: ConsignmentListItem) => void;
   podRemove: (r: ConsignmentListItem) => void;
+  /** Open the "mark POD received" dialog (remark required when there is no file). */
+  podReceive: (r: ConsignmentListItem) => void;
+  /** Open the "mark POD submitted" dialog (date, to whom, note). */
+  podSubmit: (r: ConsignmentListItem) => void;
+  /** Roll the POD back one step (the page asks for confirmation). */
+  podRollback: (r: ConsignmentListItem) => void;
   /** Open the Share dialog (download Lorry / Consignee / Consignor / File / all copies). */
   share: (r: ConsignmentListItem) => void;
   shareWhatsApp: (r: ConsignmentListItem) => void;
@@ -229,6 +237,8 @@ export function LrCard({
   const balance = balanceDue(item);
   const paidPct = total > 0 ? Math.min(100, Math.round((received / total) * 100)) : 0;
   const createdBy = item.createdBy?.name;
+  const pod = getPodStatus(item);
+  const podBack = rollbackTarget(pod);
 
   return (
     <article
@@ -276,6 +286,8 @@ export function LrCard({
             </div>
           </div>
           <div className="flex w-full items-center gap-2 sm:w-auto">
+            {pod === "Pending" && status === "Delivered" && <PodAgeing days={item.podDaysPending} />}
+            <PodBadge item={{ status, podStatus: item.podStatus }} />
             {!cancelled && <Badge variant={PAY_VARIANT[pay] ?? "neutral"}>{pay}</Badge>}
           </div>
         </div>
@@ -302,6 +314,18 @@ export function LrCard({
                 <TruckTracker status={status} />
                 {status === "Delivered" && item.deliveredAt && (
                   <p className="mt-1 text-caption text-green-700">Delivered on {formatDate(item.deliveredAt)}</p>
+                )}
+                {status === "Delivered" && pod !== "Pending" && (
+                  <p className="mt-0.5 text-caption text-neutral-600">
+                    POD received {formatDate(item.podReceivedAt)}
+                    {pod === "Submitted" && (
+                      <>
+                        {" · "}submitted {formatDate(item.podSubmittedAt)}
+                        {item.podSubmittedTo ? ` to ${item.podSubmittedTo}` : ""}
+                      </>
+                    )}
+                    {item.podRemarks ? ` · ${item.podRemarks}` : ""}
+                  </p>
                 )}
               </div>
             )}
@@ -356,6 +380,20 @@ export function LrCard({
           </ActionMenu>
         ) : (
           <ActionBtn icon={<Upload />} label="Upload POD" onClick={() => actions.podUpload(item)} disabled={cancelled} />
+        )}
+
+        {status === "Delivered" && (
+          <ActionMenu trigger={<><ClipboardCheck /> POD: {pod}</>} className={ACTION_CLS} align="left">
+            {pod === "Pending" && (
+              <MenuItem icon={<ClipboardCheck />} onClick={() => actions.podReceive(item)}>Mark POD received…</MenuItem>
+            )}
+            {pod === "Received" && (
+              <MenuItem icon={<Send />} onClick={() => actions.podSubmit(item)}>Mark POD submitted…</MenuItem>
+            )}
+            {podBack && (
+              <MenuItem icon={<Undo2 />} onClick={() => actions.podRollback(item)}>Roll back to {podBack}</MenuItem>
+            )}
+          </ActionMenu>
         )}
 
         <ActionBtn icon={<Pencil />} label="Edit" href={`/admin/consignment/new?id=${item._id}`} disabled={cancelled} />

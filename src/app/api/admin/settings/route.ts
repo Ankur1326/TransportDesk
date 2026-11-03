@@ -206,6 +206,13 @@ function validateSettings(value: unknown): { values?: CompanySettingsValues; err
       settings[key] = fieldValue;
       continue;
     }
+    if (key === "requirePodBeforeBilling") {
+      if (typeof fieldValue !== "boolean") {
+        return { error: "Require POD before billing must be on or off" };
+      }
+      settings.requirePodBeforeBilling = fieldValue;
+      continue;
+    }
     if (key === "chargeDefinitions") {
       const definitions = validateChargeDefinitions(fieldValue);
       if (!definitions) {

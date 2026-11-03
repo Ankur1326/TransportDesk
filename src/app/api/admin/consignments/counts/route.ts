@@ -5,13 +5,15 @@ import ConsignmentModel from "@/models/Consignment";
 import { requireCompany } from "@/lib/company-scope";
 import { buildConsignmentQuery } from "@/lib/consignment-query";
 import { DEFAULT_LR_STATUS, LR_STATUSES, isLrStatus, type LrStatus } from "@/lib/consignment-status";
+import { pendingPodMatch } from "@/lib/pod-status";
 
 /**
  * GET /api/admin/consignments/counts
  *
  * Accepts the same filters as /get (except `status`, which is ignored) and
  * returns the number of matching LRs per status for the tab badges:
- *   { All: 12, Booked: 5, "On Route": 3, Delivered: 3, Cancelled: 1 }
+ *   { All: 12, Booked: 5, "On Route": 3, Delivered: 3, Cancelled: 1, pendingPod: 2 }
+ * `pendingPod` = Delivered LRs whose POD is still Pending (legacy LRs included).
  */
 export async function GET(request: NextRequest) {
   const auth = await requireCompany();
@@ -23,9 +25,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const { queryWithoutStatus } = buildConsignmentQuery(searchParams, auth.companyId);
 
-    const rows = await ConsignmentModel.aggregate<{ _id: string | null; count: number }>([
-      { $match: queryWithoutStatus },
-      { $group: { _id: "$status", count: { $sum: 1 } } },
+    const [rows, pendingPod] = await Promise.all([
+      ConsignmentModel.aggregate<{ _id: string | null; count: number }>([
+        { $match: queryWithoutStatus },
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
+      ConsignmentModel.countDocuments({ $and: [queryWithoutStatus, pendingPodMatch()] }),
     ]);
 
     const counts = Object.fromEntries(LR_STATUSES.map((s) => [s, 0])) as Record<LrStatus, number>;
@@ -36,7 +41,7 @@ export async function GET(request: NextRequest) {
       all += row.count;
     }
 
-    return NextResponse.json({ success: true, data: { All: all, ...counts } }, { status: 200 });
+    return NextResponse.json({ success: true, data: { All: all, ...counts, pendingPod } }, { status: 200 });
   } catch (error) {
     console.error("Error while counting consignments:", error);
     return NextResponse.json({ success: false, message: "Error counting consignments" }, { status: 500 });

@@ -13,6 +13,7 @@ import {
 } from "@/lib/validations/billing";
 import type { ChargeLine } from "@/lib/charges";
 import { LR_STATUSES, type LrStatus } from "@/lib/consignment-status";
+import { POD_STATUSES, type PodStatus } from "@/lib/pod-status";
 import { dropStaleModel } from "@/lib/model-guard";
 // ─── Sub-document interfaces ────────────────────────────────────────────────
 
@@ -148,6 +149,12 @@ export interface IConsignment extends Document {
     podResourceType?: string;
     podFileName?: string;
     podUploadedAt?: Date;
+    /** Missing on legacy records — treat as "Pending". See src/lib/pod-status.ts. */
+    podStatus?: PodStatus;
+    podReceivedAt?: Date;
+    podSubmittedAt?: Date;
+    podSubmittedTo?: string;
+    podRemarks?: string;
 
     /** Stored LR PDFs by variant ("default", "all", ...). See src/lib/lr-pdf-cache.ts. */
     pdfCache?: Record<string, { url: string; publicId: string; sourceUpdatedAt: string }>;
@@ -341,6 +348,12 @@ const consignmentSchema = new Schema<IConsignment>(
         podResourceType: { type: String, default: "" },
         podFileName: { type: String, default: "" },
         podUploadedAt: { type: Date },
+        // No schema default: legacy documents stay untouched and read as Pending.
+        podStatus: { type: String, enum: POD_STATUSES },
+        podReceivedAt: { type: Date },
+        podSubmittedAt: { type: Date },
+        podSubmittedTo: { type: String, trim: true, maxlength: 100 },
+        podRemarks: { type: String, trim: true, maxlength: 200 },
 
         pdfCache: { type: Schema.Types.Mixed, default: undefined },
 
@@ -372,6 +385,7 @@ const consignmentSchema = new Schema<IConsignment>(
 // unique index is dropped by scripts/migrate-consignments.mjs.)
 consignmentSchema.index({ companyId: 1, consignmentNumber: 1 }, { unique: true });
 consignmentSchema.index({ companyId: 1, status: 1, bookingDate: -1 });
+consignmentSchema.index({ companyId: 1, status: 1, podStatus: 1, deliveredAt: 1 });
 consignmentSchema.index({ "payment.status": 1 });
 consignmentSchema.index({ bookingDate: -1 });
 consignmentSchema.index({ "consignor.name": 1 });
@@ -382,7 +396,7 @@ consignmentSchema.index({
     "lorryHire.lorryHireId": 1,
 });
 
-dropStaleModel("Consignment", "lorryHire");
+dropStaleModel("Consignment", "podStatus");
 
 const ConsignmentModel: Model<IConsignment> =
     (mongoose?.models?.Consignment as Model<IConsignment>) ||

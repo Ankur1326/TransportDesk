@@ -33,7 +33,7 @@ const TABS = [
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
-type TextSettingKey = Exclude<keyof CompanySettingsValues, "consignmentStartNumber" | "lorryHireStartNumber" | "accountType" | "lrFormat" | "lrFormatBackgrounds" | "chargeDefinitions" | "fieldVisibility">;
+type TextSettingKey = Exclude<keyof CompanySettingsValues, "consignmentStartNumber" | "lorryHireStartNumber" | "accountType" | "lrFormat" | "lrFormatBackgrounds" | "chargeDefinitions" | "fieldVisibility" | "requirePodBeforeBilling">;
 type ImageSettingKey = "companyLogo" | "signature" | "upiQrCode";
 type AppearanceTabId = TabId | "appearance";
 
@@ -615,6 +615,25 @@ export default function SettingsPage() {
                       }))}
                     />
                   </Field>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 accent-brand-700"
+                      checked={settings.requirePodBeforeBilling}
+                      onChange={(e) => {
+                        const requirePodBeforeBilling = e.target.checked;
+                        setSettings((current) => ({ ...current, requirePodBeforeBilling }));
+                        setSavedMessage("");
+                      }}
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-slate-900">Require POD before billing</span>
+                      <span className="block text-xs text-slate-500">
+                        When on, an LR can&apos;t be added to a bill until its POD is marked Received or Submitted.
+                        When off, billing an LR without a POD only shows a warning.
+                      </span>
+                    </span>
+                  </label>
                 </div>
               )}
 

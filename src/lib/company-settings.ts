@@ -86,6 +86,8 @@ lorryHireTerms: string;
   lrFormat: LRFormat;
   lrFormatBackgrounds: Record<LRFormat, LRFormatBackground>;
   chargeDefinitions: ChargeDefinition[];
+  /** When true, an LR can't go on a bill until its POD is Received or Submitted. Default false. */
+  requirePodBeforeBilling: boolean;
 }
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettingsValues = {
@@ -130,6 +132,7 @@ lorryHireTerms: "",
     LR_FORMATS.map((format) => [format, { backgroundColor: "#ffffff", backgroundImage: "" }])
   ) as Record<LRFormat, LRFormatBackground>,
   chargeDefinitions: DEFAULT_CHARGE_DEFINITIONS,
+  requirePodBeforeBilling: false,
 };
 
 export interface CompanySettingsResponse {

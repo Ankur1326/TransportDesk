@@ -92,6 +92,12 @@ export const NAVIGATION_CONFIG: Record<string, NavigationConfig> = {
                 icon: <LuFilePlus2 className="h-4 w-4" />,
                 route: "/admin/billing/new",
               },
+              {
+                id: "ready-to-bill",
+                title: "Ready to Bill",
+                icon: <LuReceiptText className="h-4 w-4" />,
+                route: "/admin/billing/ready-to-bill",
+              },
             ],
           },
           {

@@ -9,6 +9,7 @@ import { warmBillPdf } from "@/lib/bill-pdf-cache";
 import { pdfRenderBaseUrl } from "@/lib/pdf-cache";
 import { allConsignmentsBelongToCompany } from "@/lib/bill/verify-consignments";
 import { syncBillStatusAfterBillSave } from "@/lib/ledger/load-ledger";
+import { isPodRequiredForBilling, lrNumbersMissingPod, podRequiredMessage } from "@/lib/bill/pod-guard";
 import { freightBillFormSchema, computeItemTotal, computeBillTotals, computeBillSummary } from "@/lib/bill/validations"
 
 function isValidObjectId(id: string) {
@@ -44,6 +45,22 @@ export async function PUT(
         { success: false, message: "One or more consignments were not found." },
         { status: 400 }
       );
+    }
+
+    // Company rule: no billing without a POD. Only LRs being ADDED to this bill are checked, so
+    // bills that already carry LRs without a POD (created before the rule) stay editable.
+    if (await isPodRequiredForBilling(auth.companyId)) {
+      const saved = await FreightBillModel.findOne({ _id: id, ...companyFilter(auth.companyId) }, "items.consignmentId")
+        .lean<{ items?: { consignmentId?: unknown }[] } | null>();
+      const already = new Set((saved?.items ?? []).map((i) => String(i.consignmentId)));
+      const added = parsed.items.map((i) => i.consignmentId).filter((cid) => !already.has(String(cid)));
+      const missing = await lrNumbersMissingPod(auth.companyId, added);
+      if (missing.length) {
+        return NextResponse.json(
+          { success: false, code: "POD_REQUIRED", message: podRequiredMessage(missing), lrNumbers: missing },
+          { status: 409 }
+        );
+      }
     }
 
     const items = parsed.items.map((item) => ({ ...item, totalCharges: computeItemTotal(item) }));

@@ -3,8 +3,18 @@ import axios from "axios";
 import type { BillingFormValues } from "@/lib/validations/billing";
 import type { ChargeLine } from "@/lib/charges";
 import type { LrStatus } from "@/lib/consignment-status";
+import type { PodStatus } from "@/lib/pod-status";
 
-export interface ConsignmentRecord extends BillingFormValues {
+/** Proof-of-delivery fields. All optional: legacy records have none and read as Pending. */
+export interface PodFields {
+  podStatus?: PodStatus;
+  podReceivedAt?: string | { $date: string } | null;
+  podSubmittedAt?: string | { $date: string } | null;
+  podSubmittedTo?: string;
+  podRemarks?: string;
+}
+
+export interface ConsignmentRecord extends BillingFormValues, PodFields {
   _id: string;
   createdAt: string;
   updatedAt: string;
@@ -18,8 +28,10 @@ export type MongoDate = string | { $date: string } | null | undefined;
  * BillingFormValues since several fields (weights, packages, tax %) are
  * stored as free-text strings and may be partially filled on older records.
  */
-export interface ConsignmentListItem {
+export interface ConsignmentListItem extends PodFields {
   _id: string;
+  /** Whole days a Delivered LR has waited for its POD; null when not waiting (list endpoint only). */
+  podDaysPending?: number | null;
   /** Stored PDFs by variant; use freshPdfUrl() from @/lib/lr-pdf-url to check it is current. */
   pdfCache?: Record<string, { url: string; publicId?: string; sourceUpdatedAt: string }>;
   consignmentNumber: string;
@@ -89,12 +101,14 @@ export interface ConsignmentListItem {
   updatedAt?: MongoDate;
 }
 
-export type ConsignmentSort = "newest" | "oldest" | "booking_newest" | "booking_oldest";
+export type ConsignmentSort = "newest" | "oldest" | "booking_newest" | "booking_oldest" | "delivered_oldest";
 
 export interface ConsignmentListParams {
   search?: string;
   status?: LrStatus;
   paymentStatus?: string;
+  /** Legacy LRs with no POD status match "Pending". */
+  podStatus?: PodStatus;
   segment?: string;
   /** Booking-date range, YYYY-MM-DD, inclusive. */
   from?: string;
@@ -115,7 +129,7 @@ export interface ConsignmentListParams {
 }
 
 /** Per-status totals for the tab badges (respects every filter except status). */
-export type ConsignmentCounts = { All: number } & Record<LrStatus, number>;
+export type ConsignmentCounts = { All: number; /** Delivered LRs still waiting for their POD. */ pendingPod: number } & Record<LrStatus, number>;
 
 export interface ConsignmentListResponse {
   success: boolean;

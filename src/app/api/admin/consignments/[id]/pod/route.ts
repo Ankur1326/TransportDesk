@@ -8,6 +8,7 @@ import { companyFilter, requireCompany } from "@/lib/company-scope";
 import { destroyAsset, isCloudinaryConfigured, uploadBuffer } from "@/lib/cloudinary";
 import { sniffFile } from "@/lib/file-sniff";
 import { DEFAULT_LR_STATUS, isLrStatus } from "@/lib/consignment-status";
+import { applyPodAction, getPodStatus, podStatusMatch } from "@/lib/pod-status";
 
 export const runtime = "nodejs";
 
@@ -24,7 +25,8 @@ const fail = (message: string, status: number) =>
  * POST /api/admin/consignments/:id/pod   (multipart/form-data)
  *   file          image (jpg/png/webp) or PDF, up to POD_MAX_MB (default 4)
  *   markDelivered "false" to skip the automatic Booked/On Route -> Delivered move
- * Uploading again replaces the previous POD.
+ * Uploading again replaces the previous POD. On a Delivered LR (or one this upload
+ * delivers) the POD status becomes Received, unless it is already Submitted.
  */
 export async function POST(request: NextRequest, { params }: Ctx) {
   const auth = await requireCompany();
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   await dbConnect();
 
   const lr = await ConsignmentModel.findOne({ _id: id, ...companyFilter(auth.companyId) })
-    .select("status podPublicId podResourceType consignmentNumber")
+    .select("status podStatus podPublicId podResourceType consignmentNumber")
     .lean();
   if (!lr) return fail("Consignment not found", 404);
 
@@ -69,6 +71,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     });
 
     const now = new Date();
+    const history: { status: string; at: Date; by: string; note: string }[] = [];
     const $set: Record<string, unknown> = {
       podUrl: uploaded.secure_url,
       podPublicId: uploaded.public_id,
@@ -81,14 +84,38 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     if (form.get("markDelivered") !== "false" && (current === "Booked" || current === "On Route")) {
       $set.status = "Delivered";
       $set.deliveredAt = now;
-      update.$push = { statusHistory: { status: "Delivered", at: now, by: auth.userId, note: "POD uploaded" } };
+      history.push({ status: "Delivered", at: now, by: auth.userId, note: "POD uploaded" });
     }
 
+    // POD status moves only for a Delivered LR; an undelivered LR just keeps the file.
+    const pod = applyPodAction(
+      { lrStatus: typeof $set.status === "string" ? $set.status : current, podStatus: lr.podStatus, hasFile: true },
+      { type: "upload" },
+      now
+    );
+    if (pod.ok) {
+      Object.assign($set, pod.change.set);
+      history.push({ status: "Delivered", at: now, by: auth.userId, note: pod.change.note });
+    }
+    if (history.length) update.$push = { statusHistory: { $each: history } };
+
+    // Pinned to the POD status we validated against, so a concurrent Submit can't be overwritten.
+    const guard: Record<string, unknown> = {
+      _id: id,
+      ...companyFilter(auth.companyId),
+      ...podStatusMatch(getPodStatus(lr)),
+    };
+    if (lr.status) guard.status = lr.status;
     const doc = await ConsignmentModel.findOneAndUpdate(
-      { _id: id, ...companyFilter(auth.companyId) },
+      guard,
       update,
       { new: true }
     ).lean();
+
+    if (!doc) {
+      void destroyAsset(uploaded.public_id, uploaded.resource_type);
+      return fail("This LR changed while the POD was uploading. Refresh and try again.", 409);
+    }
 
     // Remove the replaced file only after the new one is safely saved.
     if (lr.podPublicId && lr.podPublicId !== uploaded.public_id) {
@@ -117,11 +144,28 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
     { $unset: { podUrl: "", podPublicId: "", podResourceType: "", podFileName: "", podUploadedAt: "" } },
     { new: false }
   )
-    .select("podPublicId podResourceType")
+    .select("status podUrl podPublicId podResourceType")
     .lean();
 
   if (!lr) return fail("Consignment not found", 404);
   if (lr.podPublicId) await destroyAsset(lr.podPublicId, lr.podResourceType || "image");
+
+  // The POD status is left as it is (it may have been received on paper); just log the removal.
+  if (lr.podUrl || lr.podPublicId) {
+    await ConsignmentModel.updateOne(
+      { _id: id, ...companyFilter(auth.companyId) },
+      {
+        $push: {
+          statusHistory: {
+            status: isLrStatus(lr.status) ? lr.status : DEFAULT_LR_STATUS,
+            at: new Date(),
+            by: auth.userId,
+            note: "POD file removed",
+          },
+        },
+      }
+    );
+  }
 
   return NextResponse.json({ success: true, message: "POD removed" }, { status: 200 });
 }

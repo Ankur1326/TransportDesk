@@ -5,6 +5,7 @@ export const ADMIN_PAGE_TITLES: Record<string, string> = {
   "/admin/consignment/new": "New Consignment",
   "/admin/billings": "All Bills",
   "/admin/billing/new": "Create Bill",
+  "/admin/billing/ready-to-bill": "Ready to Bill",
   "/admin/lorry-hires": "Lorry Hire Contracts",
   "/admin/lorry-hire/new": "Lorry Hire Contract",
   "/admin/shipments": "Shipments",

@@ -7,7 +7,10 @@ import { getApiErrorMessage } from "@/lib/api/consignments";
 import { listPartyConsignments, type ConsignmentListItem } from "@/lib/bill/api";
 import formatDate from "@/lib/formateDate";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
+import { PodBadge } from "@/components/bookings/PodBadge";
+import { isPodCleared } from "@/lib/pod-status";
 import { SectionCard, inr } from "@/components/bills/create/ui";
 
 interface PartyBiltyPickerProps {
@@ -17,6 +20,8 @@ interface PartyBiltyPickerProps {
   busy: boolean;
   onAdd: (items: ConsignmentListItem[]) => void;
   onRemoveId: (consignmentId: string) => void;
+  /** Company rule "require POD before billing": LRs without a received POD can't be ticked. */
+  requirePod?: boolean;
 }
 
 const norm = (v?: string) => (v ?? "").trim().toLowerCase();
@@ -37,7 +42,7 @@ function dateOf(c: ConsignmentListItem) {
  * consignee. Ticking a row adds it to the bill (SR NO follows the order of
  * selection); unticking removes it and the remaining rows renumber.
  */
-export function PartyBiltyPicker({ partyName, selectedIds, busy, onAdd, onRemoveId }: PartyBiltyPickerProps) {
+export function PartyBiltyPicker({ partyName, selectedIds, busy, onAdd, onRemoveId, requirePod }: PartyBiltyPickerProps) {
   const [items, setItems] = useState<ConsignmentListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
@@ -66,8 +71,10 @@ export function PartyBiltyPicker({ partyName, selectedIds, busy, onAdd, onRemove
     );
   }, [items, filter]);
 
-  const unselectedVisible = visible.filter((c) => !selectedIds.includes(c._id));
-  const allVisibleSelected = visible.length > 0 && unselectedVisible.length === 0;
+  const blocked = (c: ConsignmentListItem) => Boolean(requirePod) && !isPodCleared(c);
+  const unselectedVisible = visible.filter((c) => !selectedIds.includes(c._id) && !blocked(c));
+  const selectableVisible = visible.filter((c) => !blocked(c));
+  const allVisibleSelected = selectableVisible.length > 0 && unselectedVisible.length === 0;
 
   return (
     <SectionCard
@@ -81,6 +88,7 @@ export function PartyBiltyPicker({ partyName, selectedIds, busy, onAdd, onRemove
       <p className="mb-3 text-xs text-slate-500">
         Showing unbilled LRs where <strong className="text-slate-700">{partyName}</strong> is the consignor or the consignee. Tick one or more —
         charges fill in automatically and SR NO follows the order you select.
+        {requirePod && " LRs without a received POD can't be billed (Settings → Require POD before billing)."}
       </p>
 
       <div className="mb-3 sm:max-w-xs">
@@ -104,7 +112,7 @@ export function PartyBiltyPicker({ partyName, selectedIds, busy, onAdd, onRemove
         </p>
       ) : (
         <div className="max-h-80 overflow-auto rounded-lg border border-slate-200">
-          <table className="w-full min-w-[640px] border-collapse text-sm">
+          <table className="w-full min-w-[720px] border-collapse text-sm">
             <thead className="sticky top-0 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="w-10 px-3 py-2">
@@ -112,8 +120,8 @@ export function PartyBiltyPicker({ partyName, selectedIds, busy, onAdd, onRemove
                     type="checkbox"
                     aria-label="Select all shown bilties"
                     checked={allVisibleSelected}
-                    disabled={busy || visible.length === 0}
-                    onChange={() => (allVisibleSelected ? visible.forEach((c) => onRemoveId(c._id)) : onAdd(unselectedVisible))}
+                    disabled={busy || selectableVisible.length === 0}
+                    onChange={() => (allVisibleSelected ? selectableVisible.forEach((c) => onRemoveId(c._id)) : onAdd(unselectedVisible))}
                     className="focus-ring h-4 w-4 accent-brand-700"
                   />
                 </th>
@@ -123,6 +131,7 @@ export function PartyBiltyPicker({ partyName, selectedIds, busy, onAdd, onRemove
                 <th className="px-3 py-2">Route</th>
                 <th className="px-3 py-2">Party as</th>
                 <th className="px-3 py-2">Vehicle</th>
+                <th className="px-3 py-2">POD</th>
                 <th className="px-3 py-2 text-right">Freight</th>
               </tr>
             </thead>
@@ -138,7 +147,8 @@ export function PartyBiltyPicker({ partyName, selectedIds, busy, onAdd, onRemove
                         type="checkbox"
                         aria-label={`Select LR ${c.consignmentNumber}`}
                         checked={checked}
-                        disabled={busy}
+                        disabled={busy || (!checked && blocked(c))}
+                        title={!checked && blocked(c) ? "POD not received yet" : undefined}
                         onChange={() => (checked ? onRemoveId(c._id) : onAdd([c]))}
                         className="focus-ring h-4 w-4 accent-brand-700"
                       />
@@ -160,13 +170,16 @@ export function PartyBiltyPicker({ partyName, selectedIds, busy, onAdd, onRemove
                       </span>
                     </td>
                     <td className="px-3 py-2 text-slate-600">{c.vehicleNumber || "—"}</td>
+                    <td className="px-3 py-2">
+                      {c.status === "Delivered" ? <PodBadge item={c} /> : <Badge variant="neutral">Not delivered</Badge>}
+                    </td>
                     <td className="px-3 py-2 text-right tabular-nums">{c.charges?.freight != null ? inr(Number(c.charges.freight) || 0) : "—"}</td>
                   </tr>
                 );
               })}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-6 text-center text-slate-500">
+                  <td colSpan={9} className="px-3 py-6 text-center text-slate-500">
                     No bilties match “{filter}”.
                   </td>
                 </tr>

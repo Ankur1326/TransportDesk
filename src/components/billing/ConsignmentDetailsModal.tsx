@@ -19,10 +19,12 @@ import {
   X,
 } from "@/components/icons";
 
+import { ClipboardCheck } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/Button";
 import type { MongoDate } from "@/lib/api/consignments";
+import { getPodStatus } from "@/lib/pod-status";
 
 // ─── Local formatters ────────────────────────────────────────────────────────
 
@@ -321,6 +323,19 @@ export function ConsignmentDetailsModal({
               </div>
             </div>
           </SectionShell>
+
+          {/* Proof of delivery (only once the LR is delivered) */}
+          {c.status === "Delivered" && (
+            <DetailSection title="Proof of Delivery" icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" />}>
+              <DetailRow label="POD Status" value={getPodStatus(c)} />
+              <DetailRow label="Delivered On" value={formatDate(c.deliveredAt)} />
+              <DetailRow label="POD File" value={c.podFileName || (c.podUrl ? "Uploaded" : "Not uploaded")} />
+              {c.podReceivedAt && <DetailRow label="Received On" value={formatDate(c.podReceivedAt)} />}
+              {c.podSubmittedAt && <DetailRow label="Submitted On" value={formatDate(c.podSubmittedAt)} />}
+              {c.podSubmittedTo && <DetailRow label="Submitted To" value={c.podSubmittedTo} />}
+              {c.podRemarks && <DetailRow label="POD Remarks" value={c.podRemarks} />}
+            </DetailSection>
+          )}
 
           {/* Booking + Shipment */}
           <div className="grid gap-4 sm:grid-cols-2">

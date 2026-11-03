@@ -69,6 +69,7 @@ lorryHireTerms: { type: String, default: "", maxlength: 10000 },
       ),
       default: DEFAULT_COMPANY_SETTINGS.lrFormatBackgrounds,
     },
+    requirePodBeforeBilling: { type: Boolean, default: false },
     chargeDefinitions: {
       type: [
         new Schema<ChargeDefinition>(

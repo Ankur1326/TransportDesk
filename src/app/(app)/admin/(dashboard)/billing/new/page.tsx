@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CompanyProfileGate } from "@/components/admin/CompanyProfileGate";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormProvider, useForm, useFieldArray } from "react-hook-form";
@@ -12,7 +12,7 @@ import {
     type BillItemValues,
 } from "@/lib/bill/validations";
 import { fetchNextBillNumber, saveLastBillNumber } from "@/lib/bill/Generatebillnumber";
-import { createFreightBill, getConsignmentForBill, getFreightBill, updateFreightBill, type CustomerOption } from "@/lib/bill/api";
+import { createFreightBill, getConsignmentForBill, getFreightBill, searchCustomers, updateFreightBill, type CustomerOption } from "@/lib/bill/api";
 
 import { BillItemsTable } from "@/components/bills/Billitemstable";
 import { CnsSelector } from "@/components/bills/Cnsselector";
@@ -31,6 +31,7 @@ import { useSearchParams } from "next/navigation";
 import { Loading } from "@/components/ui/Loading";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { chargeLinesFromLegacy, DEFAULT_CHARGE_DEFINITIONS, type ChargeDefinition } from "@/lib/charges";
+import { isPodCleared } from "@/lib/pod-status";
 
 function buildDefaultValues(billNo: string): FreightBillFormValues {
     return {
@@ -92,10 +93,26 @@ function consignmentToBillItem(c: ConsignmentRecord, srNo: number, definitions: 
     };
 }
 
+/** Who the bill is for, used while adding LRs before React state has caught up. */
+type PartyContext = { mode: PartyMode | null; name: string | null };
+
+const sameText = (a?: string, b?: string) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
+
 function FreightBillForm() {
     const searchParams = useSearchParams();
     const billId = searchParams.get("id"); // null when creating a new bill
-    const { settings: companySettings } = useCompanySettings();
+    const { settings: companySettings, hasLoaded: settingsLoaded } = useCompanySettings();
+    const requirePod = companySettings.requirePodBeforeBilling;
+
+    // "Ready to bill" opens this form as /admin/billing/new?party=…&kind=…&lrs=id1,id2
+    const preselect = useMemo(() => ({
+        party: searchParams.get("party")?.trim() ?? "",
+        kind: searchParams.get("kind") ?? "",
+        ids: [...new Set((searchParams.get("lrs") ?? "").split(",").map((s) => s.trim()).filter(Boolean))].slice(0, 50),
+    }), [searchParams]);
+    const preselectStarted = useRef(false);
+    // LR id -> LR number, for LRs on this bill whose POD hasn't been received (drives the warning).
+    const [podMissing, setPodMissing] = useState<Record<string, string>>({});
     const [savedChargeDefinitions, setSavedChargeDefinitions] = useState<ChargeDefinition[] | null>(null);
 
     const [previewOpen, setPreviewOpen] = useState(false);
@@ -227,28 +244,39 @@ function FreightBillForm() {
         setPartyName(customer.name);
     }
 
-    /** Fetch the full record(s), build the bill rows and append them; SR NO continues from what's already there. */
+    /** Build the bill rows for full LR records and append them; SR NO continues from what's already there. */
+    function addRecords(records: ConsignmentRecord[], ctx: PartyContext = { mode: partyMode, name: partyName }) {
+        const base = getValues("items").length;
+        const newItems = records.map((record, i) => consignmentToBillItem(record, base + i + 1, chargeDefinitions));
+
+        if (base === 0) {
+            const first = records[0];
+            if (ctx.mode === "manual" || !ctx.name) {
+                setValue("billedToType", "Third Party");
+            } else {
+                setValue("billedToType", sameText(first.consignor?.name, ctx.name) ? "Consignor" : "Consignee");
+            }
+            // Auto-fill vehicle number from the first LR, but never over something already typed.
+            if (first.vehicleNumber && !getValues("vehicleNumber")) setValue("vehicleNumber", first.vehicleNumber);
+        }
+
+        setPodMissing((prev) => {
+            const next = { ...prev };
+            for (const r of records) {
+                if (isPodCleared(r)) delete next[r._id];
+                else next[r._id] = r.consignmentNumber;
+            }
+            return next;
+        });
+        append(newItems);
+    }
+
+    /** Fetch the full record(s) for the picked LRs and add them to the bill. */
     async function addConsignments(picked: ConsignmentListItem[]) {
         if (busy || picked.length === 0) return;
         setBusy(true);
         try {
-            const records = await Promise.all(picked.map((p) => getConsignmentForBill(p._id)));
-            const base = getValues("items").length;
-            const newItems = records.map((record, i) => consignmentToBillItem(record, base + i + 1, chargeDefinitions));
-
-            if (base === 0) {
-                const first = records[0];
-                if (partyMode === "manual" || !partyName) {
-                    setValue("billedToType", "Third Party");
-                } else {
-                    const same = (a?: string, b?: string) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
-                    setValue("billedToType", same(first.consignor?.name, partyName) ? "Consignor" : "Consignee");
-                }
-                // Auto-fill vehicle number from the first LR, but never over something already typed.
-                if (first.vehicleNumber && !getValues("vehicleNumber")) setValue("vehicleNumber", first.vehicleNumber);
-            }
-
-            append(newItems);
+            addRecords(await Promise.all(picked.map((p) => getConsignmentForBill(p._id))));
         } catch (error) {
             toast.error(getApiErrorMessage(error, "Couldn't load the selected bilty."));
         } finally {
@@ -256,13 +284,62 @@ function FreightBillForm() {
         }
     }
 
+    /** Add the LRs named in the URL (from "Ready to bill") and pick the billing party they point to. */
+    async function applyPreselection() {
+        setBusy(true);
+        try {
+            const results = await Promise.allSettled(preselect.ids.map((id) => getConsignmentForBill(id)));
+            const records = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+            if (records.length === 0) {
+                toast.error("Couldn't load the selected bilties.");
+                return;
+            }
+            if (records.length < preselect.ids.length) {
+                toast.error(`${preselect.ids.length - records.length} of the selected bilties couldn't be loaded.`);
+            }
+
+            let ctx: PartyContext = { mode: "manual", name: null };
+            if (preselect.party && preselect.kind !== "Third Party") {
+                const found = await searchCustomers(preselect.party).catch(() => [] as CustomerOption[]);
+                const customer = found.find((c) => sameText(c.name, preselect.party));
+                if (customer) {
+                    setPartyMode("company");
+                    handleCustomerSelected(customer);
+                    ctx = { mode: "company", name: customer.name };
+                }
+            }
+            if (ctx.mode === "manual") {
+                setPartyMode("manual");
+                if (preselect.party) setValue("billedTo.name", preselect.party, { shouldDirty: true });
+                toast(`${preselect.party || "The billing party"} isn't a saved customer — fill in their details.`, { icon: "ℹ️" });
+            }
+            addRecords(records, ctx);
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    useEffect(() => {
+        if (billId || !settingsLoaded || preselectStarted.current || preselect.ids.length === 0) return;
+        preselectStarted.current = true;
+        void applyPreselection();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [billId, settingsLoaded, preselect]);
+
     function removeByConsignmentId(consignmentId: string) {
         const index = getValues("items").findIndex((item) => item.consignmentId === consignmentId);
         if (index >= 0) remove(index);
     }
 
+    // LRs on the bill that have no received POD (loaded bills only know LRs added in this session).
+    const missingPodNumbers = selectedIds.flatMap((id) => (podMissing[id] ? [podMissing[id]] : []));
+
     const onSaveAndPrint = handleSubmit(
         async (values) => {
+            if (requirePod && missingPodNumbers.length) {
+                toast.error(`POD is required before billing. Remove LR ${missingPodNumbers.join(", ")} or receive its POD first.`);
+                return;
+            }
             const normalized = { ...values, items: values.items.map((item, i) => ({ ...item, srNo: i + 1 })) };
             try {
                 if (billId) {
@@ -306,6 +383,7 @@ function FreightBillForm() {
     );
 
     function onReset() {
+        setPodMissing({});
         setPartyMode(null);
         setPartyName(null);
         fetchNextBillNumber().then((billNo) => reset(buildDefaultValues(billNo)));
@@ -375,6 +453,7 @@ function FreightBillForm() {
                             busy={busy}
                             onAdd={addConsignments}
                             onRemoveId={removeByConsignmentId}
+                            requirePod={requirePod}
                         />
                     )}
 
@@ -383,6 +462,25 @@ function FreightBillForm() {
                         <SectionCard title="Add Bilty by LR number">
                             <CnsSelector excludeIds={selectedIds} onSelect={(c) => addConsignments([c])} disabled={busy} />
                         </SectionCard>
+                    )}
+
+                    {missingPodNumbers.length > 0 && (
+                        <div
+                            role="alert"
+                            className={requirePod
+                                ? "rounded-xl border border-error-100 bg-error-50 px-4 py-3 text-sm text-error-700"
+                                : "rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-sm text-warning-700"}
+                        >
+                            <p className="font-semibold">
+                                {requirePod ? "POD required before billing" : "POD not received"}
+                            </p>
+                            <p className="mt-0.5">
+                                LR {missingPodNumbers.join(", ")} {missingPodNumbers.length === 1 ? "has" : "have"} no POD marked Received or Submitted.{" "}
+                                {requirePod
+                                    ? "Remove them from this bill, or receive the POD first — saving is blocked."
+                                    : "You can still bill them, but you may not be able to collect without proof of delivery."}
+                            </p>
+                        </div>
                     )}
 
                     <SectionCard title="LR Details">

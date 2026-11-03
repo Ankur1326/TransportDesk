@@ -1,6 +1,7 @@
 import { companyFilter } from "@/lib/company-scope";
 import { escapeRegex } from "@/lib/escape-regex";
 import { DEFAULT_LR_STATUS, isLrStatus } from "@/lib/consignment-status";
+import { isPodStatus, podStatusMatch } from "@/lib/pod-status";
 
 type Filter = Record<string, unknown>;
 
@@ -26,7 +27,7 @@ export interface BuiltQuery {
 /**
  * Build the Mongo filter for the list + counts endpoints.
  *
- * Supported params: search, status, paymentStatus, segment, from, to
+ * Supported params: search, status, paymentStatus, podStatus, segment, from, to
  * (booking-date range, inclusive), fromCity, toCity, consignor, consignee,
  * vehicle, partyType + partyName, excludeBilled (handled by the caller).
  */
@@ -53,6 +54,10 @@ export function buildConsignmentQuery(params: URLSearchParams, companyId: string
   if (paymentStatus && PAYMENT_STATUS_VALUES.has(paymentStatus)) {
     and.push({ "payment.status": paymentStatus });
   }
+
+  // Legacy LRs have no podStatus and match "Pending".
+  const podStatus = clean(params, "podStatus");
+  if (isPodStatus(podStatus)) and.push(podStatusMatch(podStatus));
 
   const segment = clean(params, "segment");
   if (segment) and.push({ segment });
@@ -102,7 +107,7 @@ export function buildConsignmentQuery(params: URLSearchParams, companyId: string
   return { query: { $and: and }, queryWithoutStatus };
 }
 
-export type ListSort = "newest" | "oldest" | "booking_newest" | "booking_oldest";
+export type ListSort = "newest" | "oldest" | "booking_newest" | "booking_oldest" | "delivered_oldest";
 
 export function sortSpec(value: string | null): Record<string, 1 | -1> {
   switch (value as ListSort) {
@@ -112,6 +117,9 @@ export function sortSpec(value: string | null): Record<string, 1 | -1> {
       return { bookingDate: -1, createdAt: -1 };
     case "booking_oldest":
       return { bookingDate: 1, createdAt: 1 };
+    case "delivered_oldest":
+      // Longest-waiting first. LRs with no deliveredAt (legacy) have an unknown age and sort first.
+      return { deliveredAt: 1, createdAt: 1 };
     default:
       return { createdAt: -1 };
   }

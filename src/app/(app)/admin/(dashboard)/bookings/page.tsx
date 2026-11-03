@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Download, RefreshCw } from "lucide-react";
@@ -19,17 +20,19 @@ import { AccountModal } from "@/components/bookings/AccountModal";
 import { BulkBar } from "@/components/bookings/BulkBar";
 import { CancelDialog } from "@/components/bookings/CancelDialog";
 import { EMPTY_FILTERS, FilterBar, type Filters } from "@/components/bookings/FilterBar";
+import { PodDialog, type PodDialogTarget } from "@/components/bookings/PodDialog";
 import { ShareDialog } from "@/components/bookings/ShareDialog";
 import { LrCard, LrCardSkeleton, type LrCardActions } from "@/components/bookings/LrCard";
 import { Menu, MenuItem } from "@/components/bookings/Menu";
-import { STATUS_TABS, StatusTabs, type StatusTab } from "@/components/bookings/StatusTabs";
+import { PENDING_POD_TAB, StatusTabs, type StatusTab } from "@/components/bookings/StatusTabs";
 import {
   deleteConsignment, getApiErrorMessage, getConsignment, getConsignmentCounts, listConsignments,
   type ConsignmentCounts, type ConsignmentListItem, type ConsignmentListParams, type ConsignmentRecord,
 } from "@/lib/api/consignments";
 import {
-  changeLrStatus, patchConsignment, removePod, uploadPod, type ConsignmentPatch,
+  changeLrStatus, changePodStatus, patchConsignment, removePod, uploadPod, type ConsignmentPatch, type PodStatusRequest,
 } from "@/lib/api/consignmentActions";
+import { getPodStatus, rollbackTarget } from "@/lib/pod-status";
 import { canTransition, type LrStatus } from "@/lib/consignment-status";
 import { downloadCsv, getStatus, summaryText } from "@/lib/lr-helpers";
 import { preparePodFile } from "@/lib/image-compress";
@@ -42,6 +45,13 @@ const EXPORT_MAX_PAGES = 50;
 
 // Row click, Share and Copy link all point at the real PDF endpoint.
 const printUrl = (id: string) => lrPdfPath(id);
+
+/** List params a tab adds on top of the filters. "Pending POD" = Delivered + POD Pending, longest-waiting first. */
+function tabParams(tab: StatusTab): Partial<ConsignmentListParams> {
+  if (tab === "All") return {};
+  if (tab === PENDING_POD_TAB) return { status: "Delivered", podStatus: "Pending", sort: "delivered_oldest" };
+  return { status: tab };
+}
 
 /** Drop empty filter values so they aren't sent as `?search=`. */
 function toParams(f: Filters): ConsignmentListParams {
@@ -74,6 +84,8 @@ export default function BookingsPage() {
   const [accountTarget, setAccountTarget] = useState<ConsignmentListItem | null>(null);
   const [viewTarget, setViewTarget] = useState<ConsignmentListItem | null>(null);
   const [podRemoveTarget, setPodRemoveTarget] = useState<ConsignmentListItem | null>(null);
+  const [podDialog, setPodDialog] = useState<PodDialogTarget>(null);
+  const [podRollbackTarget, setPodRollbackTarget] = useState<ConsignmentListItem | null>(null);
   const [shareTarget, setShareTarget] = useState<ConsignmentListItem | null>(null);
   const [printTarget, setPrintTarget] = useState<ConsignmentRecord | null>(null);
   const [busy, setBusy] = useState(false);
@@ -109,7 +121,7 @@ export default function BookingsPage() {
       const [res, tabCounts] = await Promise.all([
         listConsignments({
           ...listParams,
-          status: statusTab === "All" ? undefined : statusTab,
+          ...tabParams(statusTab),
           page,
           limit,
         }),
@@ -202,6 +214,33 @@ export default function BookingsPage() {
         ? err.message
         : getApiErrorMessage(err, "Couldn't upload POD.");
       toast.error(msg, { id: t });
+    }
+  };
+
+  const confirmPod = async (row: ConsignmentListItem, body: PodStatusRequest) => {
+    try {
+      await changePodStatus(row._id, body);
+      toast.success(
+        body.action === "receive" ? `POD received for LR ${row.consignmentNumber}.`
+          : body.action === "submit" ? `POD submitted for LR ${row.consignmentNumber}.`
+          : `POD rolled back for LR ${row.consignmentNumber}.`
+      );
+      setPodDialog(null);
+      await fetchList();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Couldn't update the POD status."));
+    }
+  };
+
+  const confirmPodRollback = async () => {
+    const row = podRollbackTarget;
+    if (!row) return;
+    setBusy(true);
+    try {
+      await confirmPod(row, { action: "rollback" });
+    } finally {
+      setBusy(false);
+      setPodRollbackTarget(null);
     }
   };
 
@@ -298,7 +337,7 @@ export default function BookingsPage() {
       for (let p = 1; p <= EXPORT_MAX_PAGES; p++) {
         const res = await listConsignments({
           ...listParams,
-          status: statusTab === "All" ? undefined : statusTab,
+          ...tabParams(statusTab),
           page: p,
           limit: EXPORT_PAGE,
         });
@@ -328,6 +367,9 @@ export default function BookingsPage() {
     podUpload: (r) => { podFor.current = r; podInput.current?.click(); },
     podView: (r) => r.podUrl && window.open(r.podUrl, "_blank", "noopener"),
     podRemove: setPodRemoveTarget,
+    podReceive: (r) => setPodDialog({ row: r, mode: "receive" }),
+    podSubmit: (r) => setPodDialog({ row: r, mode: "submit" }),
+    podRollback: setPodRollbackTarget,
     share: setShareTarget,
     shareWhatsApp: (r) =>
       window.open(`https://wa.me/?text=${encodeURIComponent(summaryText(r, absoluteLink(r)))}`, "_blank", "noopener"),
@@ -349,7 +391,8 @@ export default function BookingsPage() {
     return `${start}–${end} of ${pagination.total}`;
   }, [pagination]);
 
-  const hasActiveFilters = JSON.stringify({ ...applied, sort: "" }) !== JSON.stringify({ ...EMPTY_FILTERS, sort: "" }) || statusTab !== "All";
+  const hasFilterValues = JSON.stringify({ ...applied, sort: "" }) !== JSON.stringify({ ...EMPTY_FILTERS, sort: "" });
+  const hasActiveFilters = hasFilterValues || statusTab !== "All";
   const initialLoading = !hasLoaded && isFetching;
 
   return (
@@ -366,6 +409,12 @@ export default function BookingsPage() {
               <p className="text-body-sm text-neutral-500">All consignments booked so far.</p>
             </div>
             <div className="flex items-center gap-2">
+              <Link
+                href="/admin/billing/ready-to-bill"
+                className="inline-flex h-9 items-center rounded-lg border border-neutral-300 bg-white px-3 text-body-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              >
+                Ready to bill
+              </Link>
               <Button variant="outline" size="sm" onClick={() => void fetchList()} isLoading={isFetching && hasLoaded}
                 aria-label="Refresh list">
                 {!(isFetching && hasLoaded) && <RefreshCw className="h-4 w-4" aria-hidden="true" />} Refresh
@@ -388,9 +437,15 @@ export default function BookingsPage() {
           <CompanySetupNotice className="mt-3" />
 
           <div className="mt-3"><StatusTabs value={statusTab} counts={counts} onChange={changeTab} /></div>
+          {statusTab === PENDING_POD_TAB && (
+            <p className="mt-2 text-body-sm text-neutral-500">
+              Delivered LRs still waiting for their POD, longest-waiting first.
+            </p>
+          )}
 
           <div className="mt-3">
-            <FilterBar filters={filters} onChange={patchFilters} onClear={clearFilters} dateError={dateError} />
+            <FilterBar filters={filters} onChange={patchFilters} onClear={clearFilters} dateError={dateError}
+              podLocked={statusTab === PENDING_POD_TAB} />
           </div>
 
           {/* CONTENT */}
@@ -404,8 +459,8 @@ export default function BookingsPage() {
             ) : items.length === 0 ? (
               <EmptyState
                 icon={<Truck className="h-6 w-6" aria-hidden="true" />}
-                title="No consignments found"
-                description={hasActiveFilters ? "Try adjusting your search or filters." : "Create your first consignment to see it here."}
+                title={statusTab === PENDING_POD_TAB && !hasFilterValues ? "No POD pending" : "No consignments found"}
+                description={statusTab === PENDING_POD_TAB && !hasFilterValues ? "Every delivered LR has its POD." : hasActiveFilters ? "Try adjusting your search or filters." : "Create your first consignment to see it here."}
               />
             ) : (
               <>
@@ -483,6 +538,15 @@ export default function BookingsPage() {
       <ShareDialog row={shareTarget} onClose={() => setShareTarget(null)} />
       <CancelDialog row={cancelTarget} onClose={() => setCancelTarget(null)} onConfirm={confirmCancel} />
 
+      <PodDialog target={podDialog} onClose={() => setPodDialog(null)} onConfirm={confirmPod} />
+      <ConfirmDialog
+        open={Boolean(podRollbackTarget)}
+        title={podRollbackTarget ? `Roll back POD to ${rollbackTarget(getPodStatus(podRollbackTarget)) ?? "Pending"}?` : "Roll back POD?"}
+        description={podRollbackTarget ? `LR ${podRollbackTarget.consignmentNumber} goes back one step. This is recorded in its history.` : undefined}
+        confirmLabel={busy ? "Rolling back…" : "Roll back"}
+        onConfirm={confirmPodRollback}
+        onCancel={() => setPodRollbackTarget(null)}
+      />
       <ConfirmDialog
         open={Boolean(podRemoveTarget)}
         title="Remove this POD?"

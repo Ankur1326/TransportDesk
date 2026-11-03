@@ -10,6 +10,7 @@ import type { ConsignmentSort } from "@/lib/api/consignments";
 export interface Filters {
   search: string;
   paymentStatus: string;
+  podStatus: string;
   from: string;
   to: string;
   fromCity: string;
@@ -21,7 +22,7 @@ export interface Filters {
 }
 
 export const EMPTY_FILTERS: Filters = {
-  search: "", paymentStatus: "", from: "", to: "", fromCity: "", toCity: "",
+  search: "", paymentStatus: "", podStatus: "", from: "", to: "", fromCity: "", toCity: "",
   consignor: "", consignee: "", vehicle: "", sort: "newest",
 };
 
@@ -30,6 +31,13 @@ const PAYMENT_OPTIONS = [
   { value: "Pending", label: "Pending" },
   { value: "Partially Paid", label: "Partially Paid" },
   { value: "Paid", label: "Paid" },
+];
+
+const POD_OPTIONS = [
+  { value: "", label: "All POD statuses" },
+  { value: "Pending", label: "POD Pending" },
+  { value: "Received", label: "POD Received" },
+  { value: "Submitted", label: "POD Submitted" },
 ];
 
 const SORT_OPTIONS: { value: ConsignmentSort; label: string }[] = [
@@ -47,9 +55,11 @@ export function activeFilterCount(f: Filters): number {
 }
 
 export function FilterBar({
-  filters, onChange, onClear, dateError,
+  filters, onChange, onClear, dateError, podLocked,
 }: {
   filters: Filters; onChange: (patch: Partial<Filters>) => void; onClear: () => void; dateError?: string;
+  /** The Pending POD tab fixes the POD status, so the filter is disabled. */
+  podLocked?: boolean;
 }) {
   const advancedActive = ADVANCED.some((k) => filters[k] !== "");
   const [showMore, setShowMore] = useState(advancedActive);
@@ -57,7 +67,7 @@ export function FilterBar({
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <div className="lg:col-span-2">
           <Input
             placeholder="Search LR no, vehicle, party, e-way bill…"
@@ -72,6 +82,14 @@ export function FilterBar({
           options={PAYMENT_OPTIONS}
           value={filters.paymentStatus}
           onChange={(e) => onChange({ paymentStatus: e.target.value })}
+        />
+        <Select
+          aria-label="POD status"
+          options={POD_OPTIONS}
+          value={filters.podStatus}
+          disabled={podLocked}
+          title={podLocked ? "The Pending POD tab already shows only Pending POD" : undefined}
+          onChange={(e) => onChange({ podStatus: e.target.value })}
         />
         <Input type="date" aria-label="From date" title="Booked from" value={filters.from}
           max={filters.to || undefined} onChange={(e) => onChange({ from: e.target.value })} />

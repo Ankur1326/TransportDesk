@@ -41,3 +41,15 @@ export const uploadPod = (id: string, file: File, opts: { markDelivered?: boolea
 };
 
 export const removePod = (id: string) => axios.delete(`${BASE}/${id}/pod`).then((r) => r.data);
+
+/** What the POD-status endpoint accepts (dates as YYYY-MM-DD or ISO strings). */
+export type PodStatusRequest =
+  | { action: "receive"; remark?: string }
+  | { action: "submit"; submittedAt?: string; submittedTo?: string; note?: string }
+  | { action: "rollback" };
+
+/** Move an LR's POD one step: receive, submit or roll back. */
+export const changePodStatus = (id: string, body: PodStatusRequest) =>
+  axios
+    .patch<{ success: boolean; data: ConsignmentListItem }>(`${BASE}/${id}/pod-status`, body)
+    .then((r) => r.data);

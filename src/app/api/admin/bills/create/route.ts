@@ -9,6 +9,7 @@ import { warmBillPdf } from "@/lib/bill-pdf-cache";
 import { pdfRenderBaseUrl } from "@/lib/pdf-cache";
 import { allConsignmentsBelongToCompany } from "@/lib/bill/verify-consignments";
 import { syncBillStatusAfterBillSave } from "@/lib/ledger/load-ledger";
+import { isPodRequiredForBilling, lrNumbersMissingPod, podRequiredMessage } from "@/lib/bill/pod-guard";
 import { freightBillFormSchema, computeItemTotal, computeBillTotals, computeBillSummary } from "@/lib/bill/validations";
 
 export async function POST(request: NextRequest) {
@@ -27,6 +28,17 @@ export async function POST(request: NextRequest) {
         { success: false, message: "One or more consignments were not found." },
         { status: 400 }
       );
+    }
+
+    // Company rule: no billing without a POD (Settings -> requirePodBeforeBilling).
+    if (await isPodRequiredForBilling(auth.companyId)) {
+      const missing = await lrNumbersMissingPod(auth.companyId, parsed.items.map((i) => i.consignmentId));
+      if (missing.length) {
+        return NextResponse.json(
+          { success: false, code: "POD_REQUIRED", message: podRequiredMessage(missing), lrNumbers: missing },
+          { status: 409 }
+        );
+      }
     }
 
     // Never trust client-computed totals — recompute from the line items server-side.

@@ -5,6 +5,7 @@ import ConsignmentModel from "@/models/Consignment";
 import "@/models/User"; // registers the model used by populate("createdBy")
 import { companyFilter, requireCompany } from "@/lib/company-scope";
 import { buildConsignmentQuery, sortSpec } from "@/lib/consignment-query";
+import { podDaysPending } from "@/lib/pod-status";
 
 /**
  * GET /api/admin/consignments/get
@@ -13,11 +14,15 @@ import { buildConsignmentQuery, sortSpec } from "@/lib/consignment-query";
  *  - search          LR no, vehicle, e-way bill, consignor/consignee, from/to city
  *  - status          Booked | On Route | Delivered | Cancelled
  *  - paymentStatus   Pending | Partially Paid | Paid | Cancelled
+ *  - podStatus       Pending | Received | Submitted (legacy LRs count as Pending)
  *  - from, to        booking-date range, YYYY-MM-DD, inclusive
  *  - fromCity, toCity, consignor, consignee, vehicle   "contains" filters
  *  - segment, partyType + partyName
  *  - excludeBilled   "true" to hide LRs already on a freight bill
- *  - sort            newest (default) | oldest | booking_newest | booking_oldest
+ *  - sort            newest (default) | oldest | booking_newest | booking_oldest | delivered_oldest
+ *
+ * Every item also carries `podDaysPending`: whole days since delivery for a
+ * Delivered LR still waiting for its POD, otherwise null.
  *  - page            1-indexed (default 1)
  *  - limit           page size (default 20, max 100)
  */
@@ -52,9 +57,11 @@ export async function GET(request: NextRequest) {
     ]);
 
     // The list UI reads `createdBy.name`.
+    const now = new Date();
     const data = consignments.map((c) => {
       const by = c.createdBy as unknown as { fullName?: string } | null | undefined;
-      return by && typeof by === "object" ? { ...c, createdBy: { name: by.fullName ?? "" } } : c;
+      const row = by && typeof by === "object" ? { ...c, createdBy: { name: by.fullName ?? "" } } : c;
+      return { ...row, podDaysPending: podDaysPending(c, now) };
     });
 
     return NextResponse.json(
