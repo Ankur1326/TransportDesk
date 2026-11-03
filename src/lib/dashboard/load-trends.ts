@@ -1,8 +1,8 @@
 import dbConnect from "@/lib/db";
-import { buildCollectionSeries, buildRevenueSeries, type KeyedAmount } from "@/lib/dashboard/build-trends";
-import { collectionBuckets, DASHBOARD_TIMEZONE, revenueBuckets, type ResolvedPeriod } from "@/lib/dashboard/periods";
+import { buildCollectionSeries, buildFinancialSeries, buildRevenueSeries, type KeyedAmount } from "@/lib/dashboard/build-trends";
+import { collectionBuckets, DASHBOARD_TIMEZONE, periodMonthBuckets, revenueBuckets, type ResolvedPeriod } from "@/lib/dashboard/periods";
 import { rupees, scopedMatch } from "@/lib/dashboard/shared";
-import { trendCompanyMatch } from "@/lib/dashboard/loader-scopes";
+import { billTaxableValueExpression, hireCostExpression } from "@/lib/dashboard/financial-expressions";
 import type { TopCustomer, TopRoute, Trends } from "@/lib/dashboard/types";
 import FreightBillModel from "@/models/Bill";
 import ConsignmentModel from "@/models/Consignment";
@@ -12,6 +12,7 @@ import PaymentModel from "@/models/Payment";
 interface KeyedRow {
   _id: string;
   amount: number;
+  selectedAmount?: number;
 }
 
 interface CustomerRow {
@@ -37,20 +38,40 @@ export async function loadTrends(companyId: string, period: ResolvedPeriod): Pro
   await dbConnect();
   const now = new Date();
   const months = revenueBuckets(period, now);
+  const financialMonths = periodMonthBuckets(period);
   const collections = collectionBuckets(period);
-  const monthFrom = months[0]?.from ?? period.from;
-  const monthTo = months.at(-1)?.to ?? period.to;
+  const historyFrom = months[0]?.from ?? period.from;
+  const historyTo = months.at(-1)?.to ?? period.to;
+  const monthFrom = new Date(Math.min(historyFrom.getTime(), period.from.getTime()));
+  const monthTo = new Date(Math.max(historyTo.getTime(), period.to.getTime()));
+  const inSelectedPeriod = (field: string) => ({
+    $and: [{ $gte: [`$${field}`, period.from] }, { $lt: [`$${field}`, period.to] }],
+  });
+  const taxableRevenue = billTaxableValueExpression();
+  const hireExpense = hireCostExpression();
   const [billed, hireCost, customers, routes, payments] = await Promise.all([
     FreightBillModel.aggregate<KeyedRow>([
-      { $match: trendCompanyMatch(companyId, monthFrom, monthTo, "billDate") },
-      { $group: { _id: monthGroup("billDate"), amount: { $sum: { $ifNull: ["$payableAmount", "$totalAmount"] } } } },
+      { $match: scopedMatch(companyId, { status: { $ne: "Cancelled" }, billDate: { $gte: monthFrom, $lt: monthTo } }) },
+      {
+        $group: {
+          _id: monthGroup("billDate"),
+          amount: { $sum: taxableRevenue },
+          selectedAmount: { $sum: { $cond: [inSelectedPeriod("billDate"), taxableRevenue, 0] } },
+        },
+      },
     ]),
     LorryHireModel.aggregate<KeyedRow>([
       { $match: scopedMatch(companyId, { status: { $ne: "Cancelled" }, lhcDate: { $gte: monthFrom, $lt: monthTo } }) },
-      { $group: { _id: monthGroup("lhcDate"), amount: { $sum: { $ifNull: ["$settlement.grossHire", 0] } } } },
+      {
+        $group: {
+          _id: monthGroup("lhcDate"),
+          amount: { $sum: hireExpense },
+          selectedAmount: { $sum: { $cond: [inSelectedPeriod("lhcDate"), hireExpense, 0] } },
+        },
+      },
     ]),
     FreightBillModel.aggregate<CustomerRow>([
-      { $match: trendCompanyMatch(companyId, period.from, period.to, "billDate") },
+      { $match: scopedMatch(companyId, { status: { $ne: "Cancelled" }, billDate: { $gte: period.from, $lt: period.to } }) },
       {
         $group: {
           _id: {
@@ -58,7 +79,7 @@ export async function loadTrends(companyId: string, period: ResolvedPeriod): Pro
             id: "$customerId",
           },
           name: { $first: "$billedTo.name" },
-          amount: { $sum: { $ifNull: ["$payableAmount", "$totalAmount"] } },
+          amount: { $sum: { $ifNull: ["$totalAmount", "$payableAmount"] } },
         },
       },
       { $sort: { amount: -1, name: 1 } },
@@ -94,6 +115,8 @@ export async function loadTrends(companyId: string, period: ResolvedPeriod): Pro
     ]),
   ]);
   const toKeyed = (rows: KeyedRow[]): KeyedAmount[] => rows.map((row) => ({ key: row._id, amount: rupees(row.amount) }));
+  const toSelectedKeyed = (rows: KeyedRow[]): KeyedAmount[] =>
+    rows.map((row) => ({ key: row._id, amount: rupees(row.selectedAmount ?? 0) }));
   const topCustomers: TopCustomer[] = customers.map((row) => ({
     id: row._id.id ? String(row._id.id) : null,
     name: row.name || "Unlinked customer",
@@ -104,6 +127,7 @@ export async function loadTrends(companyId: string, period: ResolvedPeriod): Pro
     : null;
   return {
     revenueVsCost: buildRevenueSeries(months, toKeyed(billed), toKeyed(hireCost)),
+    financials: buildFinancialSeries(financialMonths, toSelectedKeyed(billed), toSelectedKeyed(hireCost)),
     topCustomers,
     topRoutes,
     collections: {

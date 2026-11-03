@@ -14,22 +14,29 @@ interface KpiCardProps {
   inverse?: boolean;
   icon: string;
   detail?: string;
+  description?: string;
 }
 
-function KpiCard({ label, value, href, metric, inverse = false, icon, detail }: KpiCardProps) {
+function KpiCard({ label, value, href, metric, inverse = false, icon, detail, description }: KpiCardProps) {
   const delta = metric?.deltaPct;
   const positive = delta != null && (inverse ? delta < 0 : delta > 0);
   const negative = delta != null && (inverse ? delta > 0 : delta < 0);
   return (
     <Link
       href={href}
-      title={`${label}: ${value < 0 ? "−" : ""}${formatInr(value)}`}
+      title={`${label}: ${value < 0 ? "−" : ""}${formatInr(value)}${description ? `. ${description}` : ""}`}
       className="focus-ring block min-w-0 rounded-2xl"
     >
       <Card interactive className="h-full rounded-2xl border-neutral-200 bg-white p-3 shadow-sm dark:border-brand-800 dark:bg-brand-900 sm:p-4">
         <div className="flex items-start justify-between gap-2">
           <p className="min-w-0 text-xs font-medium leading-5 text-neutral-600 dark:text-neutral-400">{label}</p>
-          <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-sm font-bold text-accent-700 dark:bg-accent-950 dark:text-accent-300">
+          <span
+            aria-hidden={!description}
+            aria-label={description ? `${label} details: ${description}` : undefined}
+            title={description}
+            tabIndex={description ? 0 : undefined}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-sm font-bold text-accent-700 dark:bg-accent-950 dark:text-accent-300"
+          >
             {icon}
           </span>
         </div>
@@ -73,15 +80,16 @@ export function KpiGrid({
   if (hasKpis) {
     cards.push(
       { label: "Bookings", value: kpis.bookings.value, metric: kpis.bookings, href: "/admin/bookings", icon: "LR" },
-      { label: "Freight billed", value: kpis.freightBilled.value, metric: kpis.freightBilled, href: "/admin/billings", icon: "₹" },
+      { label: "Billed (incl. GST)", value: kpis.freightBilled.value, metric: kpis.freightBilled, href: "/admin/billings", icon: "₹" },
       { label: "Collected", value: kpis.collected.value, metric: kpis.collected, href: "/admin/customers", icon: "↓" },
       { label: "Paid to suppliers", value: kpis.paidToSuppliers.value, metric: kpis.paidToSuppliers, inverse: true, href: "/admin/suppliers", icon: "↑" },
       {
-        label: "Gross margin",
+        label: "Gross margin (per trip)",
         value: kpis.grossMargin.value,
         metric: kpis.grossMargin,
         href: "/admin/reports/trip-profit",
         icon: "↗",
+        description: "LR freight earned minus linked LHC hire cost, allocated per trip.",
         detail: `${kpis.grossMargin.trips} trips · ${kpis.grossMargin.marginPct == null ? "—" : `${kpis.grossMargin.marginPct}% margin`}`,
       }
     );

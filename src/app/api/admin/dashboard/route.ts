@@ -6,6 +6,7 @@ import { DEFAULT_PERIOD, PERIOD_KEYS, resolvePeriod, type PeriodKey } from "@/li
 import { loadActivity } from "@/lib/dashboard/load-activity";
 import { loadActions } from "@/lib/dashboard/load-actions";
 import { loadKpis } from "@/lib/dashboard/load-kpis";
+import { loadFinancials } from "@/lib/dashboard/load-financials";
 import { loadPayables } from "@/lib/dashboard/load-payables";
 import { loadPipeline } from "@/lib/dashboard/load-pipeline";
 import { loadReceivables } from "@/lib/dashboard/load-receivables";
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
   const results = await Promise.allSettled([
     (async () => { await dbConnect(); return loadSetup(auth.companyId); })(),
     loadKpis(auth.companyId, period),
+    loadFinancials(auth.companyId, period),
     loadReceivables(auth.companyId, period),
     loadPayables(auth.companyId, period),
     loadPipeline(auth.companyId, period),
@@ -59,7 +61,7 @@ export async function GET(request: NextRequest) {
     loadTrends(auth.companyId, period),
     loadActivity(auth.companyId, period),
   ]);
-  const [setupResult, kpisResult, receivablesResult, payablesResult, pipelineResult, actionsResult, trendsResult, activityResult] = results;
+  const [setupResult, kpisResult, financialsResult, receivablesResult, payablesResult, pipelineResult, actionsResult, trendsResult, activityResult] = results;
   const setupLoad = setupResult.status === "fulfilled" ? setupResult.value : null;
   if (setupResult.status === "rejected") console.error("Dashboard setup widget failed:", setupResult.reason);
   const pipelineLoad = settledWidget("pipeline", pipelineResult);
@@ -91,6 +93,7 @@ export async function GET(request: NextRequest) {
     company: setupLoad?.company ?? { name: null },
     setup: setupLoad?.setup ?? ({ error: true } satisfies Widget<SetupState>),
     kpis: settledWidget("kpis", kpisResult),
+    financials: settledWidget("financials", financialsResult),
     receivables: settledWidget("receivables", receivablesResult),
     payables: settledWidget("payables", payablesResult),
     pipeline: pipelineLoad && !("error" in pipelineLoad) ? pipelineLoad.pipeline : pipelineLoad,

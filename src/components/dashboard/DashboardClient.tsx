@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Card } from "@/components/ui/Card";
 import { DashboardHeader, type DashboardSelection } from "./DashboardHeader";
 import { KpiGrid } from "./KpiGrid";
+import { FinancialsSection } from "./FinancialsSection";
 import { PartySnapshotCard } from "./PartySnapshotCard";
 import { OperationsSection } from "./OperationsSection";
 import { ActionsSection } from "./ActionsSection";
@@ -235,6 +236,7 @@ export function DashboardClient() {
             <OnboardingCard setup={setup} />
           ) : (
             <>
+              <FinancialsSection financials={payload.financials} periodLabel={payload.meta.period.label} onRetry={retry} />
               <KpiGrid kpis={payload.kpis} receivables={payload.receivables} payables={payload.payables} onRetry={retry} />
               <section aria-label="Receivables and payables" className="grid gap-4 xl:grid-cols-2">
                 <PartySnapshotCard snapshot={payload.receivables} kind="customer" onRetry={retry} />

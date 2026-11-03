@@ -101,6 +101,23 @@ export interface Kpis {
   };
 }
 
+export interface ExpenseBreakdownItem {
+  key: string;
+  label: string;
+  /** Rupees, or null when the category is not tracked by this deployment. */
+  amount: number | null;
+}
+
+export interface Financials {
+  revenue: KpiValue;
+  expenses: {
+    total: KpiValue;
+    breakdown: ExpenseBreakdownItem[];
+  };
+  netProfit: KpiValue;
+  marginPct: number | null;
+}
+
 /* ------------------------- receivables / payables ------------------------- */
 
 export interface PartyRow {
@@ -256,8 +273,18 @@ export interface ActionCentre {
 export interface RevenueCostPoint {
   key: string;
   label: string;
+  /** Taxable bill revenue (pre-GST). */
   revenue: number;
+  /** Lorry hire cost excluding GST and TDS. */
   cost: number;
+}
+
+export interface FinancialTrendPoint {
+  key: string;
+  label: string;
+  revenue: number;
+  expenses: number;
+  netProfit: number;
 }
 
 export interface TopCustomer {
@@ -280,6 +307,8 @@ export interface CollectionPoint {
 
 export interface Trends {
   revenueVsCost: RevenueCostPoint[];
+  /** Values are restricted to the selected period and reconcile to its KPIs. */
+  financials: FinancialTrendPoint[];
   topCustomers: TopCustomer[];
   /** null: the LRs in the window carry no from / to data. */
   topRoutes: TopRoute[] | null;
@@ -308,6 +337,7 @@ export interface DashboardPayload {
   company: CompanyInfo;
   setup: Widget<SetupState>;
   kpis: Widget<Kpis>;
+  financials: Widget<Financials>;
   receivables: Widget<PartySnapshot>;
   payables: Widget<PartySnapshot>;
   pipeline: Widget<Pipeline>;

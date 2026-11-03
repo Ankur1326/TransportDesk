@@ -25,9 +25,7 @@ export function bookingPeriodMatch(companyId: string, range: DashboardRange) {
 }
 
 export function billPeriodMatch(companyId: string, range: DashboardRange) {
-  return {
-    $and: [companyFilter(companyId), { billDate: { $gte: range.previousFrom, $lt: range.to } }],
-  };
+  return financialsBillMatch(companyId, range);
 }
 
 export function paymentPeriodMatch(companyId: string, range: DashboardRange, direction: "received" | "paid") {
@@ -45,6 +43,36 @@ export function paymentPeriodMatch(companyId: string, range: DashboardRange, dir
 
 export function trendCompanyMatch(companyId: string, from: Date, to: Date, field: string) {
   return { $and: [companyFilter(companyId), { [field]: { $gte: from, $lt: to } }] };
+}
+
+export function financialsBillMatch(companyId: string, range: DashboardRange) {
+  return {
+    $and: [
+      companyFilter(companyId),
+      {
+        status: { $ne: "Cancelled" },
+        $or: [
+          { billDate: { $gte: range.from, $lt: range.to } },
+          { billDate: { $gte: range.previousFrom, $lt: range.previousTo } },
+        ],
+      },
+    ],
+  };
+}
+
+export function financialsHireMatch(companyId: string, range: DashboardRange) {
+  return {
+    $and: [
+      companyFilter(companyId),
+      {
+        status: { $ne: "Cancelled" },
+        $or: [
+          { lhcDate: { $gte: range.from, $lt: range.to } },
+          { lhcDate: { $gte: range.previousFrom, $lt: range.previousTo } },
+        ],
+      },
+    ],
+  };
 }
 
 export function liveHirePaymentMatch(companyId: string, range: DashboardRange) {

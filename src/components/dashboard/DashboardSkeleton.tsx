@@ -13,6 +13,9 @@ export function DashboardSkeleton() {
           <Skeleton height={40} />
         </div>
       </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {Array.from({ length: 3 }, (_, index) => <Skeleton key={index} height={180} borderRadius={16} />)}
+      </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6">
         {Array.from({ length: 7 }, (_, index) => <Skeleton key={index} height={128} borderRadius={16} />)}
       </div>

@@ -324,6 +324,11 @@ export function revenueBuckets(period: ResolvedPeriod, now: Date): TrendBucket[]
   return monthBuckets(startOfIstMonth(endMonth, -5), startOfIstMonth(endMonth, 1));
 }
 
+/** Monthly buckets clipped by the selected range's coverage, with no history fallback. */
+export function periodMonthBuckets(period: ResolvedPeriod): TrendBucket[] {
+  return monthBuckets(period.from, period.to);
+}
+
 /**
  * Day buckets when the window is at most 31 days, else Monday-start week
  * buckets clipped to the window. Used by the "Collections" trend.

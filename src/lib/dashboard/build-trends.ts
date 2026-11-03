@@ -3,7 +3,7 @@
  */
 import { fromPaise, paise } from "@/lib/ledger/build-ledger";
 import { bucketIndex, parseIstDate, type TrendBucket } from "@/lib/dashboard/periods";
-import type { CollectionPoint, RevenueCostPoint } from "@/lib/dashboard/types";
+import type { CollectionPoint, FinancialTrendPoint, RevenueCostPoint } from "@/lib/dashboard/types";
 
 /** Rows the aggregations return, keyed `YYYY-MM` (months) or `YYYY-MM-DD` (days) in IST. */
 export interface KeyedAmount {
@@ -30,6 +30,32 @@ export function buildRevenueSeries(
     revenue: fromPaise(rev.get(b.key) ?? 0),
     cost: fromPaise(cst.get(b.key) ?? 0),
   }));
+}
+
+/** Selected-period monthly values, including signed profit, accumulated in paise. */
+export function buildFinancialSeries(
+  buckets: readonly TrendBucket[],
+  revenue: readonly KeyedAmount[],
+  expenses: readonly KeyedAmount[]
+): FinancialTrendPoint[] {
+  const sum = (rows: readonly KeyedAmount[]) => {
+    const totals = new Map<string, number>();
+    for (const row of rows) totals.set(row.key, (totals.get(row.key) ?? 0) + paise(row.amount));
+    return totals;
+  };
+  const revenueByMonth = sum(revenue);
+  const expensesByMonth = sum(expenses);
+  return buckets.map((bucket) => {
+    const revenuePaise = revenueByMonth.get(bucket.key) ?? 0;
+    const expensePaise = expensesByMonth.get(bucket.key) ?? 0;
+    return {
+      key: bucket.key,
+      label: bucket.label,
+      revenue: fromPaise(revenuePaise),
+      expenses: fromPaise(expensePaise),
+      netProfit: fromPaise(revenuePaise - expensePaise),
+    };
+  });
 }
 
 /** Rolls per-day rows into day or week buckets. Days outside every bucket are ignored. */

@@ -17,7 +17,8 @@ type Totals = { current?: number; previous?: number };
 async function billTotals(companyId: string, range: DashboardRange): Promise<Totals> {
   const [row] = await FreightBillModel.aggregate<Totals>([
     { $match: billPeriodMatch(companyId, range) },
-    ...rangeTotalsPipeline("billDate", { $ifNull: ["$payableAmount", "$totalAmount"] }, range).slice(1),
+    // totalAmount is the inclusive invoice value; payableAmount is reduced by the advance.
+    ...rangeTotalsPipeline("billDate", { $ifNull: ["$totalAmount", "$payableAmount"] }, range).slice(1),
   ]);
   return row ?? { current: 0, previous: 0 };
 }

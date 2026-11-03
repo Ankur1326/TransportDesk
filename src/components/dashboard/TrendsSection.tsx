@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { formatInr } from "@/lib/ledger/format";
 import { chartScale, compactInr } from "@/lib/dashboard/ui-helpers";
-import type { Trends } from "@/lib/dashboard/types";
+import type { FinancialTrendPoint, Trends } from "@/lib/dashboard/types";
 import { DashboardPanel, WidgetUnavailable } from "./DashboardPrimitives";
 
 const WIDTH = 560;
@@ -12,6 +12,10 @@ const HEIGHT = 170;
 const CHART_TOP = 12;
 const CHART_HEIGHT = 112;
 const CHART_BOTTOM = 140;
+
+function signedInr(value: number) {
+  return `${value < 0 ? "−" : ""}${formatInr(value)}`;
+}
 
 function RevenueCostChart({ trends }: { trends: Trends }) {
   const [selected, setSelected] = useState<number | null>(null);
@@ -24,14 +28,14 @@ function RevenueCostChart({ trends }: { trends: Trends }) {
   return (
     <div>
       <div className="mb-3 flex flex-wrap gap-4 text-[11px] text-neutral-600 dark:text-neutral-300">
-        <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-brand-600" aria-hidden="true" />Freight billed</span>
+        <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-brand-600" aria-hidden="true" />Taxable revenue</span>
         <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-accent-500" aria-hidden="true" />Hire cost</span>
       </div>
       {points.length ? (
         <svg
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           role="img"
-          aria-label="Grouped bar chart comparing monthly freight billed with lorry hire cost"
+          aria-label="Grouped bar chart comparing monthly taxable revenue with lorry hire cost"
           className="h-44 w-full overflow-visible"
           preserveAspectRatio="none"
         >
@@ -42,7 +46,7 @@ function RevenueCostChart({ trends }: { trends: Trends }) {
             const costHeight = scale.position(point.cost);
             const revenueX = center - barWidth - 2;
             const costX = center + 2;
-            const label = `${point.label}: freight billed ${formatInr(point.revenue)}, hire cost ${formatInr(point.cost)}`;
+            const label = `${point.label}: revenue ${formatInr(point.revenue)}, hire cost ${formatInr(point.cost)}`;
             return (
               <g key={point.key} onClick={() => setSelected(index)} className="cursor-pointer">
                 <rect
@@ -80,13 +84,104 @@ function RevenueCostChart({ trends }: { trends: Trends }) {
       ) : <p className="py-8 text-center text-xs text-neutral-500">No billed freight data for this period.</p>}
       {selectedPoint && (
         <p aria-live="polite" className="mt-1 text-center text-xs text-neutral-600 dark:text-neutral-300">
-          {selectedPoint.label} · Freight {formatInr(selectedPoint.revenue)} · Hire {formatInr(selectedPoint.cost)}
+        {selectedPoint.label} · Revenue {formatInr(selectedPoint.revenue)} · Hire {formatInr(selectedPoint.cost)}
         </p>
       )}
       <table className="sr-only">
-        <caption>Monthly freight billed and hire cost</caption>
-        <thead><tr><th>Month</th><th>Freight billed</th><th>Hire cost</th></tr></thead>
+        <caption>Monthly taxable revenue and hire cost</caption>
+        <thead><tr><th>Month</th><th>Taxable revenue</th><th>Hire cost</th></tr></thead>
         <tbody>{points.map((point) => <tr key={point.key}><th>{point.label}</th><td>{formatInr(point.revenue)}</td><td>{formatInr(point.cost)}</td></tr>)}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function FinancialTrendChart({ points }: { points: FinancialTrendPoint[] }) {
+  const [selected, setSelected] = useState<number | null>(null);
+  const baseline = 96;
+  const chartHeight = 62;
+  const maxMagnitude = Math.max(1, ...points.flatMap((point) => [point.revenue, point.expenses, Math.abs(point.netProfit)]));
+  const slot = WIDTH / Math.max(points.length, 1);
+  const barWidth = Math.min(14, slot * 0.18);
+  const selectedPoint = selected == null ? null : points[selected];
+  const series = [
+    { key: "revenue", label: "Revenue", color: "var(--color-brand-600, #2563eb)" },
+    { key: "expenses", label: "Expenses", color: "var(--color-accent-500, #f97316)" },
+    { key: "netProfit", label: "Net profit", color: "var(--color-success-600, #16a34a)" },
+  ] as const;
+  const geometry = (value: number) => {
+    const height = Math.abs(value / maxMagnitude) * chartHeight;
+    return { y: value >= 0 ? baseline - height : baseline, height: Math.max(1, height) };
+  };
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap gap-4 text-[11px] text-neutral-600 dark:text-neutral-300">
+        {series.map((item) => (
+          <span key={item.key} className="flex items-center gap-1.5">
+            <i className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: item.color }} aria-hidden="true" />
+            {item.label}
+          </span>
+        ))}
+      </div>
+      {points.length ? (
+        <svg
+          viewBox={`0 0 ${WIDTH} 178`}
+          role="img"
+          aria-label="Grouped monthly chart of taxable revenue, recorded expenses and net profit for the selected period"
+          className="h-44 w-full overflow-visible"
+          preserveAspectRatio="none"
+        >
+          <line x1="0" x2={WIDTH} y1={baseline} y2={baseline} stroke="currentColor" className="text-neutral-300 dark:text-brand-700" />
+          {points.map((point, index) => {
+            const values = [point.revenue, point.expenses, point.netProfit];
+            const center = slot * (index + 0.5);
+            const groupWidth = barWidth * 3 + 4;
+            const start = center - groupWidth / 2;
+            const summary = `${point.label}: revenue ${formatInr(point.revenue)}, expenses ${formatInr(point.expenses)}, net profit ${signedInr(point.netProfit)}`;
+            return (
+              <g key={point.key} onClick={() => setSelected(index)} className="cursor-pointer">
+                {series.map((item, seriesIndex) => {
+                  const value = values[seriesIndex];
+                  const { y, height } = geometry(value);
+                  return (
+                    <rect
+                      key={item.key}
+                      x={start + seriesIndex * (barWidth + 2)}
+                      y={y}
+                      width={barWidth}
+                      height={height}
+                      rx="2"
+                      fill={item.color}
+                      tabIndex={0}
+                      aria-label={`${point.label}: ${item.label} ${item.key === "netProfit" ? signedInr(value) : formatInr(value)}`}
+                      onFocus={() => setSelected(index)}
+                    >
+                      <title>{summary}</title>
+                    </rect>
+                  );
+                })}
+                <text x={center} y="174" textAnchor="middle" className="fill-neutral-500 text-[10px] dark:fill-neutral-400">{point.label}</text>
+              </g>
+            );
+          })}
+          <text x="0" y="12" className="fill-neutral-400 text-[9px]">{compactInr(maxMagnitude)}</text>
+          <text x="0" y="171" className="fill-neutral-400 text-[9px]">0</text>
+        </svg>
+      ) : <p className="py-8 text-center text-xs text-neutral-500">No financial data for this period.</p>}
+      {selectedPoint && (
+        <p aria-live="polite" className="mt-1 text-center text-xs text-neutral-600 dark:text-neutral-300">
+          {selectedPoint.label} · Revenue {formatInr(selectedPoint.revenue)} · Expenses {formatInr(selectedPoint.expenses)} · Net profit {signedInr(selectedPoint.netProfit)}
+        </p>
+      )}
+      <table className="sr-only">
+        <caption>Revenue, expenses and net profit by month in the selected period</caption>
+        <thead><tr><th>Month</th><th>Revenue</th><th>Expenses</th><th>Net profit</th></tr></thead>
+        <tbody>{points.map((point) => (
+          <tr key={point.key}>
+            <th>{point.label}</th><td>{formatInr(point.revenue)}</td><td>{formatInr(point.expenses)}</td><td>{signedInr(point.netProfit)}</td>
+          </tr>
+        ))}</tbody>
       </table>
     </div>
   );
@@ -197,46 +292,56 @@ function CollectionsChart({ trends }: { trends: Trends }) {
   );
 }
 
-export function TrendsSection({ trends, onRetry }: { trends: Trends | { error: true }; onRetry: () => void }) {
+export function TrendsSection({ trends, onRetry }: { trends: Trends | { error: true } | null | undefined; onRetry: () => void }) {
+  if (!trends || "error" in trends) {
+    return (
+      <section aria-labelledby="trends-title" className="space-y-4">
+        <h2 id="trends-title" className="text-lg font-bold tracking-tight text-neutral-950 dark:text-white">Trends</h2>
+        <WidgetUnavailable onRetry={onRetry} />
+      </section>
+    );
+  }
+  const financialPoints = Array.isArray(trends.financials) ? trends.financials : null;
   return (
     <section aria-labelledby="trends-title" className="space-y-4">
       <h2 id="trends-title" className="text-lg font-bold tracking-tight text-neutral-950 dark:text-white">Trends</h2>
-      {"error" in trends ? <WidgetUnavailable onRetry={onRetry} /> : (
-        <div className="grid gap-4 xl:grid-cols-2">
-          <DashboardPanel title="Freight billed vs hire cost" subtitle="Monthly totals">
-            <RevenueCostChart trends={trends} />
-          </DashboardPanel>
-          <DashboardPanel title="Collections" subtitle={`Received payments · by ${trends.collections.unit}`}>
-            <CollectionsChart trends={trends} />
-          </DashboardPanel>
-          <DashboardPanel title="Top customers" subtitle="By billed amount">
-            <RankBars
-              title="Customers"
-              ariaLabel="Top customers by billed amount"
-              valueLabel="Billed amount"
-              rows={trends.topCustomers.map((customer) => ({
-                label: customer.name,
-                value: customer.amount,
-                href: customer.id ? `/admin/customers?partyId=${encodeURIComponent(customer.id)}` : "/admin/customers",
-              }))}
-              formatValue={formatInr}
-            />
-          </DashboardPanel>
-          <DashboardPanel title="Top routes" subtitle="By LR count">
-            <RankBars
-              title="Routes"
-              ariaLabel="Top routes by LR count"
-              valueLabel="Route count"
-              rows={(trends.topRoutes ?? []).map((route) => ({
-                label: `${route.from} → ${route.to}`,
-                value: route.count,
-                href: "/admin/bookings",
-              }))}
-              formatValue={(value) => `${value} LRs`}
-            />
-          </DashboardPanel>
-        </div>
-      )}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <DashboardPanel title="Revenue vs Expenses vs Net profit" subtitle="Monthly totals within the selected period">
+          {financialPoints ? <FinancialTrendChart points={financialPoints} /> : <WidgetUnavailable onRetry={onRetry} />}
+        </DashboardPanel>
+        <DashboardPanel title="Taxable revenue vs hire cost" subtitle="Monthly totals; revenue excludes GST">
+          <RevenueCostChart trends={trends} />
+        </DashboardPanel>
+        <DashboardPanel title="Collections" subtitle={`Received payments · by ${trends.collections.unit}`}>
+          <CollectionsChart trends={trends} />
+        </DashboardPanel>
+        <DashboardPanel title="Top customers" subtitle="By billed amount">
+          <RankBars
+            title="Customers"
+            ariaLabel="Top customers by billed amount"
+            valueLabel="Billed amount"
+            rows={trends.topCustomers.map((customer) => ({
+              label: customer.name,
+              value: customer.amount,
+              href: customer.id ? `/admin/customers?partyId=${encodeURIComponent(customer.id)}` : "/admin/customers",
+            }))}
+            formatValue={formatInr}
+          />
+        </DashboardPanel>
+        <DashboardPanel title="Top routes" subtitle="By LR count">
+          <RankBars
+            title="Routes"
+            ariaLabel="Top routes by LR count"
+            valueLabel="Route count"
+            rows={(trends.topRoutes ?? []).map((route) => ({
+              label: `${route.from} → ${route.to}`,
+              value: route.count,
+              href: "/admin/bookings",
+            }))}
+            formatValue={(value) => `${value} LRs`}
+          />
+        </DashboardPanel>
+      </div>
     </section>
   );
 }
