@@ -88,6 +88,7 @@ lorryHireTerms: string;
   chargeDefinitions: ChargeDefinition[];
   /** When true, an LR can't go on a bill until its POD is Received or Submitted. Default false. */
   requirePodBeforeBilling: boolean;
+  docExpiryWarnDays: number;
 }
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettingsValues = {
@@ -133,6 +134,7 @@ lorryHireTerms: "",
   ) as Record<LRFormat, LRFormatBackground>,
   chargeDefinitions: DEFAULT_CHARGE_DEFINITIONS,
   requirePodBeforeBilling: false,
+  docExpiryWarnDays: 30,
 };
 
 export interface CompanySettingsResponse {

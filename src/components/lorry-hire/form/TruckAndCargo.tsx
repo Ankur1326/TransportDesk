@@ -5,7 +5,7 @@ import { Button } from "@/components/Button";
 import { Plus, Trash2, Truck } from "@/components/icons";
 import { IconSelect } from "@/components/ui/IconSelect";
 import { TruckTypeIcon } from "@/components/lorry-hire/TruckTypeIcon";
-import { lookupVehicle, type LorryHireRecord } from "@/lib/lorry-hire/api";
+import { lookupDriver, lookupVehicle, type DriverLookupResult, type VehicleLookupResult } from "@/lib/lorry-hire/api";
 import { normalizeVehicleNumber, WEIGHT_UNITS } from "@/lib/lorry-hire/constants";
 import { truckTypeChoices } from "@/lib/lorry-hire/truck-types";
 import type { LorryHireFormValues } from "@/lib/lorry-hire/validations";
@@ -13,8 +13,6 @@ import { CheckField, FieldGrid, FormBlock, NumField, SelectField, SubHeading, Te
 import { LrPickerDialog } from "./LrPickerDialog";
 
 type V = LorryHireFormValues;
-type Last = Partial<LorryHireRecord>;
-
 /** Truck type with a picture of each type. A saved value that isn't in the list stays selectable. */
 function TruckTypeField() {
   const { control } = useFormContext<V>();
@@ -39,27 +37,57 @@ function TruckTypeField() {
 
 export function TruckSection() {
   const { setValue, getValues } = useFormContext<V>();
-  const [hint, setHint] = useState<Last | null>(null);
+  const [vehicleLookup, setVehicleLookup] = useState<VehicleLookupResult | null>(null);
+  const [driverLookup, setDriverLookup] = useState<DriverLookupResult | null>(null);
+  const [vehicleWarnings, setVehicleWarnings] = useState<string[]>([]);
+  const [driverWarnings, setDriverWarnings] = useState<string[]>([]);
+  const [lookupError, setLookupError] = useState("");
+  const [savingMaster, setSavingMaster] = useState(false);
+  const hint = vehicleLookup?.lastContract ?? null;
 
   // Typing a known truck number offers its last driver / owner / type in one tap.
   const checkVehicle = async () => {
     const vn = normalizeVehicleNumber(getValues("truck.vehicleNumber") ?? "");
-    if (vn.length < 6) return setHint(null);
+    if (vn.length < 6) {
+      setVehicleLookup(null);
+      setVehicleWarnings([]);
+      return;
+    }
     try {
-      const last = await lookupVehicle(vn);
-      setHint(last && (last.driver?.name || last.owner?.name || last.truck?.truckType) ? last : null);
-    } catch {
-      setHint(null);
+      setLookupError("");
+      const result = await lookupVehicle(vn);
+      setVehicleLookup(result);
+      setVehicleWarnings(result.expiredDocuments);
+    } catch (error) {
+      setLookupError(error instanceof Error ? error.message : "Unable to look up this vehicle.");
+    }
+  };
+
+  const checkDriver = async () => {
+    const mobile = getValues("driver.mobile") ?? "";
+    const name = getValues("driver.name") ?? "";
+    if (mobile.replace(/\D/g, "").length < 10 && !name.trim()) {
+      setDriverLookup(null);
+      setDriverWarnings([]);
+      return;
+    }
+    try {
+      setLookupError("");
+      const result = await lookupDriver(mobile, name);
+      setDriverLookup(result);
+      setDriverWarnings(result.expiredDocuments);
+    } catch (error) {
+      setLookupError(error instanceof Error ? error.message : "Unable to look up this driver.");
     }
   };
 
   const applyHint = () => {
-    if (!hint) return;
+    if (!vehicleLookup) return;
     const o = { shouldDirty: true };
-    if (hint.driver) setValue("driver", { name: "", mobile: "", licenseNumber: "", ...hint.driver, licenseExpiry: hint.driver.licenseExpiry?.slice(0, 10) ?? "" }, o);
-    if (hint.owner) setValue("owner", { sameAsSupplier: false, name: "", mobile: "", pan: "", address: "", ...hint.owner }, o);
-    if (hint.insurance) setValue("insurance", { company: "", policyNumber: "", ...hint.insurance, validUpto: hint.insurance.validUpto?.slice(0, 10) ?? "" }, o);
-    if (hint.truck) {
+    if (hint?.driver) setValue("driver", { name: "", mobile: "", licenseNumber: "", ...hint.driver, licenseExpiry: hint.driver.licenseExpiry?.slice(0, 10) ?? "" }, o);
+    if (hint?.owner) setValue("owner", { sameAsSupplier: false, name: "", mobile: "", pan: "", address: "", ...hint.owner }, o);
+    if (hint?.insurance) setValue("insurance", { company: "", policyNumber: "", ...hint.insurance, validUpto: hint.insurance.validUpto?.slice(0, 10) ?? "" }, o);
+    if (hint?.truck) {
       const t = hint.truck;
       setValue("truck.truckType", t.truckType ?? "", o);
       setValue("truck.capacity", t.capacity ?? 0, o);
@@ -69,29 +97,110 @@ export function TruckSection() {
       setValue("truck.permitNo", t.permitNo ?? "", o);
       setValue("truck.isOversize", !!t.isOversize, o);
     }
-    setHint(null);
+    const master = vehicleLookup.master;
+    if (master) {
+      setValue("truck.truckType", master.truckType, o);
+      setValue("truck.capacity", master.capacity, o);
+      setValue("truck.capacityUnit", master.capacityUnit, o);
+      setValue("truck.chassisNo", master.chassisNo, o);
+      setValue("truck.engineNo", master.engineNo, o);
+    }
+    if (master?.defaultDriverId && !hint?.driver) {
+      setLookupError("This vehicle has a default driver assigned. Select that driver from the driver master to fill their details.");
+    }
+    setVehicleLookup(null);
+  };
+
+  const saveVehicleToMaster = async () => {
+    const registrationNumber = normalizeVehicleNumber(getValues("truck.vehicleNumber") ?? "");
+    if (registrationNumber.length < 6) return;
+    setSavingMaster(true);
+    setLookupError("");
+    try {
+      const response = await fetch("/api/admin/fleet/vehicles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          registrationNumber,
+          ownership: "Market",
+          truckType: getValues("truck.truckType") ?? "",
+          capacity: Number(getValues("truck.capacity")) || 0,
+          capacityUnit: getValues("truck.capacityUnit") ?? "MTS",
+          chassisNo: getValues("truck.chassisNo") ?? "",
+          engineNo: getValues("truck.engineNo") ?? "",
+          status: "Active",
+        }),
+      });
+      const result = await response.json() as { success?: boolean; message?: string; data?: VehicleLookupResult["master"] };
+      if (!response.ok || !result.success || !result.data) throw new Error(result.message || "Unable to save vehicle to master.");
+      setVehicleLookup((current) => current ? { ...current, master: result.data ?? null } : current);
+    } catch (error) {
+      setLookupError(error instanceof Error ? error.message : "Unable to save vehicle to master.");
+    } finally {
+      setSavingMaster(false);
+    }
+  };
+
+  const saveDriverToMaster = async () => {
+    setSavingMaster(true);
+    setLookupError("");
+    try {
+      const response = await fetch("/api/admin/fleet/drivers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: getValues("driver.name") ?? "",
+          mobile: getValues("driver.mobile") ?? "",
+          licenseNumber: getValues("driver.licenseNumber") ?? "",
+          licenseExpiry: getValues("driver.licenseExpiry") ?? "",
+          status: "Active",
+        }),
+      });
+      const result = await response.json() as { success?: boolean; message?: string; data?: DriverLookupResult["master"] };
+      if (!response.ok || !result.success || !result.data) throw new Error(result.message || "Unable to save driver to master.");
+      setDriverLookup((current) => current ? { ...current, master: result.data ?? null } : current);
+    } catch (error) {
+      setLookupError(error instanceof Error ? error.message : "Unable to save driver to master.");
+    } finally {
+      setSavingMaster(false);
+    }
+  };
+
+  const applyDriverLookup = () => {
+    if (!driverLookup) return;
+    const driver = driverLookup.master ?? driverLookup.derived;
+    if (!driver) return;
+    setValue("driver", {
+      name: driver.name ?? "",
+      mobile: driver.mobile ?? "",
+      licenseNumber: driver.licenseNumber ?? "",
+      licenseExpiry: "licenseExpiry" in driver ? driver.licenseExpiry?.slice(0, 10) ?? "" : "",
+    }, { shouldDirty: true });
   };
 
   return (
     <FormBlock id="truck" title="Truck & driver" hint="Type the truck number first — we'll offer its last details.">
       <FieldGrid>
-        <div onBlur={checkVehicle}>
+        <div onBlur={checkVehicle} onChange={() => { setVehicleLookup(null); setVehicleWarnings([]); }}>
           <TextField name="truck.vehicleNumber" label="Truck number" required upper placeholder="MH23AU6718" />
         </div>
         <TruckTypeField />
         <NumField name="truck.capacity" label="Capacity" />
         <SelectField name="truck.capacityUnit" label="Unit" options={WEIGHT_UNITS} />
 
-        {hint && (
+        {vehicleLookup && (
           <div className="col-span-full flex flex-wrap items-center justify-between gap-2 border border-brand-200 bg-brand-50 px-3 py-2">
             <p className="flex items-center gap-2 text-body-sm text-neutral-800">
               <Truck className="h-4 w-4 text-brand-700" aria-hidden="true" />
-              Hired before ({hint.lhcNo}):{" "}
-              {[hint.driver?.name && `driver ${hint.driver.name}`, hint.owner?.name && `owner ${hint.owner.name}`, hint.truck?.truckType].filter(Boolean).join(" · ")}
+              {vehicleLookup.master
+                ? `Vehicle master found: ${vehicleLookup.master.registrationNumber} · ${vehicleLookup.master.ownership}`
+                : hint ? `Historical LHC found (${hint.lhcNo})` : "No vehicle master or previous LHC found."}
+              {hint && ` · ${[hint.driver?.name && `driver ${hint.driver.name}`, hint.owner?.name && `owner ${hint.owner.name}`, hint.truck?.truckType].filter(Boolean).join(" · ")}`}
             </p>
             <div className="flex gap-2">
-              <Button type="button" size="sm" onClick={applyHint}>Use last details</Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setHint(null)}>Dismiss</Button>
+              {(vehicleLookup.master || hint) && <Button type="button" size="sm" onClick={applyHint}>Use details</Button>}
+              {!vehicleLookup.master && <Button type="button" size="sm" variant="outline" isLoading={savingMaster} onClick={() => void saveVehicleToMaster()}>Save to master (Market)</Button>}
+              <Button type="button" size="sm" variant="ghost" onClick={() => setVehicleLookup(null)}>Dismiss</Button>
             </div>
           </div>
         )}
@@ -102,10 +211,37 @@ export function TruckSection() {
         <CheckField name="truck.isOversize" label="Oversize load" className="self-end" />
 
         <SubHeading>Driver</SubHeading>
-        <TextField name="driver.name" label="Driver name" />
-        <TextField name="driver.mobile" label="Driver mobile" type="tel" />
+        <div className="contents" onChange={() => { setDriverLookup(null); setDriverWarnings([]); }}>
+          <div onBlur={checkDriver}>
+            <TextField name="driver.name" label="Driver name" />
+          </div>
+          <div onBlur={checkDriver}>
+            <TextField name="driver.mobile" label="Driver mobile" type="tel" />
+          </div>
+        </div>
         <TextField name="driver.licenseNumber" label="Licence number" upper />
         <TextField name="driver.licenseExpiry" label="Licence valid upto" type="date" />
+
+        {driverLookup && (
+          <div className="col-span-full flex flex-wrap items-center justify-between gap-2 border border-brand-200 bg-brand-50 px-3 py-2">
+            <p className="text-body-sm text-neutral-800">
+              {driverLookup.master ? `Driver master found: ${driverLookup.master.name}` : driverLookup.derived ? `Historical driver found: ${driverLookup.derived.name}` : "No driver master or previous LHC found."}
+            </p>
+            {(driverLookup.master || driverLookup.derived) && <Button type="button" size="sm" onClick={applyDriverLookup}>Use details</Button>}
+            {!driverLookup.master && <Button type="button" size="sm" variant="outline" isLoading={savingMaster} onClick={() => void saveDriverToMaster()}>Save to master</Button>}
+          </div>
+        )}
+        {vehicleWarnings.length ? (
+          <div className="col-span-full border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="status">
+            Warning: this vehicle has expired documents: {vehicleWarnings.join(", ")}. This will not prevent saving the LHC.
+          </div>
+        ) : null}
+        {driverWarnings.length ? (
+          <div className="col-span-full border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="status">
+            Warning: this driver has expired documents: {driverWarnings.join(", ")}. This will not prevent saving the LHC.
+          </div>
+        ) : null}
+        {lookupError && <p className="col-span-full text-sm text-red-700" role="alert">{lookupError}</p>}
 
         <SubHeading>Insurance</SubHeading>
         <TextField name="insurance.company" label="Insurance company" className="sm:col-span-2" />

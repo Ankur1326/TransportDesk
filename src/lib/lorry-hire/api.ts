@@ -1,5 +1,6 @@
 import axios from "axios";
 import type { PdfCacheEntry } from "@/lib/pdf-url";
+import type { DriverMaster, VehicleMaster } from "@/lib/fleet-types";
 import type { LorryHireFormValues, LorryHirePaymentValues } from "./validations";
 import type {
   ChargeKind,
@@ -113,6 +114,18 @@ export interface LorryHireRecord {
   updatedAt: string;
 }
 
+export interface VehicleLookupResult {
+  master: VehicleMaster | null;
+  lastContract: Partial<LorryHireRecord> | null;
+  expiredDocuments: string[];
+}
+
+export interface DriverLookupResult {
+  master: DriverMaster | null;
+  derived: { name: string; mobile?: string; licenseNumber?: string; licenseExpiry?: string; trips: number; vehicles: string[]; lastTrip: string } | null;
+  expiredDocuments: string[];
+}
+
 interface Envelope<T> {
   success: boolean;
   message?: string;
@@ -173,10 +186,17 @@ export async function updateLorryHire(id: string, values: LorryHireFormValues): 
   return data.data;
 }
 
-/** The most recent contract for a truck, or null if it was never hired. */
-export async function lookupVehicle(vehicle: string): Promise<Partial<LorryHireRecord> | null> {
-  const { data } = await axios.get<Envelope<Partial<LorryHireRecord> | null>>(`${BASE}/lookup`, {
+/** Company master details first, plus the latest LHC snapshot for legacy hints. */
+export async function lookupVehicle(vehicle: string): Promise<VehicleLookupResult> {
+  const { data } = await axios.get<Envelope<VehicleLookupResult>>(`${BASE}/lookup`, {
     params: { vehicle },
+  });
+  return data.data;
+}
+
+export async function lookupDriver(mobile: string, name: string): Promise<DriverLookupResult> {
+  const { data } = await axios.get<Envelope<DriverLookupResult>>(`${BASE}/driver-lookup`, {
+    params: { mobile, name },
   });
   return data.data;
 }

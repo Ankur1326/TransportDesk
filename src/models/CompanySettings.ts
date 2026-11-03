@@ -1,4 +1,5 @@
 import mongoose, { model, Schema, type Document, type Model } from "mongoose";
+import { dropStaleModel } from "@/lib/model-guard";
 import { COMPANY_FIELD_VISIBILITY_KEYS, DEFAULT_COMPANY_SETTINGS, DEFAULT_FIELD_VISIBILITY, LR_FORMATS, type CompanySettingsValues } from "@/lib/company-settings";
 import type { ChargeDefinition } from "@/lib/charges";
 
@@ -70,6 +71,7 @@ lorryHireTerms: { type: String, default: "", maxlength: 10000 },
       default: DEFAULT_COMPANY_SETTINGS.lrFormatBackgrounds,
     },
     requirePodBeforeBilling: { type: Boolean, default: false },
+    docExpiryWarnDays: { type: Number, default: 30, min: 0, max: 365 },
     chargeDefinitions: {
       type: [
         new Schema<ChargeDefinition>(
@@ -91,6 +93,8 @@ lorryHireTerms: { type: String, default: "", maxlength: 10000 },
   },
   { timestamps: true }
 );
+
+dropStaleModel("CompanySettings", "docExpiryWarnDays");
 
 const CompanySettingsModel: Model<ICompanySettings> =
   (mongoose.models.CompanySettings as Model<ICompanySettings>) ||

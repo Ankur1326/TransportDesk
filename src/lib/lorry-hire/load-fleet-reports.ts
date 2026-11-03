@@ -33,7 +33,7 @@ interface HireLean {
   from?: { location?: string };
   to?: { location?: string };
   owner?: { name?: string };
-  driver?: { name?: string; mobile?: string; licenseNumber?: string };
+  driver?: { name?: string; mobile?: string; licenseNumber?: string; licenseExpiry?: Date };
   truck?: { vehicleNumber?: string; truckType?: string };
   settlement?: { grossHire?: number };
   items?: { consignmentId?: mongoose.Types.ObjectId; cnNo: string }[];
@@ -55,7 +55,7 @@ export async function loadReportContracts(
 
   const hires = (await LorryHireModel.find({ $and: filters })
     .select(
-      "lhcNo lhcDate status supplier.name from.location to.location owner.name driver truck.vehicleNumber truck.truckType settlement.grossHire items.consignmentId items.cnNo"
+      "lhcNo lhcDate status supplier.name from.location to.location owner.name driver.name driver.mobile driver.licenseNumber driver.licenseExpiry truck.vehicleNumber truck.truckType settlement.grossHire items.consignmentId items.cnNo"
     )
     .sort({ lhcDate: -1 })
     .limit(REPORT_CONTRACT_CAP)
@@ -75,6 +75,7 @@ export async function loadReportContracts(
     driverName: h.driver?.name,
     driverMobile: h.driver?.mobile,
     licenseNumber: h.driver?.licenseNumber,
+    licenseExpiry: h.driver?.licenseExpiry?.toISOString(),
     grossHire: h.settlement?.grossHire ?? 0,
     items: (h.items ?? []).map((i) => ({
       consignmentId: i.consignmentId ? String(i.consignmentId) : undefined,

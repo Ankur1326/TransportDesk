@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 import dbConnect from "@/lib/db";
 import LorryHireModel from "@/models/LorryHire";
+import VehicleModel from "@/models/Vehicle";
 import { companyFilter, requireCompany } from "@/lib/company-scope";
 import { normalizeVehicleNumber } from "@/lib/lorry-hire/constants";
 import { fail } from "@/lib/lorry-hire/server";
+import { getDocumentStatus } from "@/lib/document-status";
+import { VEHICLE_DOCUMENT_KEYS } from "@/lib/fleet-types";
+import { loadCompanySettings } from "@/lib/company-settings-server";
 
 /**
  * GET /api/admin/lorry-hires/lookup?vehicle=MH23AU6718
@@ -21,14 +25,36 @@ export async function GET(request: NextRequest) {
 
   try {
     await dbConnect();
-    const last = await LorryHireModel.findOne({
+    const [master, last, settings] = await Promise.all([
+      VehicleModel.findOne({
+        $and: [companyFilter(auth.companyId), { registrationNumber: vehicle }],
+      }).lean(),
+      LorryHireModel.findOne({
       $and: [companyFilter(auth.companyId), { "truck.vehicleNumber": vehicle, status: { $ne: "Cancelled" } }],
     })
       .sort({ lhcDate: -1, createdAt: -1 })
       .select("lhcNo lhcDate driver owner truck insurance supplier bank")
-      .lean();
+      .lean(),
+      loadCompanySettings(auth.companyId),
+    ]);
 
-    return NextResponse.json({ success: true, data: last ?? null });
+    const expiredDocuments = master
+      ? [
+          ...VEHICLE_DOCUMENT_KEYS.filter((key) =>
+            getDocumentStatus(master.documents?.[key]?.expiresOn, new Date(), settings.docExpiryWarnDays) === "Expired"
+          ).map((key) => key),
+          ...(master.otherDocuments ?? [])
+            .filter((document) => getDocumentStatus(document.expiresOn, new Date(), settings.docExpiryWarnDays) === "Expired")
+            .map((document) => document.name),
+        ]
+      : last?.insurance?.validUpto &&
+          getDocumentStatus(last.insurance.validUpto, new Date(), settings.docExpiryWarnDays) === "Expired"
+        ? ["Insurance (latest LHC)"]
+        : [];
+    return NextResponse.json({
+      success: true,
+      data: { master: master ?? null, lastContract: last ?? null, expiredDocuments },
+    });
   } catch (error) {
     console.error("Error looking up vehicle:", error);
     return fail("Error looking up vehicle", 500);

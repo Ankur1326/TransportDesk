@@ -192,6 +192,18 @@ function validateSettings(value: unknown): { values?: CompanySettingsValues; err
       }
       continue;
     }
+    if (key === "docExpiryWarnDays") {
+      if (
+        typeof fieldValue !== "number" ||
+        !Number.isSafeInteger(fieldValue) ||
+        fieldValue < 0 ||
+        fieldValue > 365
+      ) {
+        return { error: "Document expiry warning days must be a whole number between 0 and 365" };
+      }
+      settings.docExpiryWarnDays = fieldValue;
+      continue;
+    }
     if (key === "consignmentStartNumber" || key === "lorryHireStartNumber") {
       if (
         typeof fieldValue !== "number" ||

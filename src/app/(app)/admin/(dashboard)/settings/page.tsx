@@ -33,7 +33,7 @@ const TABS = [
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
-type TextSettingKey = Exclude<keyof CompanySettingsValues, "consignmentStartNumber" | "lorryHireStartNumber" | "accountType" | "lrFormat" | "lrFormatBackgrounds" | "chargeDefinitions" | "fieldVisibility" | "requirePodBeforeBilling">;
+type TextSettingKey = Exclude<keyof CompanySettingsValues, "consignmentStartNumber" | "lorryHireStartNumber" | "docExpiryWarnDays" | "accountType" | "lrFormat" | "lrFormatBackgrounds" | "chargeDefinitions" | "fieldVisibility" | "requirePodBeforeBilling">;
 type ImageSettingKey = "companyLogo" | "signature" | "upiQrCode";
 type AppearanceTabId = TabId | "appearance";
 
@@ -424,6 +424,23 @@ export default function SettingsPage() {
 
               {activeTab === "documents" && (
                 <div className="space-y-3">
+                  <Field
+                    label="Fleet document expiry warning (days)"
+                    helper="Fleet documents expiring within this many days are marked as expiring. Use 0 to show only documents expiring today."
+                  >
+                    <input
+                      className={`${inputClassName} h-10 max-w-xs`}
+                      type="number"
+                      min={0}
+                      max={365}
+                      step={1}
+                      value={settings.docExpiryWarnDays}
+                      onChange={(e) => {
+                        setSettings((current) => ({ ...current, docExpiryWarnDays: Number(e.target.value) }));
+                        setSavedMessage("");
+                      }}
+                    />
+                  </Field>
                   <section className="space-y-2 rounded-xl border border-slate-200 p-3">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>

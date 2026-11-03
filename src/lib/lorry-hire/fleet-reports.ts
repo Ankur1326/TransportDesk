@@ -25,6 +25,7 @@ export interface ReportContract {
   driverName?: string;
   driverMobile?: string;
   licenseNumber?: string;
+  licenseExpiry?: string;
   grossHire: number;
   items: { consignmentId?: string; cnNo: string }[];
 }
@@ -198,6 +199,7 @@ export interface DriverSummary {
   name: string;
   mobile?: string;
   licenseNumber?: string;
+  licenseExpiry?: string;
   trips: number;
   vehicles: string[];
   lastTrip: string;
@@ -223,6 +225,7 @@ export function aggregateDrivers(contracts: ReportContract[]): DriverSummary[] {
         name: name || "Unnamed driver",
         mobile: mobile || undefined,
         licenseNumber: c.licenseNumber || undefined,
+        licenseExpiry: c.licenseExpiry || undefined,
         trips: 0,
         vehicles: [],
         lastTrip: c.lhcDate,
@@ -232,6 +235,7 @@ export function aggregateDrivers(contracts: ReportContract[]): DriverSummary[] {
     d.trips += 1;
     if (d.name === "Unnamed driver" && name) d.name = name;
     d.licenseNumber ||= c.licenseNumber || undefined;
+    d.licenseExpiry ||= c.licenseExpiry || undefined;
     const veh = normalizeVehicleNumber(c.vehicleNumber);
     if (veh && !d.vehicles.includes(veh)) d.vehicles.push(veh);
   }
